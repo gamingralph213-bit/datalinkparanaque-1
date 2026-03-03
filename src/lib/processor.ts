@@ -1,6 +1,4 @@
 
-import { type SuggestedCalibrationRule } from '@/ai/flows/suggest-calibration-rules-flow';
-
 export interface LandRecord {
   id?: string;
   date: string;
@@ -19,20 +17,25 @@ export interface LandRecord {
   unitValue?: number;
 }
 
-export interface CalibrationRule extends SuggestedCalibrationRule {
+export interface CalibrationRule {
   id: string;
+  pinPattern: string;
+  barangay?: string;
+  section?: string;
   unitValue?: number;
   marketValueOverride?: number;
   overwrite: boolean;
 }
 
 export function extractArpNumeric(arp: string): number {
+  if (!arp) return 0;
   const parts = arp.split('-');
   const lastPart = parts[parts.length - 1];
   return parseInt(lastPart.replace(/\D/g, ''), 10) || 0;
 }
 
 export function matchesPinPattern(pin: string, pattern: string): boolean {
+  if (!pin || !pattern) return false;
   // Convert x to wildcard .* and escape other characters
   const escapedPattern = pattern
     .replace(/[.+^${}()|[\]\\]/g, '\\$&') // Escape regex special chars
@@ -54,7 +57,7 @@ export function processRecords(
   duplicatesRemoved: number;
 } {
   let result = [...records];
-  let duplicatesRemoved = 0;
+  let duplicatesRemovedCount = 0;
 
   // 1. Cleaning & Standardization
   result = result.map(r => ({
@@ -77,6 +80,7 @@ export function processRecords(
     const originalCount = result.length;
     
     result.forEach(record => {
+      if (!record.pin) return;
       const existing = pinMap.get(record.pin);
       if (!existing) {
         pinMap.set(record.pin, record);
@@ -90,14 +94,14 @@ export function processRecords(
     });
     
     result = Array.from(pinMap.values());
-    duplicatesRemoved = originalCount - result.length;
+    duplicatesRemovedCount = originalCount - result.length;
   }
 
   // 3. Calibration & Auto Computation
-  if (options.applyCalibration) {
-    result = result.map(record => {
-      let updated = { ...record };
-      
+  result = result.map(record => {
+    let updated = { ...record };
+    
+    if (options.applyCalibration) {
       // Find matching rules (first match wins)
       const matchingRule = rules.find(rule => matchesPinPattern(record.pin, rule.pinPattern));
       
@@ -108,24 +112,24 @@ export function processRecords(
         if (matchingRule.section && (matchingRule.overwrite || !updated.section)) {
           updated.section = matchingRule.section;
         }
-        if (matchingRule.unitValue !== undefined) {
+        if (matchingRule.unitValue !== undefined && !isNaN(matchingRule.unitValue)) {
           updated.unitValue = matchingRule.unitValue;
           updated.marketValue = updated.landArea * matchingRule.unitValue;
-        } else if (matchingRule.marketValueOverride !== undefined) {
+        } else if (matchingRule.marketValueOverride !== undefined && !isNaN(matchingRule.marketValueOverride)) {
           updated.marketValue = matchingRule.marketValueOverride;
         }
       }
+    }
 
-      // Final Auto Computation
-      // If market value exists/changed, recompute assessed value
-      updated.assessedValue = updated.marketValue * options.assessmentLevel;
-      
-      return updated;
-    });
-  }
+    // Final Auto Computation for everyone
+    // If market value exists, recompute assessed value based on current assessment level
+    updated.assessedValue = updated.marketValue * options.assessmentLevel;
+    
+    return updated;
+  });
 
   return {
     processed: result,
-    duplicatesRemoved
+    duplicatesRemoved: duplicatesRemovedCount
   };
 }
