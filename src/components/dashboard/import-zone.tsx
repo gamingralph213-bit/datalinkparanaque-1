@@ -7,12 +7,14 @@ import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { LandRecord } from '@/lib/processor';
+import { useToast } from '@/hooks/use-toast';
 
 interface ImportZoneProps {
   onDataImported: (data: LandRecord[]) => void;
 }
 
 export function ImportZone({ onDataImported }: ImportZoneProps) {
+  const { toast } = useToast();
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -21,15 +23,27 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
+        const workbook = XLSX.read(data, { 
+          type: 'array',
+          cellDates: true,
+          cellNF: true,
+          cellText: true
+        });
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
-        const json = XLSX.utils.sheet_to_json(worksheet) as any[];
+        
+        // Use raw: false to get the formatted text values (especially for dates)
+        const json = XLSX.utils.sheet_to_json(worksheet, { raw: false, defval: "" }) as any[];
         
         const mappedData = mapRawToRecords(json);
         onDataImported(mappedData);
       } catch (error) {
         console.error("Error parsing Excel file:", error);
+        toast({
+          variant: "destructive",
+          title: "Import Error",
+          description: "Failed to read the Excel file. Please ensure it's a valid .xlsx or .csv file."
+        });
       }
     };
     reader.readAsArrayBuffer(file);
@@ -64,17 +78,17 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
       });
 
       return {
-        date: String(norm['date'] || ''),
-        arpNo: String(norm['arp no#'] || norm['arp no'] || norm['arpno'] || ''),
-        pin: String(norm['pin'] || ''),
-        type: String(norm['type'] || ''),
-        acctName: String(norm['acctname'] || norm['account name'] || norm['acct name'] || ''),
-        location: String(norm['location'] || ''),
-        kind: String(norm['kind'] || ''),
-        au: String(norm['au'] || ''),
-        landArea: parseFloat(norm['land area'] || norm['area'] || 0),
-        marketValue: parseFloat(norm['market value'] || 0),
-        assessedValue: parseFloat(norm['assessed value'] || 0),
+        date: String(norm['date'] || '').trim(),
+        arpNo: String(norm['arp no#'] || norm['arp no'] || norm['arpno'] || '').trim(),
+        pin: String(norm['pin'] || '').trim(),
+        type: String(norm['type'] || '').trim(),
+        acctName: String(norm['acctname'] || norm['account name'] || norm['acct name'] || '').trim(),
+        location: String(norm['location'] || '').trim(),
+        kind: String(norm['kind'] || '').trim(),
+        au: String(norm['au'] || '').trim(),
+        landArea: typeof norm['land area'] === 'string' ? parseFloat(norm['land area'].replace(/,/g, '')) : parseFloat(norm['land area'] || norm['area'] || 0),
+        marketValue: typeof norm['market value'] === 'string' ? parseFloat(norm['market value'].replace(/,/g, '')) : parseFloat(norm['market value'] || 0),
+        assessedValue: typeof norm['assessed value'] === 'string' ? parseFloat(norm['assessed value'].replace(/,/g, '')) : parseFloat(norm['assessed value'] || 0),
       };
     });
   };
@@ -85,7 +99,7 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
 
   return (
     <Card 
-      className={`relative p-12 border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center text-center group
+      className={`relative p-12 border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center text-center group outline-none
         ${isDragging ? 'border-primary bg-primary/5 scale-[0.99]' : 'border-muted-foreground/20 hover:border-primary/50'}`}
       onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
       onDragLeave={() => setIsDragging(false)}
