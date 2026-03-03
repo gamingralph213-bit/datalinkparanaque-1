@@ -1,3 +1,10 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "app-logo",
+      "description": "Professional government seal or icon representing Parañaque City",
+      "imageUrl": "https://images.unsplash.com/photo-1766288019713-bdac52ee28b2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxnb3Zlcm5tZW50JTIwc2VhbHxlbnwwfHx8fDE3NzI1MzE0NjN8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "government seal"
+    }
+  ]
 }
