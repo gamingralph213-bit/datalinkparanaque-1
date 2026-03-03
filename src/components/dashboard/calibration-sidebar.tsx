@@ -1,9 +1,9 @@
 
 "use client";
 
-import React, { useState } from 'react';
-import { Settings, Plus, Trash2, Wand2, Info } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import React from 'react';
+import { Settings, Plus, Trash2 } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,12 +11,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { CalibrationRule } from '@/lib/processor';
-import { 
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 interface CalibrationSidebarProps {
   rules: CalibrationRule[];
@@ -28,7 +22,6 @@ interface CalibrationSidebarProps {
     applyCalibration: boolean;
   };
   setOptions: (options: any) => void;
-  onAutoSuggest: () => void;
 }
 
 export function CalibrationSidebar({
@@ -38,7 +31,6 @@ export function CalibrationSidebar({
   setAssessmentLevel,
   options,
   setOptions,
-  onAutoSuggest
 }: CalibrationSidebarProps) {
   const addRule = () => {
     const newRule: CalibrationRule = {
@@ -64,11 +56,11 @@ export function CalibrationSidebar({
     <Card className="h-full border-none shadow-none bg-transparent flex flex-col gap-6">
       <div className="space-y-4">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground px-1 flex items-center gap-2">
-          <Settings className="w-4 h-4" /> Processing Options
+          <Settings className="w-4 h-4" /> Calculation Settings
         </h3>
         <Card className="p-4 space-y-4">
           <div className="flex items-center justify-between space-x-2">
-            <Label htmlFor="remove-duplicates" className="cursor-pointer font-medium">Remove Duplicates (PIN)</Label>
+            <Label htmlFor="remove-duplicates" className="cursor-pointer font-medium">Auto-Filter Duplicates (PIN)</Label>
             <Switch 
               id="remove-duplicates" 
               checked={options.removeDuplicates}
@@ -76,7 +68,7 @@ export function CalibrationSidebar({
             />
           </div>
           <div className="flex items-center justify-between space-x-2">
-            <Label htmlFor="apply-calibration" className="cursor-pointer font-medium">Auto-Fill / Calibrate</Label>
+            <Label htmlFor="apply-calibration" className="cursor-pointer font-medium">Apply PIN Patterns</Label>
             <Switch 
               id="apply-calibration" 
               checked={options.applyCalibration}
@@ -89,7 +81,7 @@ export function CalibrationSidebar({
               <Label className="text-xs">Assessment Level (%)</Label>
               <Input 
                 type="number" 
-                value={assessmentLevel * 100} 
+                value={Math.round(assessmentLevel * 100)} 
                 onChange={(e) => setAssessmentLevel(Number(e.target.value) / 100)}
                 className="w-16 h-8 text-xs text-right"
               />
@@ -101,29 +93,18 @@ export function CalibrationSidebar({
       <div className="flex-1 flex flex-col gap-4 overflow-hidden">
         <div className="flex items-center justify-between px-1">
           <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-            Calibration Rules
+            Custom Rules
           </h3>
-          <div className="flex gap-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onAutoSuggest}>
-                    <Wand2 className="w-4 h-4 text-primary" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>AI Suggest Rules</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <Button variant="outline" size="icon" className="h-8 w-8" onClick={addRule}>
-              <Plus className="w-4 h-4" />
-            </Button>
-          </div>
+          <Button variant="outline" size="sm" className="h-8 gap-1" onClick={addRule}>
+            <Plus className="w-4 h-4" /> Add Rule
+          </Button>
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-3 pr-2 scrollbar-thin">
           {rules.length === 0 && (
             <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
-              <p className="text-xs">No rules defined</p>
+              <p className="text-xs">No patterns defined.</p>
+              <p className="text-[10px] mt-1">Data will be processed as-is.</p>
             </div>
           )}
           {rules.map((rule) => (
@@ -140,7 +121,7 @@ export function CalibrationSidebar({
                 <div className="space-y-1">
                   <Label className="text-[10px] text-muted-foreground uppercase">PIN Pattern (x = wildcard)</Label>
                   <Input 
-                    placeholder="124-x-x..." 
+                    placeholder="124-00-x..." 
                     className="h-8 text-xs font-mono"
                     value={rule.pinPattern}
                     onChange={(e) => updateRule(rule.id, { pinPattern: e.target.value })}
@@ -173,7 +154,7 @@ export function CalibrationSidebar({
                         checked={rule.overwrite}
                         onCheckedChange={(val) => updateRule(rule.id, { overwrite: !!val })}
                       />
-                      <Label htmlFor={`overwrite-${rule.id}`} className="text-[10px] cursor-pointer">Overwrite existing</Label>
+                      <Label htmlFor={`overwrite-${rule.id}`} className="text-[10px] cursor-pointer">Overwrite existing values</Label>
                    </div>
                 </div>
               </div>
