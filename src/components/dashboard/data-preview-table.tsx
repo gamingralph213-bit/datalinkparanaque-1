@@ -28,10 +28,10 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
   }
 
   return (
-    <div className="relative overflow-x-auto border rounded-md h-[calc(100vh-320px)] scrollbar-thin">
+    <div className="relative overflow-auto border rounded-md h-[calc(100vh-320px)] scrollbar-thin">
       <Table className="text-[10px] min-w-[1600px]">
-        <TableHeader className="bg-muted/50 sticky top-0 z-10">
-          <TableRow className="hover:bg-transparent">
+        <TableHeader className="bg-muted/50 sticky top-0 z-10 shadow-sm">
+          <TableRow className="hover:bg-transparent border-b-2">
             <TableHead className="w-10 text-center font-black">#</TableHead>
             <TableHead className="min-w-[80px] font-black uppercase">Date</TableHead>
             <TableHead className="min-w-[100px] font-black uppercase">ARP No#</TableHead>
@@ -54,11 +54,11 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
             <TableRow 
               key={i} 
               className={cn(
-                "hover:bg-accent/30 transition-colors",
+                "hover:bg-accent/30 transition-colors border-b",
                 !isProcessed && row.isDuplicate && "bg-red-50/50 opacity-50 grayscale"
               )}
             >
-              <TableCell className="text-center font-mono text-muted-foreground p-2">{i + 1}</TableCell>
+              <TableCell className="text-center font-mono text-muted-foreground p-2 border-r">{i + 1}</TableCell>
               <TableCell className="whitespace-nowrap p-2">{row.date || '---'}</TableCell>
               <TableCell className="font-mono text-blue-800 font-bold p-2">{row.arpNo || '---'}</TableCell>
               <TableCell className="font-mono p-2">{row.pin || '---'}</TableCell>
@@ -84,7 +84,7 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
                   {row.au || '---'}
                 </Badge>
               </TableCell>
-              <TableCell className="text-right font-mono p-2">{row.landArea?.toLocaleString() || '0'}</TableCell>
+              <TableCell className="text-right font-mono p-2 border-l">{row.landArea?.toLocaleString() || '0'}</TableCell>
               <TableCell className="text-right font-mono p-2 font-bold text-green-600">
                 {row.unitValue ? `₱${row.unitValue.toLocaleString()}` : '---'}
               </TableCell>

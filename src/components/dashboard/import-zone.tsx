@@ -9,7 +9,7 @@ import { LandRecord } from '@/lib/processor';
 import { useToast } from '@/hooks/use-toast';
 
 interface ImportZoneProps {
-  onDataImported: (data: LandRecord[], fileName: string) => void;
+  onDataImported: (data: LandRecord[], fileName: string, rawCount: number) => void;
 }
 
 export function ImportZone({ onDataImported }: ImportZoneProps) {
@@ -24,15 +24,15 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { 
           type: 'array',
-          cellDates: false, // Ensure we get strings or serials we can handle
+          cellDates: false,
           cellNF: true,
           cellText: true
         });
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
         
-        // raw: false ensures we get formatted strings for things like dates and transaction codes
         const json = XLSX.utils.sheet_to_json(worksheet, { raw: false, defval: "" }) as any[];
+        const rawCount = json.length;
         
         const mappedData = mapRawToRecords(json);
         if (mappedData.length === 0) {
@@ -43,7 +43,7 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
           });
           return;
         }
-        onDataImported(mappedData, file.name);
+        onDataImported(mappedData, file.name, rawCount);
       } catch (error) {
         toast({
           variant: "destructive",
@@ -72,7 +72,7 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
       return obj;
     });
 
-    onDataImported(mapRawToRecords(records), "Clipboard-Data");
+    onDataImported(mapRawToRecords(records), "Clipboard-Data", records.length);
   };
 
   const mapRawToRecords = (raw: any[]): LandRecord[] => {
@@ -84,7 +84,7 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         v.includes("TOTALS")
       );
       const hasMinimalData = (
-        (item["Current"] || item["ARP NO#"] || item["ARP NO"]) ||
+        (item["Current"] || item["ARP NO#"] || item["ARP NO"] || item["EFFECTIVITY"]) ||
         (item["Owner"] || item["ACCTNAME"]) ||
         item["PIN"]
       );
@@ -100,7 +100,10 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
 
       const parseNum = (val: any) => {
         if (typeof val === 'number') return val;
-        if (typeof val === 'string') return parseFloat(val.replace(/,/g, '')) || 0;
+        if (typeof val === 'string') {
+          const clean = val.replace(/[^0-9.-]/g, '');
+          return parseFloat(clean) || 0;
+        }
         return 0;
       };
 
@@ -114,20 +117,14 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         au = parts[1]?.trim() || au;
       }
 
-      // Mapping according to specific request:
-      // DATE = Effectivity
-      // ARP NO# = Current
-      // ACCTNAME = Owner
-      // ADDRESS = Address (The new source field)
-      // LOCATION = Blank (To be filled by rules)
       return {
         date: String(norm['effectivity'] || norm['date'] || '').trim(),
         arpNo: String(norm['current'] || norm['arp no#'] || norm['arp no'] || '').trim(),
         pin: String(norm['pin'] || '').trim(),
         update: String(norm['update'] || norm['upd'] || norm['update code'] || norm['type'] || '').trim(),
         acctName: String(norm['owner'] || norm['acctname'] || '').trim(),
-        address: String(norm['address'] || norm['location'] || '').trim(), // Original data goes to ADDRESS
-        location: "", // Empty for rule population
+        address: String(norm['address'] || norm['location'] || '').trim(),
+        location: "", 
         kind: kind,
         au: au,
         landArea: parseNum(norm['land area'] || norm['area']),
@@ -161,7 +158,7 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
       <h3 className="text-2xl font-black mb-3 text-blue-900">Import Property Data</h3>
       <p className="text-muted-foreground mb-8 max-w-sm text-sm font-medium">
         Drag your Excel file here or click below. <br/>
-        <span className="text-[10px] uppercase opacity-50 tracking-widest">Grand totals are automatically excluded</span>
+        <span className="text-[10px] uppercase opacity-50 tracking-widest text-blue-600 font-bold">Auto-filters GRAND TOTALS & Metadata rows</span>
       </p>
       
       <div className="flex gap-4">

@@ -8,7 +8,9 @@ import {
   LayoutDashboard,
   Calculator,
   Archive,
-  CheckCircle2
+  CheckCircle2,
+  Trash2,
+  FileSearch
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -54,6 +56,8 @@ export default function Home() {
   const [exportColumns, setExportColumns] = useState<Record<string, boolean>>(defaultExportColumns);
 
   const [stats, setStats] = useState({
+    totalRawRows: 0,
+    systemCleanup: 0,
     totalImported: 0,
     duplicatesRemoved: 0,
     finalCount: 0,
@@ -79,7 +83,7 @@ export default function Home() {
     }
   }, [rules, exportColumns, isClient]);
 
-  const handleDataImported = (imported: LandRecord[], fileName: string) => {
+  const handleDataImported = (imported: LandRecord[], fileName: string, rawCount: number) => {
     setRawData(imported);
     setImportedFileName(fileName);
     setProcessedData([]);
@@ -92,6 +96,8 @@ export default function Home() {
     
     setPreviewData(allWithDuplicateMarkers);
     setStats({ 
+      totalRawRows: rawCount,
+      systemCleanup: rawCount - imported.length,
       totalImported: imported.length, 
       duplicatesRemoved, 
       finalCount: imported.length - duplicatesRemoved,
@@ -101,7 +107,7 @@ export default function Home() {
 
     toast({
       title: "Data Loaded",
-      description: `${imported.length} property records imported.`,
+      description: `${imported.length} valid property records imported.`,
     });
   };
 
@@ -112,14 +118,14 @@ export default function Home() {
     setTimeout(() => {
       const { processed, allWithDuplicateMarkers, duplicatesRemoved } = processRecords(rawData, rules, options);
       setProcessedData(processed);
-      setPreviewData(allWithDuplicateMarkers); // Store the marked data for archive view
-      setStats({
-        totalImported: rawData.length,
+      setPreviewData(allWithDuplicateMarkers);
+      setStats(prev => ({
+        ...prev,
         duplicatesRemoved,
         finalCount: processed.length,
         totalMarket: processed.reduce((sum, r) => sum + (r.marketValue || 0), 0),
         totalAssessed: processed.reduce((sum, r) => sum + (r.assessedValue || 0), 0)
-      });
+      }));
       setIsProcessing(false);
       toast({
         title: "Process Complete",
@@ -177,7 +183,6 @@ export default function Home() {
 
     const ws = XLSX.utils.json_to_sheet([]);
     
-    // Summary Header
     XLSX.utils.sheet_add_aoa(ws, [
       [exportType === 'results' ? "PARAÑAQUE DATA LINK - SUMMARY RESULTS" : "PARAÑAQUE DATA LINK - DUPLICATES ARCHIVE"],
       ["TOTAL RECORDS:", dataToExport.length.toLocaleString()],
@@ -186,15 +191,11 @@ export default function Home() {
       [""] 
     ], { origin: "A1" });
 
-    // Main Headers and Data
     const activeHeaders = Object.values(headerMapping).filter(h => exportColumns[h]);
     XLSX.utils.sheet_add_aoa(ws, [activeHeaders], { origin: "A6" });
     XLSX.utils.sheet_add_json(ws, formattedExport, { origin: "A7", skipHeader: true });
     
-    // Freeze Top Header
     ws['!freeze'] = { xSplit: 0, ySplit: 6 };
-
-    // Column Widths
     ws['!cols'] = activeHeaders.map(() => ({ wch: 20 }));
 
     const wb = XLSX.utils.book_new();
@@ -252,22 +253,28 @@ export default function Home() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card className="p-4 bg-blue-50 border-none shadow-sm flex flex-col">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase">Final Records</span>
-                  <span className="text-xl font-black text-blue-600">{stats.finalCount.toLocaleString()}</span>
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <Card className="p-4 bg-white border-none shadow-sm flex flex-col justify-center border-l-4 border-l-blue-400">
+                  <span className="text-[9px] font-bold text-muted-foreground uppercase flex items-center gap-1">
+                    <FileSearch className="w-2.5 h-2.5" /> Total Rows in File
+                  </span>
+                  <span className="text-lg font-black text-slate-800">{stats.totalRawRows.toLocaleString()}</span>
                 </Card>
-                <Card className="p-4 bg-orange-50 border-none shadow-sm flex flex-col">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase">Duplicate PINs Removed</span>
-                  <span className="text-xl font-black text-orange-600">{stats.duplicatesRemoved.toLocaleString()}</span>
+                <Card className="p-4 bg-white border-none shadow-sm flex flex-col justify-center border-l-4 border-l-red-400">
+                  <span className="text-[9px] font-bold text-muted-foreground uppercase">System Cleanup (Totals/Empty)</span>
+                  <span className="text-lg font-black text-red-600">{stats.systemCleanup.toLocaleString()}</span>
                 </Card>
-                <Card className="p-4 bg-green-50 border-none shadow-sm flex flex-col">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase">Total Market Value</span>
-                  <span className="text-xl font-black text-green-700">₱{stats.totalMarket.toLocaleString()}</span>
+                <Card className="p-4 bg-blue-50 border-none shadow-sm flex flex-col justify-center">
+                  <span className="text-[9px] font-bold text-muted-foreground uppercase">Final Processed Records</span>
+                  <span className="text-lg font-black text-blue-600">{stats.finalCount.toLocaleString()}</span>
                 </Card>
-                <Card className="p-4 bg-purple-50 border-none shadow-sm flex flex-col">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase">Total Assessed Value</span>
-                  <span className="text-xl font-black text-purple-700">₱{stats.totalAssessed.toLocaleString()}</span>
+                <Card className="p-4 bg-orange-50 border-none shadow-sm flex flex-col justify-center">
+                  <span className="text-[9px] font-bold text-muted-foreground uppercase">Duplicate PINs Removed</span>
+                  <span className="text-lg font-black text-orange-600">{stats.duplicatesRemoved.toLocaleString()}</span>
+                </Card>
+                <Card className="p-4 bg-green-50 border-none shadow-sm flex flex-col justify-center">
+                  <span className="text-[9px] font-bold text-muted-foreground uppercase">Total Market Value</span>
+                  <span className="text-lg font-black text-green-700">₱{stats.totalMarket.toLocaleString()}</span>
                 </Card>
               </div>
 
