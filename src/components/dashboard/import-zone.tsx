@@ -80,7 +80,7 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
       const norm: any = {};
       Object.keys(item).forEach(key => {
         const cleanKey = key.trim().toLowerCase();
-        norm[cleanKey] = item[key];
+        norm[cleanKey] = String(item[key]).trim();
       });
 
       const parseNum = (val: any) => {
@@ -99,16 +99,21 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         v.includes("TOTALS")
       );
       
+      const allValuesEmpty = Object.values(norm).every(v => v === "" || v === "undefined" || v === "null");
+
       const hasMinimalData = (
         (norm['effectivity'] || norm['date'] || norm['current'] || norm['arp no#'] || norm['arp no']) ||
         (norm['owner'] || norm['acctname']) ||
-        norm['pin']
+        (norm['pin'] && norm['pin'] !== "")
       );
 
       let isCleanup = false;
       let cleanupReason = "";
 
-      if (isTotalRow) {
+      if (allValuesEmpty) {
+        isCleanup = true;
+        cleanupReason = "Empty Row";
+      } else if (isTotalRow) {
         isCleanup = true;
         cleanupReason = "Total Row";
       } else if (!hasMinimalData) {

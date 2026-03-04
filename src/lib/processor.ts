@@ -136,7 +136,7 @@ export function processRecords(
     }
   });
 
-  const duplicatesCount = result.filter(r => r.isDuplicate).length;
+  const duplicatesCount = result.filter(r => r.isDuplicate && !r.isCleanup).length;
   const cleanupCount = result.filter(r => r.isCleanup).length;
 
   // 3. Apply Calibration Rules (Overwrites)
