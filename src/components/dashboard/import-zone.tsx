@@ -31,7 +31,6 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
         
-        // Use raw: false to get formatted strings for dates and values
         const json = XLSX.utils.sheet_to_json(worksheet, { raw: false, defval: "" }) as any[];
         
         const mappedData = mapRawToRecords(json);
@@ -71,31 +70,33 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
     return raw.map((item) => {
       const norm: any = {};
       Object.keys(item).forEach(key => {
-        // Aggressive key normalization
         const cleanKey = key.trim().toLowerCase();
         norm[cleanKey] = item[key];
       });
 
-      // Numerical parsing helper for comma-separated strings
       const parseNum = (val: any) => {
         if (typeof val === 'number') return val;
         if (typeof val === 'string') return parseFloat(val.replace(/,/g, '')) || 0;
         return 0;
       };
 
-      // Strict mapping to requested columns: DATE, ARP NO#, PIN, UPDATE, ACCTNAME, LOCATION, KIND, AU, LAND AREA, UNIT VALUE
+      // Header synonyms mapping:
+      // DATE = Effectivity
+      // ARP NO# = Current
+      // ACCTNAME = Owner
+      // LOCATION = Address
+      // KIND = K
       return {
-        date: String(norm['date'] || '').trim(),
-        arpNo: String(norm['arp no#'] || norm['arp no'] || norm['arpno'] || norm['arp'] || '').trim(),
+        date: String(norm['effectivity'] || norm['date'] || '').trim(),
+        arpNo: String(norm['current'] || norm['arp no#'] || norm['arp no'] || norm['arpno'] || norm['arp'] || '').trim(),
         pin: String(norm['pin'] || '').trim(),
         update: String(norm['update'] || norm['upd'] || norm['update code'] || norm['type'] || '').trim(),
-        acctName: String(norm['acctname'] || norm['account name'] || norm['acct name'] || '').trim(),
-        location: String(norm['location'] || '').trim(),
-        kind: String(norm['kind'] || '').trim(),
+        acctName: String(norm['owner'] || norm['acctname'] || norm['account name'] || norm['acct name'] || '').trim(),
+        location: String(norm['address'] || norm['location'] || '').trim(),
+        kind: String(norm['k'] || norm['kind'] || '').trim(),
         au: String(norm['au'] || norm['actual use'] || '').trim(),
         landArea: parseNum(norm['land area'] || norm['area']),
         unitValue: parseNum(norm['unit value']),
-        // These will be calculated if not provided, but we check for them anyway
         marketValue: parseNum(norm['market value']),
         assessedValue: parseNum(norm['assessed value']),
       };
