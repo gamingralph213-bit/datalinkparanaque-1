@@ -80,12 +80,22 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         return 0;
       };
 
-      // Header synonyms mapping:
+      // Extract Kind and AU from combined K-AU if available
+      let kind = String(norm['k'] || norm['kind'] || '').trim();
+      let au = String(norm['au'] || norm['actual use'] || '').trim();
+      const kau = String(norm['k-au'] || '').trim();
+      
+      if (kau && kau.includes('-')) {
+        const parts = kau.split('-');
+        kind = parts[0]?.trim() || kind;
+        au = parts[1]?.trim() || au;
+      }
+
+      // Mapping Logic:
       // DATE = Effectivity
       // ARP NO# = Current
       // ACCTNAME = Owner
       // LOCATION = Address
-      // KIND = K
       return {
         date: String(norm['effectivity'] || norm['date'] || '').trim(),
         arpNo: String(norm['current'] || norm['arp no#'] || norm['arp no'] || norm['arpno'] || norm['arp'] || '').trim(),
@@ -93,8 +103,8 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         update: String(norm['update'] || norm['upd'] || norm['update code'] || norm['type'] || '').trim(),
         acctName: String(norm['owner'] || norm['acctname'] || norm['account name'] || norm['acct name'] || '').trim(),
         location: String(norm['address'] || norm['location'] || '').trim(),
-        kind: String(norm['k'] || norm['kind'] || '').trim(),
-        au: String(norm['au'] || norm['actual use'] || '').trim(),
+        kind: kind,
+        au: au,
         landArea: parseNum(norm['land area'] || norm['area']),
         unitValue: parseNum(norm['unit value']),
         marketValue: parseNum(norm['market value']),
