@@ -31,7 +31,7 @@ export default function Home() {
     applyCalibration: true
   });
   
-  const [exportColumns, setExportColumns] = useState<Record<string, boolean>>({
+  const defaultExportColumns = {
     "DATE": true,
     "ARP NO#": true,
     "PIN": true,
@@ -45,7 +45,9 @@ export default function Home() {
     "UNIT VALUE": true,
     "MARKET VALUE": true,
     "ASSESSED VALUE": true
-  });
+  };
+
+  const [exportColumns, setExportColumns] = useState<Record<string, boolean>>(defaultExportColumns);
 
   const [stats, setStats] = useState({
     totalImported: 0,
@@ -61,7 +63,10 @@ export default function Home() {
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed.rules) setRules(parsed.rules);
-      if (parsed.exportColumns) setExportColumns(parsed.exportColumns);
+      if (parsed.exportColumns) {
+        // Merge with defaults to ensure new columns like ADDRESS are present
+        setExportColumns({ ...defaultExportColumns, ...parsed.exportColumns });
+      }
     }
   }, []);
 
