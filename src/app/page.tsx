@@ -25,6 +25,7 @@ export default function Home() {
   const [previewData, setPreviewData] = useState<LandRecord[]>([]);
   const [processedData, setProcessedData] = useState<LandRecord[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [importedFileName, setImportedFileName] = useState<string>("");
   const [rules, setRules] = useState<CalibrationRule[]>([]);
   const [options, setOptions] = useState({
     removeDuplicates: true,
@@ -51,8 +52,9 @@ export default function Home() {
     }
   }, [rules, isClient]);
 
-  const handleDataImported = (imported: LandRecord[]) => {
+  const handleDataImported = (imported: LandRecord[], fileName: string) => {
     setRawData(imported);
+    setImportedFileName(fileName);
     setProcessedData([]);
     
     const { allWithDuplicateMarkers, duplicatesRemoved } = processRecords(imported, [], {
@@ -106,7 +108,13 @@ export default function Home() {
     const ws = XLSX.utils.json_to_sheet(cleanExport);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Processed Records");
-    XLSX.writeFile(wb, `Parañaque_Result_${new Date().toISOString().split('T')[0]}.xlsx`);
+    
+    // Naming format: (name of raw imported file)-Filtered-(date)
+    const baseName = importedFileName.replace(/\.[^/.]+$/, ""); // Strip original extension
+    const dateStr = new Date().toISOString().split('T')[0];
+    const finalFileName = `${baseName}-Filtered-${dateStr}.xlsx`;
+    
+    XLSX.writeFile(wb, finalFileName);
   };
 
   if (!isClient) return null;
@@ -176,6 +184,7 @@ export default function Home() {
                       setRawData([]);
                       setPreviewData([]);
                       setProcessedData([]);
+                      setImportedFileName("");
                     }}>
                       <Eraser className="w-3.5 h-3.5 mr-2" /> Clear All
                     </Button>

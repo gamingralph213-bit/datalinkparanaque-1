@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -10,7 +9,7 @@ import { LandRecord } from '@/lib/processor';
 import { useToast } from '@/hooks/use-toast';
 
 interface ImportZoneProps {
-  onDataImported: (data: LandRecord[]) => void;
+  onDataImported: (data: LandRecord[], fileName: string) => void;
 }
 
 export function ImportZone({ onDataImported }: ImportZoneProps) {
@@ -36,7 +35,7 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         const json = XLSX.utils.sheet_to_json(worksheet, { raw: false, defval: "" }) as any[];
         
         const mappedData = mapRawToRecords(json);
-        onDataImported(mappedData);
+        onDataImported(mappedData, file.name);
       } catch (error) {
         console.error("Error parsing Excel file:", error);
         toast({
@@ -66,7 +65,7 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
       return obj;
     });
 
-    onDataImported(mapRawToRecords(records));
+    onDataImported(mapRawToRecords(records), "Clipboard-Data");
   };
 
   const mapRawToRecords = (raw: any[]): LandRecord[] => {
