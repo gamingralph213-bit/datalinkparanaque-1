@@ -86,8 +86,8 @@ export default function Home() {
       totalImported: imported.length, 
       duplicatesRemoved, 
       finalCount: imported.length - duplicatesRemoved,
-      totalMarket: imported.reduce((sum, r) => sum + (r.marketValue || 0), 0),
-      totalAssessed: imported.reduce((sum, r) => sum + (r.assessedValue || 0), 0)
+      totalMarket: allWithDuplicateMarkers.reduce((sum, r) => sum + (r.marketValue || 0), 0),
+      totalAssessed: allWithDuplicateMarkers.reduce((sum, r) => sum + (r.assessedValue || 0), 0)
     });
 
     toast({

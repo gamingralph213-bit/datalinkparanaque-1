@@ -76,20 +76,28 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         norm[cleanKey] = item[key];
       });
 
+      // Numerical parsing helper for comma-separated strings
+      const parseNum = (val: any) => {
+        if (typeof val === 'number') return val;
+        if (typeof val === 'string') return parseFloat(val.replace(/,/g, '')) || 0;
+        return 0;
+      };
+
+      // Strict mapping to requested columns: DATE, ARP NO#, PIN, UPDATE, ACCTNAME, LOCATION, KIND, AU, LAND AREA, UNIT VALUE
       return {
         date: String(norm['date'] || '').trim(),
         arpNo: String(norm['arp no#'] || norm['arp no'] || norm['arpno'] || norm['arp'] || '').trim(),
         pin: String(norm['pin'] || '').trim(),
-        // Enhanced matching for the Update column (TR, RC, GR codes)
         update: String(norm['update'] || norm['upd'] || norm['update code'] || norm['type'] || '').trim(),
         acctName: String(norm['acctname'] || norm['account name'] || norm['acct name'] || '').trim(),
         location: String(norm['location'] || '').trim(),
         kind: String(norm['kind'] || '').trim(),
         au: String(norm['au'] || norm['actual use'] || '').trim(),
-        landArea: typeof norm['land area'] === 'string' ? parseFloat(norm['land area'].replace(/,/g, '')) : parseFloat(norm['land area'] || norm['area'] || 0),
-        unitValue: typeof norm['unit value'] === 'string' ? parseFloat(norm['unit value'].replace(/,/g, '')) : parseFloat(norm['unit value'] || 0),
-        marketValue: typeof norm['market value'] === 'string' ? parseFloat(norm['market value'].replace(/,/g, '')) : parseFloat(norm['market value'] || 0),
-        assessedValue: typeof norm['assessed value'] === 'string' ? parseFloat(norm['assessed value'].replace(/,/g, '')) : parseFloat(norm['assessed value'] || 0),
+        landArea: parseNum(norm['land area'] || norm['area']),
+        unitValue: parseNum(norm['unit value']),
+        // These will be calculated if not provided, but we check for them anyway
+        marketValue: parseNum(norm['market value']),
+        assessedValue: parseNum(norm['assessed value']),
       };
     });
   };

@@ -65,14 +65,20 @@ export function processRecords(
 } {
   let result = records.map(r => {
     const landArea = Number(r.landArea) || 0;
-    const marketValue = Number(r.marketValue) || 0;
-    const assessedValue = Number(r.assessedValue) || 0;
-    
-    // Auto-fill Unit Value if missing but Market Value exists
+    let marketValue = Number(r.marketValue) || 0;
     let unitValue = Number(r.unitValue) || 0;
-    if (unitValue === 0 && marketValue > 0 && landArea > 0) {
+    
+    // Auto-fill Logic:
+    // 1. If we have Unit and Area but no Market Value
+    if (marketValue === 0 && unitValue > 0 && landArea > 0) {
+      marketValue = unitValue * landArea;
+    }
+    // 2. If we have Market and Area but no Unit Value
+    else if (unitValue === 0 && marketValue > 0 && landArea > 0) {
       unitValue = marketValue / landArea;
     }
+
+    const assessedValue = calculateAssessedValue(marketValue, r.au || '');
 
     return {
       ...r,
