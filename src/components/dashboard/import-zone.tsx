@@ -99,12 +99,12 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         v.includes("TOTALS")
       );
       
-      const allValuesEmpty = Object.values(norm).every(v => v === "" || v === "undefined" || v === "null");
+      // Strict empty check: Is the row just blank values or boilerplate?
+      const allValuesEmpty = Object.values(norm).every(v => v === "" || v === "undefined" || v === "null" || v === "0");
 
       const hasMinimalData = (
-        (norm['effectivity'] || norm['date'] || norm['current'] || norm['arp no#'] || norm['arp no']) ||
-        (norm['owner'] || norm['acctname']) ||
-        (norm['pin'] && norm['pin'] !== "")
+        (norm['effectivity'] || norm['date'] || norm['current'] || norm['arp no#'] || norm['arp no']) &&
+        (norm['owner'] || norm['acctname'] || (norm['pin'] && norm['pin'] !== ""))
       );
 
       let isCleanup = false;

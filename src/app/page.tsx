@@ -139,10 +139,9 @@ export default function Home() {
     let dataToExport: LandRecord[] = [];
     
     if (exportType === 'results') {
-      // Strictly exclude any record marked as cleanup or duplicate from results export
-      dataToExport = processedData.length > 0 
-        ? processedData.filter(r => !r.isCleanup && !r.isDuplicate) 
-        : previewData.filter(r => !r.isDuplicate && !r.isCleanup);
+      // Strictly exclude any record marked as cleanup OR duplicate from results export
+      const currentList = processedData.length > 0 ? processedData : previewData;
+      dataToExport = currentList.filter(r => !r.isCleanup && !r.isDuplicate);
     } else {
       // Include duplicates and system cleanup (empty rows/totals) in archive export
       dataToExport = previewData.filter(r => r.isDuplicate || r.isCleanup);
