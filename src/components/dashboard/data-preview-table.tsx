@@ -36,7 +36,7 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
             <TableHead className="min-w-[80px] font-black uppercase">Date</TableHead>
             <TableHead className="min-w-[100px] font-black uppercase">ARP No#</TableHead>
             <TableHead className="min-w-[160px] font-black uppercase">PIN</TableHead>
-            <TableHead className="min-w-[80px] font-black uppercase">Update</TableHead>
+            <TableHead className="min-w-[80px] font-black uppercase text-center">Update</TableHead>
             <TableHead className="min-w-[140px] font-black uppercase">AcctName</TableHead>
             <TableHead className="min-w-[180px] font-black uppercase">Location</TableHead>
             <TableHead className="min-w-[60px] font-black uppercase">Kind</TableHead>
@@ -61,7 +61,15 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
               <TableCell className="whitespace-nowrap p-2">{row.date || '---'}</TableCell>
               <TableCell className="font-mono text-blue-800 font-bold p-2">{row.arpNo || '---'}</TableCell>
               <TableCell className="font-mono p-2">{row.pin || '---'}</TableCell>
-              <TableCell className="p-2 text-muted-foreground font-bold">{row.update || '---'}</TableCell>
+              <TableCell className="p-2 text-center">
+                {row.update ? (
+                  <span className="bg-muted px-2 py-0.5 rounded font-black text-blue-900 border border-muted-foreground/20">
+                    {row.update}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground opacity-30">---</span>
+                )}
+              </TableCell>
               <TableCell className="max-w-[140px] truncate uppercase font-bold p-2">{row.acctName || '---'}</TableCell>
               <TableCell className="max-w-[180px] truncate uppercase p-2 text-muted-foreground">
                 {row.location || '---'}

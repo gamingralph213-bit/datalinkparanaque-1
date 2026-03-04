@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from 'react';
-import { Upload, Clipboard, FileSpreadsheet } from 'lucide-react';
+import { Upload, FileSpreadsheet } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -71,16 +71,17 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
     return raw.map((item) => {
       const norm: any = {};
       Object.keys(item).forEach(key => {
-        // Clean key and handle common variations
+        // Aggressive key normalization
         const cleanKey = key.trim().toLowerCase();
         norm[cleanKey] = item[key];
       });
 
       return {
         date: String(norm['date'] || '').trim(),
-        arpNo: String(norm['arp no#'] || norm['arp no'] || norm['arpno'] || '').trim(),
+        arpNo: String(norm['arp no#'] || norm['arp no'] || norm['arpno'] || norm['arp'] || '').trim(),
         pin: String(norm['pin'] || '').trim(),
-        update: String(norm['update'] || '').trim(),
+        // Enhanced matching for the Update column (TR, RC, GR codes)
+        update: String(norm['update'] || norm['upd'] || norm['update code'] || norm['type'] || '').trim(),
         acctName: String(norm['acctname'] || norm['account name'] || norm['acct name'] || '').trim(),
         location: String(norm['location'] || '').trim(),
         kind: String(norm['kind'] || '').trim(),
