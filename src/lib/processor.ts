@@ -5,7 +5,8 @@ export interface LandRecord {
   pin: string;
   update?: string;
   acctName: string;
-  location: string;
+  address: string; // The original address from source
+  location: string; // The blank/calibrated field for Barangay, Section
   kind: string;
   au: string;
   landArea: number;
@@ -96,7 +97,8 @@ export function processRecords(
       arpNo: r.arpNo?.trim() || '',
       update: r.update?.trim() || '',
       acctName: r.acctName?.trim().toUpperCase() || '',
-      location: r.location?.trim().toUpperCase() || '',
+      address: r.address?.trim().toUpperCase() || '',
+      location: "", // Start blank as requested
       kind: r.kind?.trim().toUpperCase() || '',
       au: r.au?.trim().toUpperCase() || '',
       landArea,
@@ -108,12 +110,9 @@ export function processRecords(
   });
 
   // 2. Exact PIN Duplicate Detection
-  // We only treat PINs as duplicates if the entire string is identical.
-  // We keep the one with the highest ARP numeric value.
   const pinToBestRecord = new Map<string, { index: number, arpVal: number }>();
   
   result.forEach((record, idx) => {
-    // Skip duplicate logic for empty PINs (don't filter them)
     if (!record.pin || record.pin === '') return;
 
     const currentArpVal = extractArpNumeric(record.arpNo);
@@ -122,7 +121,6 @@ export function processRecords(
     if (!existing) {
       pinToBestRecord.set(record.pin, { index: idx, arpVal: currentArpVal });
     } else {
-      // If same PIN found, keep the one with higher ARP, mark other as duplicate
       if (currentArpVal > existing.arpVal) {
         result[existing.index].isDuplicate = true;
         pinToBestRecord.set(record.pin, { index: idx, arpVal: currentArpVal });
@@ -145,7 +143,7 @@ export function processRecords(
         const brgy = (matchingRule.barangay || "").trim();
         const sec = (matchingRule.section || "").trim();
         
-        // Combine Barangay and Section into Location
+        // Combine Barangay and Section into Location (The requested blank column)
         if (brgy || sec) {
           updated.location = `${brgy}${brgy && sec ? ', ' : ''}${sec}`.toUpperCase();
         }

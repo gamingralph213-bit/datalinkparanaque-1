@@ -24,13 +24,14 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { 
           type: 'array',
-          cellDates: true,
+          cellDates: false, // Ensure we get strings or serials we can handle
           cellNF: true,
           cellText: true
         });
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
         
+        // raw: false ensures we get formatted strings for things like dates and transaction codes
         const json = XLSX.utils.sheet_to_json(worksheet, { raw: false, defval: "" }) as any[];
         
         const mappedData = mapRawToRecords(json);
@@ -75,24 +76,18 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
   };
 
   const mapRawToRecords = (raw: any[]): LandRecord[] => {
-    // Filter out rows that are likely total rows or metadata
     const filteredRaw = raw.filter(item => {
       const rowValues = Object.values(item).map(v => String(v).toUpperCase());
-      
-      // Check for "TOTAL" keywords
       const isTotalRow = rowValues.some(v => 
         v.includes("GRAND TOTAL") || 
         v.includes("PAGE TOTAL") || 
         v.includes("TOTALS")
       );
-
-      // Check for empty rows (minimal required fields)
       const hasMinimalData = (
         (item["Current"] || item["ARP NO#"] || item["ARP NO"]) ||
         (item["Owner"] || item["ACCTNAME"]) ||
         item["PIN"]
       );
-
       return !isTotalRow && hasMinimalData;
     });
 
@@ -109,7 +104,6 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         return 0;
       };
 
-      // Extract Kind and AU from combined K-AU if available
       let kind = String(norm['k'] || norm['kind'] || '').trim();
       let au = String(norm['au'] || norm['actual use'] || '').trim();
       const kau = String(norm['k-au'] || '').trim();
@@ -120,18 +114,20 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         au = parts[1]?.trim() || au;
       }
 
-      // Mapping Logic based on user requirements:
+      // Mapping according to specific request:
       // DATE = Effectivity
       // ARP NO# = Current
       // ACCTNAME = Owner
-      // LOCATION = Address
+      // ADDRESS = Address (The new source field)
+      // LOCATION = Blank (To be filled by rules)
       return {
         date: String(norm['effectivity'] || norm['date'] || '').trim(),
-        arpNo: String(norm['current'] || norm['arp no#'] || norm['arp no'] || norm['arpno'] || norm['arp'] || '').trim(),
+        arpNo: String(norm['current'] || norm['arp no#'] || norm['arp no'] || '').trim(),
         pin: String(norm['pin'] || '').trim(),
         update: String(norm['update'] || norm['upd'] || norm['update code'] || norm['type'] || '').trim(),
-        acctName: String(norm['owner'] || norm['acctname'] || norm['account name'] || norm['acct name'] || '').trim(),
-        location: String(norm['address'] || norm['location'] || '').trim(),
+        acctName: String(norm['owner'] || norm['acctname'] || '').trim(),
+        address: String(norm['address'] || norm['location'] || '').trim(), // Original data goes to ADDRESS
+        location: "", // Empty for rule population
         kind: kind,
         au: au,
         landArea: parseNum(norm['land area'] || norm['area']),
