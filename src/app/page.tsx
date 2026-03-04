@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -227,7 +228,7 @@ export default function Home() {
                   <span className="text-xl font-black text-blue-600">{(processedData.length || stats.finalCount).toLocaleString()}</span>
                 </Card>
                 <Card className="p-4 bg-orange-50 border-none shadow-sm flex flex-col">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase">Filtered PINs</span>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">Duplicate PINs Removed</span>
                   <span className="text-xl font-black text-orange-600">{stats.duplicatesRemoved.toLocaleString()}</span>
                 </Card>
                 <Card className="p-4 bg-green-50 border-none shadow-sm flex flex-col">
