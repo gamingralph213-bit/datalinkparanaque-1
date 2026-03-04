@@ -34,6 +34,14 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         const json = XLSX.utils.sheet_to_json(worksheet, { raw: false, defval: "" }) as any[];
         
         const mappedData = mapRawToRecords(json);
+        if (mappedData.length === 0) {
+          toast({
+            variant: "destructive",
+            title: "Empty Data",
+            description: "No valid property records found in this file."
+          });
+          return;
+        }
         onDataImported(mappedData, file.name);
       } catch (error) {
         toast({
@@ -67,7 +75,28 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
   };
 
   const mapRawToRecords = (raw: any[]): LandRecord[] => {
-    return raw.map((item) => {
+    // Filter out rows that are likely total rows or metadata
+    const filteredRaw = raw.filter(item => {
+      const rowValues = Object.values(item).map(v => String(v).toUpperCase());
+      
+      // Check for "TOTAL" keywords
+      const isTotalRow = rowValues.some(v => 
+        v.includes("GRAND TOTAL") || 
+        v.includes("PAGE TOTAL") || 
+        v.includes("TOTALS")
+      );
+
+      // Check for empty rows (minimal required fields)
+      const hasMinimalData = (
+        (item["Current"] || item["ARP NO#"] || item["ARP NO"]) ||
+        (item["Owner"] || item["ACCTNAME"]) ||
+        item["PIN"]
+      );
+
+      return !isTotalRow && hasMinimalData;
+    });
+
+    return filteredRaw.map((item) => {
       const norm: any = {};
       Object.keys(item).forEach(key => {
         const cleanKey = key.trim().toLowerCase();
@@ -91,7 +120,7 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         au = parts[1]?.trim() || au;
       }
 
-      // Mapping Logic:
+      // Mapping Logic based on user requirements:
       // DATE = Effectivity
       // ARP NO# = Current
       // ACCTNAME = Owner
@@ -135,7 +164,8 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
       </div>
       <h3 className="text-2xl font-black mb-3 text-blue-900">Import Property Data</h3>
       <p className="text-muted-foreground mb-8 max-w-sm text-sm font-medium">
-        Drag your Excel file here or click below to start processing Parañaque land records.
+        Drag your Excel file here or click below. <br/>
+        <span className="text-[10px] uppercase opacity-50 tracking-widest">Grand totals are automatically excluded</span>
       </p>
       
       <div className="flex gap-4">

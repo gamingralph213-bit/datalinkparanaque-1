@@ -10,7 +10,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { ImportZone } from '@/components/dashboard/import-zone';
 import { CalibrationSidebar } from '@/components/dashboard/calibration-sidebar';
@@ -92,7 +91,7 @@ export default function Home() {
 
     toast({
       title: "Data Loaded",
-      description: `${imported.length} records imported.`,
+      description: `${imported.length} valid property records imported.`,
     });
   };
 
@@ -153,29 +152,38 @@ export default function Home() {
     // Create Worksheet
     const ws = XLSX.utils.json_to_sheet([]);
     
-    // Add Summary Row at the top
+    // Add Summary Row at the top - this becomes our "Frozen Header"
     XLSX.utils.sheet_add_aoa(ws, [
+      ["SUMMARY RESULTS"],
       ["TOTAL MARKET VALUE:", totalMarket.toLocaleString()],
       ["TOTAL ASSESSED VALUE:", totalAssessed.toLocaleString()],
-      [""] // Empty spacer
+      [""] // Spacer row
     ], { origin: "A1" });
 
-    // Add Main Data Headers and Rows starting from A4
-    const headers = Object.values(headerMapping).filter(h => exportColumns[h]);
-    XLSX.utils.sheet_add_aoa(ws, [headers], { origin: "A4" });
-    XLSX.utils.sheet_add_json(ws, formattedExport, { origin: "A5", skipHeader: true });
+    // Add Main Data Headers and Rows starting from row 5
+    const activeHeaders = Object.values(headerMapping).filter(h => exportColumns[h]);
+    XLSX.utils.sheet_add_aoa(ws, [activeHeaders], { origin: "A5" });
+    XLSX.utils.sheet_add_json(ws, formattedExport, { origin: "A6", skipHeader: true });
     
-    // Freeze top rows (Summary + Header)
-    ws['!freeze'] = { xSplit: 0, ySplit: 4 };
+    // Freeze top rows (Summary Header rows 1-5)
+    ws['!freeze'] = { xSplit: 0, ySplit: 5 };
+
+    // Basic column width adjustments
+    ws['!cols'] = activeHeaders.map(() => ({ wch: 18 }));
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Processed");
+    XLSX.utils.book_append_sheet(wb, ws, "Processed Data");
     
     const baseName = importedFileName.replace(/\.[^/.]+$/, "");
     const dateStr = new Date().toISOString().split('T')[0];
     const finalFileName = `${baseName}-Filtered-${dateStr}.xlsx`;
     
     XLSX.writeFile(wb, finalFileName);
+    
+    toast({
+      title: "Export Successful",
+      description: `Saved as ${finalFileName}`,
+    });
   };
 
   if (!isClient) return null;
@@ -253,7 +261,7 @@ export default function Home() {
               </Card>
 
               <div className="flex items-center justify-between bg-white p-4 rounded-xl border shadow-md">
-                <Button variant="outline" onClick={handleExport} size="lg">
+                <Button variant="outline" onClick={handleExport} size="lg" className="font-bold">
                   <FileDown className="w-4 h-4 mr-2" /> Export Excel
                 </Button>
                 <Button 
