@@ -71,14 +71,18 @@ export function processRecords(
     let marketValue = Number(r.marketValue) || 0;
     let unitValue = Number(r.unitValue) || 0;
     
-    // Auto-fill Logic:
-    // 1. If we have Unit and Area but no Market Value
-    if (marketValue === 0 && unitValue > 0 && landArea > 0) {
-      marketValue = unitValue * landArea;
+    // Auto-fill and Rounding Logic:
+    // 1. If we have Market and Area but no Unit Value, calculate it
+    if (unitValue === 0 && marketValue > 0 && landArea > 0) {
+      unitValue = Math.round(marketValue / landArea);
+    } else {
+      // Otherwise, round the imported unit value to nearest integer
+      unitValue = Math.round(unitValue);
     }
-    // 2. If we have Market and Area but no Unit Value
-    else if (unitValue === 0 && marketValue > 0 && landArea > 0) {
-      unitValue = marketValue / landArea;
+
+    // Always recalculate Market Value based on the rounded Unit Value for consistency
+    if (unitValue > 0 && landArea > 0) {
+      marketValue = unitValue * landArea;
     }
 
     const assessedValue = calculateAssessedValue(marketValue, r.au || '');
@@ -135,7 +139,8 @@ export function processRecords(
         }
         
         if (matchingRule.unitValue !== undefined && !isNaN(matchingRule.unitValue) && matchingRule.unitValue > 0) {
-          updated.unitValue = matchingRule.unitValue;
+          // Rule values should also be rounded for consistency
+          updated.unitValue = Math.round(matchingRule.unitValue);
           updated.marketValue = updated.landArea * updated.unitValue;
           updated.assessedValue = calculateAssessedValue(updated.marketValue, updated.au);
         }
