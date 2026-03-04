@@ -31,17 +31,15 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
         
-        // Use raw: false to get the formatted text values (especially for dates)
         const json = XLSX.utils.sheet_to_json(worksheet, { raw: false, defval: "" }) as any[];
         
         const mappedData = mapRawToRecords(json);
         onDataImported(mappedData, file.name);
       } catch (error) {
-        console.error("Error parsing Excel file:", error);
         toast({
           variant: "destructive",
           title: "Import Error",
-          description: "Failed to read the Excel file. Please ensure it's a valid .xlsx or .csv file."
+          description: "Could not read spreadsheet. Ensure headers match required fields."
         });
       }
     };
@@ -70,7 +68,6 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
 
   const mapRawToRecords = (raw: any[]): LandRecord[] => {
     return raw.map((item) => {
-      // Normalize keys to lowercase and trimmed strings for resilient mapping
       const norm: any = {};
       Object.keys(item).forEach(key => {
         norm[key.trim().toLowerCase()] = item[key];
@@ -80,25 +77,22 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         date: String(norm['date'] || '').trim(),
         arpNo: String(norm['arp no#'] || norm['arp no'] || norm['arpno'] || '').trim(),
         pin: String(norm['pin'] || '').trim(),
-        type: String(norm['type'] || '').trim(),
+        update: String(norm['update'] || '').trim(),
         acctName: String(norm['acctname'] || norm['account name'] || norm['acct name'] || '').trim(),
         location: String(norm['location'] || '').trim(),
         kind: String(norm['kind'] || '').trim(),
-        au: String(norm['au'] || '').trim(),
+        au: String(norm['au'] || norm['actual use'] || '').trim(),
         landArea: typeof norm['land area'] === 'string' ? parseFloat(norm['land area'].replace(/,/g, '')) : parseFloat(norm['land area'] || norm['area'] || 0),
+        unitValue: typeof norm['unit value'] === 'string' ? parseFloat(norm['unit value'].replace(/,/g, '')) : parseFloat(norm['unit value'] || 0),
         marketValue: typeof norm['market value'] === 'string' ? parseFloat(norm['market value'].replace(/,/g, '')) : parseFloat(norm['market value'] || 0),
         assessedValue: typeof norm['assessed value'] === 'string' ? parseFloat(norm['assessed value'].replace(/,/g, '')) : parseFloat(norm['assessed value'] || 0),
       };
     });
   };
 
-  const triggerFileInput = () => {
-    fileInputRef.current?.click();
-  };
-
   return (
     <Card 
-      className={`relative p-12 border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center text-center group outline-none
+      className={`relative p-16 border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center text-center group outline-none
         ${isDragging ? 'border-primary bg-primary/5 scale-[0.99]' : 'border-muted-foreground/20 hover:border-primary/50'}`}
       onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
       onDragLeave={() => setIsDragging(false)}
@@ -111,41 +105,20 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
       onPaste={handlePaste}
       tabIndex={0}
     >
-      <input 
-        type="file" 
-        ref={fileInputRef}
-        className="hidden" 
-        accept=".xlsx, .xls, .csv" 
-        onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])} 
-      />
+      <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls, .csv" onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])} />
       
-      <div className="bg-primary/10 p-4 rounded-full mb-4 group-hover:scale-110 transition-transform">
-        <Upload className="w-8 h-8 text-primary" />
+      <div className="bg-primary/10 p-5 rounded-full mb-6">
+        <Upload className="w-10 h-10 text-primary" />
       </div>
-      <h3 className="text-xl font-semibold mb-2">Import Land Records</h3>
-      <p className="text-muted-foreground mb-6 max-w-sm">
-        Drag and drop your Excel file here, paste directly from spreadsheet, or click the button below.
+      <h3 className="text-2xl font-black mb-3 text-blue-900">Import Property Data</h3>
+      <p className="text-muted-foreground mb-8 max-w-sm text-sm font-medium">
+        Drag your Excel file here or click below to start processing Parañaque land records.
       </p>
       
-      <div className="flex gap-3">
-        <Button variant="default" onClick={triggerFileInput}>
-          <FileSpreadsheet className="mr-2 h-4 w-4" /> Choose Excel File
+      <div className="flex gap-4">
+        <Button size="lg" className="px-8 font-bold" onClick={() => fileInputRef.current?.click()}>
+          <FileSpreadsheet className="mr-2 h-4 w-4" /> Choose Excel
         </Button>
-        <Button variant="outline" onClick={() => {
-          toast({
-            title: "Paste Instructions",
-            description: "Simply press Ctrl+V (or Cmd+V) while this area is focused to import copied rows.",
-          });
-        }}>
-          <Clipboard className="mr-2 h-4 w-4" /> Clipboard Support
-        </Button>
-      </div>
-
-      <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-medium text-muted-foreground">
-        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-green-500" /> Excel (.xlsx)</div>
-        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500" /> CSV Files</div>
-        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-purple-500" /> Clipboard Paste</div>
-        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-orange-500" /> Auto-Cleaning</div>
       </div>
     </Card>
   );

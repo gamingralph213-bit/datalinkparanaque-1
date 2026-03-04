@@ -3,17 +3,15 @@ export interface LandRecord {
   date: string;
   arpNo: string;
   pin: string;
-  type: string;
+  update?: string;
   acctName: string;
   location: string;
   kind: string;
   au: string;
   landArea: number;
+  unitValue?: number;
   marketValue: number;
   assessedValue: number;
-  barangay?: string;
-  section?: string;
-  unitValue?: number;
   isDuplicate?: boolean;
 }
 
@@ -23,7 +21,6 @@ export interface CalibrationRule {
   barangay?: string;
   section?: string;
   unitValue?: number;
-  marketValueOverride?: number;
   overwrite: boolean;
 }
 
@@ -43,6 +40,15 @@ export function matchesPinPattern(pin: string, pattern: string): boolean {
   return regex.test(pin);
 }
 
+export function calculateAssessedValue(marketValue: number, au: string): number {
+  const auUpper = au.toUpperCase();
+  let level = 0;
+  if (auUpper.includes('COMM')) level = 0.50;
+  else if (auUpper.includes('RESI')) level = 0.20;
+  
+  return marketValue * level;
+}
+
 export function processRecords(
   records: LandRecord[],
   rules: CalibrationRule[],
@@ -59,12 +65,13 @@ export function processRecords(
     ...r,
     pin: r.pin?.trim() || '',
     arpNo: r.arpNo?.trim() || '',
-    type: r.type?.trim().toUpperCase() || '',
+    update: r.update || '',
     acctName: r.acctName?.trim().toUpperCase() || '',
     location: r.location?.trim().toUpperCase() || '',
     kind: r.kind?.trim().toUpperCase() || '',
     au: r.au?.trim().toUpperCase() || '',
     landArea: Number(r.landArea) || 0,
+    unitValue: Number(r.unitValue) || 0,
     marketValue: Number(r.marketValue) || 0,
     assessedValue: Number(r.assessedValue) || 0,
     isDuplicate: false
@@ -100,21 +107,18 @@ export function processRecords(
       const matchingRule = rules.find(rule => matchesPinPattern(record.pin, rule.pinPattern));
       
       if (matchingRule) {
-        // Build new location string from Barangay and Section
+        // Replace Location
         const brgy = matchingRule.barangay?.trim() || "";
         const sec = matchingRule.section?.trim() || "";
-        
         if (brgy || sec) {
-          const combinedLocation = `${brgy}${brgy && sec ? ', ' : ''}${sec}`.toUpperCase();
-          updated.location = combinedLocation;
+          updated.location = `${brgy}${brgy && sec ? ', ' : ''}${sec}`.toUpperCase();
         }
         
-        // Update values if unitValue or marketValueOverride is provided
-        if (matchingRule.unitValue !== undefined && !isNaN(matchingRule.unitValue)) {
+        // Auto Calculator
+        if (matchingRule.unitValue !== undefined && !isNaN(matchingRule.unitValue) && matchingRule.unitValue > 0) {
           updated.unitValue = matchingRule.unitValue;
-          updated.marketValue = updated.landArea * matchingRule.unitValue;
-        } else if (matchingRule.marketValueOverride !== undefined && !isNaN(matchingRule.marketValueOverride)) {
-          updated.marketValue = matchingRule.marketValueOverride;
+          updated.marketValue = updated.landArea * updated.unitValue;
+          updated.assessedValue = calculateAssessedValue(updated.marketValue, updated.au);
         }
       }
     }

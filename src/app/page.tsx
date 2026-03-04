@@ -31,26 +31,45 @@ export default function Home() {
     removeDuplicates: true,
     applyCalibration: true
   });
+  
+  const [exportColumns, setExportColumns] = useState<Record<string, boolean>>({
+    "DATE": true,
+    "ARP NO#": true,
+    "PIN": true,
+    "UPDATE": true,
+    "ACCTNAME": true,
+    "LOCATION": true,
+    "KIND": true,
+    "AU": true,
+    "LAND AREA": true,
+    "UNIT VALUE": true,
+    "MARKET VALUE": true,
+    "ASSESSED VALUE": true
+  });
+
   const [stats, setStats] = useState({
     totalImported: 0,
     duplicatesRemoved: 0,
-    finalCount: 0
+    finalCount: 0,
+    totalMarket: 0,
+    totalAssessed: 0
   });
 
   useEffect(() => {
     setIsClient(true);
-    const saved = localStorage.getItem('panaque_session_v3');
+    const saved = localStorage.getItem('panaque_session_v4');
     if (saved) {
       const parsed = JSON.parse(saved);
-      setRules(parsed.rules || []);
+      if (parsed.rules) setRules(parsed.rules);
+      if (parsed.exportColumns) setExportColumns(parsed.exportColumns);
     }
   }, []);
 
   useEffect(() => {
     if (isClient) {
-      localStorage.setItem('panaque_session_v3', JSON.stringify({ rules }));
+      localStorage.setItem('panaque_session_v4', JSON.stringify({ rules, exportColumns }));
     }
-  }, [rules, isClient]);
+  }, [rules, exportColumns, isClient]);
 
   const handleDataImported = (imported: LandRecord[], fileName: string) => {
     setRawData(imported);
@@ -66,20 +85,19 @@ export default function Home() {
     setStats({ 
       totalImported: imported.length, 
       duplicatesRemoved, 
-      finalCount: imported.length - duplicatesRemoved 
+      finalCount: imported.length - duplicatesRemoved,
+      totalMarket: imported.reduce((sum, r) => sum + (r.marketValue || 0), 0),
+      totalAssessed: imported.reduce((sum, r) => sum + (r.assessedValue || 0), 0)
     });
 
     toast({
       title: "Data Loaded",
-      description: `${imported.length} records imported. Duplicates are highlighted in the preview.`,
+      description: `${imported.length} records imported.`,
     });
   };
 
   const runProcess = () => {
-    if (rawData.length === 0) {
-      toast({ variant: "destructive", title: "No Data", description: "Please import an Excel file first." });
-      return;
-    }
+    if (rawData.length === 0) return;
 
     setIsProcessing(true);
     setTimeout(() => {
@@ -88,29 +106,61 @@ export default function Home() {
       setStats({
         totalImported: rawData.length,
         duplicatesRemoved,
-        finalCount: processed.length
+        finalCount: processed.length,
+        totalMarket: processed.reduce((sum, r) => sum + (r.marketValue || 0), 0),
+        totalAssessed: processed.reduce((sum, r) => sum + (r.assessedValue || 0), 0)
       });
       setIsProcessing(false);
       toast({
         title: "Process Complete",
-        description: `Successfully cleaned and formatted ${processed.length} records.`,
+        description: `Calculated values for ${processed.length} records.`,
       });
     }, 400);
   };
 
   const handleExport = () => {
-    const exportData = processedData.length > 0 ? processedData : previewData.filter(r => !r.isDuplicate);
-    if (exportData.length === 0) return;
+    const dataToExport = processedData.length > 0 ? processedData : previewData.filter(r => !r.isDuplicate);
+    if (dataToExport.length === 0) return;
 
-    // Remove internal markers for export
-    const cleanExport = exportData.map(({ isDuplicate, ...rest }) => rest);
+    // Filter and Rename headers based on UI Toggle and requirement (ALL CAPS)
+    const headerMapping: Record<string, string> = {
+      date: "DATE",
+      arpNo: "ARP NO#",
+      pin: "PIN",
+      update: "UPDATE",
+      acctName: "ACCTNAME",
+      location: "LOCATION",
+      kind: "KIND",
+      au: "AU",
+      landArea: "LAND AREA",
+      unitValue: "UNIT VALUE",
+      marketValue: "MARKET VALUE",
+      assessedValue: "ASSESSED VALUE"
+    };
 
-    const ws = XLSX.utils.json_to_sheet(cleanExport);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Processed Records");
+    const formattedExport = dataToExport.map(record => {
+      const row: any = {};
+      Object.entries(headerMapping).forEach(([key, label]) => {
+        if (exportColumns[label]) {
+          row[label] = record[key as keyof LandRecord];
+        }
+      });
+      return row;
+    });
+
+    // Create Worksheet
+    const ws = XLSX.utils.json_to_sheet(formattedExport);
     
-    // Naming format: (name of raw imported file)-Filtered-(date)
-    const baseName = importedFileName.replace(/\.[^/.]+$/, ""); // Strip original extension
+    // Add Summary Row at the Top (Optional for UI but user asked for summary in excel)
+    // We'll put summary values in a new header row if needed, but let's stick to simple frozen headers first
+    
+    // Freeze top row
+    ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Processed");
+    
+    const baseName = importedFileName.replace(/\.[^/.]+$/, "");
     const dateStr = new Date().toISOString().split('T')[0];
     const finalFileName = `${baseName}-Filtered-${dateStr}.xlsx`;
     
@@ -121,7 +171,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#F7F9FB] flex flex-col font-body">
-      {/* Header */}
       <header className="bg-white border-b px-6 py-4 flex items-center justify-between shadow-sm sticky top-0 z-50">
         <div className="flex items-center gap-3">
           <div className="bg-[#3179CD] p-2 rounded-lg">
@@ -132,23 +181,20 @@ export default function Home() {
             <p className="text-xs text-muted-foreground font-medium uppercase tracking-tight">Real Property Data Processor</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-[10px] font-normal uppercase bg-[#3179CD]/5">Local Processor</Badge>
-        </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
         <aside className="w-[360px] border-r bg-white p-6 overflow-y-auto hidden lg:block shadow-[1px_0_5px_rgba(0,0,0,0.02)]">
           <CalibrationSidebar 
             rules={rules} 
             setRules={setRules}
             options={options}
             setOptions={setOptions}
+            exportColumns={exportColumns}
+            setExportColumns={setExportColumns}
           />
         </aside>
 
-        {/* Main Content Area */}
         <main className="flex-1 flex flex-col p-8 overflow-hidden gap-6">
           {rawData.length === 0 ? (
             <div className="flex-1 flex items-center justify-center">
@@ -156,39 +202,36 @@ export default function Home() {
             </div>
           ) : (
             <>
-              {/* Statistics Overview */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {[
-                  { label: "Total Imported", value: stats.totalImported, color: "text-blue-600", bg: "bg-blue-50" },
-                  { label: "Duplicates Identified", value: stats.duplicatesRemoved, color: "text-red-600", bg: "bg-red-50" },
-                  { label: "Final Records", value: processedData.length || stats.finalCount, color: "text-green-600", bg: "bg-green-50" },
-                ].map((stat, i) => (
-                  <Card key={i} className={`p-4 ${stat.bg} border-none shadow-sm flex items-center justify-between`}>
-                    <span className="text-sm font-semibold text-muted-foreground">{stat.label}</span>
-                    <span className={`text-2xl font-bold ${stat.color}`}>{stat.value.toLocaleString()}</span>
-                  </Card>
-                ))}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card className="p-4 bg-blue-50 border-none shadow-sm flex flex-col">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">Records</span>
+                  <span className="text-xl font-black text-blue-600">{(processedData.length || stats.finalCount).toLocaleString()}</span>
+                </Card>
+                <Card className="p-4 bg-orange-50 border-none shadow-sm flex flex-col">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">Filtered PINs</span>
+                  <span className="text-xl font-black text-orange-600">{stats.duplicatesRemoved.toLocaleString()}</span>
+                </Card>
+                <Card className="p-4 bg-green-50 border-none shadow-sm flex flex-col">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">Total Market Value</span>
+                  <span className="text-xl font-black text-green-700">₱{stats.totalMarket.toLocaleString()}</span>
+                </Card>
+                <Card className="p-4 bg-purple-50 border-none shadow-sm flex flex-col">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">Total Assessed Value</span>
+                  <span className="text-xl font-black text-purple-700">₱{stats.totalAssessed.toLocaleString()}</span>
+                </Card>
               </div>
 
-              {/* Data Table */}
               <Card className="flex-1 bg-white shadow-lg border-none overflow-hidden flex flex-col">
                 <div className="p-4 bg-muted/30 border-b flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <LayoutDashboard className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-bold text-muted-foreground uppercase tracking-wide">
-                      {processedData.length > 0 ? "Result Table" : "Preview Table (Markers Active)"}
+                    <span className="text-xs font-black text-muted-foreground uppercase tracking-widest">
+                      {processedData.length > 0 ? "Processed Result" : "Import Preview"}
                     </span>
                   </div>
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => {
-                      setRawData([]);
-                      setPreviewData([]);
-                      setProcessedData([]);
-                      setImportedFileName("");
-                    }}>
-                      <Eraser className="w-3.5 h-3.5 mr-2" /> Clear All
-                    </Button>
-                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => { setRawData([]); setProcessedData([]); }}>
+                    <Eraser className="w-3.5 h-3.5 mr-2" /> Clear
+                  </Button>
                 </div>
                 <div className="p-0 flex-1 overflow-hidden">
                   <DataPreviewTable 
@@ -198,23 +241,18 @@ export default function Home() {
                 </div>
               </Card>
 
-              {/* Toolbar Actions */}
               <div className="flex items-center justify-between bg-white p-4 rounded-xl border shadow-md">
-                <div className="flex gap-4">
-                  <Button variant="outline" onClick={handleExport}>
-                    <FileDown className="w-4 h-4 mr-2" /> Export to Excel
-                  </Button>
-                </div>
-                <div className="flex gap-4">
-                  <Button 
-                    size="lg" 
-                    className="bg-[#3179CD] hover:bg-[#1D5EAA] px-10 shadow-lg shadow-blue-500/20"
-                    disabled={isProcessing}
-                    onClick={runProcess}
-                  >
-                    {isProcessing ? "Processing..." : "Run Processor"}
-                  </Button>
-                </div>
+                <Button variant="outline" onClick={handleExport} size="lg">
+                  <FileDown className="w-4 h-4 mr-2" /> Export Excel
+                </Button>
+                <Button 
+                  size="lg" 
+                  className="bg-[#3179CD] hover:bg-[#1D5EAA] px-12 font-bold shadow-lg shadow-blue-500/20"
+                  disabled={isProcessing}
+                  onClick={runProcess}
+                >
+                  {isProcessing ? "Processing..." : "Run Processor"}
+                </Button>
               </div>
             </>
           )}
