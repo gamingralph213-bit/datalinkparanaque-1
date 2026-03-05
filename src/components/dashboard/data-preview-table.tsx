@@ -13,7 +13,7 @@ import { LandRecord } from '@/lib/processor';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Plus } from 'lucide-react';
+import { Plus, MoveHorizontal } from 'lucide-react';
 
 interface DataPreviewTableProps {
   data: LandRecord[];
@@ -27,12 +27,11 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
   const [scrollLeft, setScrollLeft] = useState(0);
   const [displayLimit, setDisplayLimit] = useState(350);
 
-  // Use a more robust drag-to-scroll implementation
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!scrollContainerRef.current) return;
     setIsDragging(true);
-    // Use clientX for better precision in cross-browser scenarios
-    setStartX(e.clientX - scrollContainerRef.current.offsetLeft);
+    // Calculate start position relative to the container
+    setStartX(e.pageX - scrollContainerRef.current.offsetLeft);
     setScrollLeft(scrollContainerRef.current.scrollLeft);
   };
 
@@ -47,12 +46,11 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging || !scrollContainerRef.current) return;
     e.preventDefault();
-    const x = e.clientX - scrollContainerRef.current.offsetLeft;
-    const walk = (x - startX) * 1.5; // Adjusted multiplier for smooth feel
+    const x = e.pageX - scrollContainerRef.current.offsetLeft;
+    const walk = (x - startX) * 2; // Sensitivity multiplier
     scrollContainerRef.current.scrollLeft = scrollLeft - walk;
   };
 
-  // Ensure dragging stops if the mouse button is released outside the element
   useEffect(() => {
     const handleGlobalMouseUp = () => setIsDragging(false);
     window.addEventListener('mouseup', handleGlobalMouseUp);
@@ -76,6 +74,7 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
 
   return (
     <div className="relative flex flex-col h-[calc(100vh-320px)]">
+      {/* Scrollable Container */}
       <div 
         ref={scrollContainerRef}
         onMouseDown={handleMouseDown}
@@ -83,30 +82,28 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
         onMouseUp={handleMouseUp}
         onMouseMove={handleMouseMove}
         className={cn(
-          "flex-1 overflow-auto border rounded-t-md scrollbar-thin select-none",
+          "flex-1 overflow-auto border rounded-t-md scrollbar-custom select-none",
           isDragging ? "cursor-grabbing" : "cursor-grab"
         )}
       >
-        {/* Table needs pointer-events-none to let the drag events fall through to the container, 
-            but we keep internal elements accessible via CSS if needed */}
-        <Table className="text-[10px] min-w-[1800px] pointer-events-none select-none">
-          <TableHeader className="bg-muted/50 sticky top-0 z-10 shadow-sm">
+        <Table className="text-[10px] min-w-[2000px] pointer-events-none select-none border-separate border-spacing-0">
+          <TableHeader className="bg-white sticky top-0 z-20 shadow-sm">
             <TableRow className="hover:bg-transparent border-b-2">
-              <TableHead className="w-10 text-center font-black">#</TableHead>
-              <TableHead className="min-w-[80px] font-black uppercase">Date</TableHead>
-              <TableHead className="min-w-[100px] font-black uppercase">ARP No#</TableHead>
-              <TableHead className="min-w-[160px] font-black uppercase">PIN</TableHead>
-              <TableHead className="min-w-[60px] font-black uppercase text-center">Upd</TableHead>
-              <TableHead className="min-w-[140px] font-black uppercase">AcctName</TableHead>
-              <TableHead className="min-w-[200px] font-black uppercase">Address</TableHead>
-              <TableHead className="min-w-[200px] font-black uppercase bg-emerald-50/50">Location</TableHead>
-              <TableHead className="min-w-[60px] font-black uppercase">Kind</TableHead>
-              <TableHead className="min-w-[60px] font-black uppercase">AU</TableHead>
-              <TableHead className="text-right w-[80px] font-black uppercase">Area</TableHead>
-              <TableHead className="text-right w-[100px] font-black uppercase">Unit Val</TableHead>
-              <TableHead className="text-right w-[110px] font-black uppercase">Market Val</TableHead>
-              <TableHead className="text-right w-[110px] font-black uppercase">Assessed Val</TableHead>
-              <TableHead className="w-24 text-center font-black uppercase">Status</TableHead>
+              <TableHead className="w-12 text-center font-black bg-white border-r">#</TableHead>
+              <TableHead className="min-w-[100px] font-black uppercase bg-white">Date</TableHead>
+              <TableHead className="min-w-[120px] font-black uppercase bg-white">ARP No#</TableHead>
+              <TableHead className="min-w-[180px] font-black uppercase bg-white">PIN</TableHead>
+              <TableHead className="min-w-[70px] font-black uppercase text-center bg-white">Update</TableHead>
+              <TableHead className="min-w-[180px] font-black uppercase bg-white">AcctName</TableHead>
+              <TableHead className="min-w-[250px] font-black uppercase bg-white">Address</TableHead>
+              <TableHead className="min-w-[250px] font-black uppercase bg-emerald-50 border-x border-emerald-100">Location</TableHead>
+              <TableHead className="min-w-[80px] font-black uppercase bg-white">Kind</TableHead>
+              <TableHead className="min-w-[80px] font-black uppercase bg-white">AU</TableHead>
+              <TableHead className="text-right min-w-[100px] font-black uppercase bg-white">Area (sqm)</TableHead>
+              <TableHead className="text-right min-w-[120px] font-black uppercase bg-white">Unit Value</TableHead>
+              <TableHead className="text-right min-w-[130px] font-black uppercase bg-white">Market Value</TableHead>
+              <TableHead className="text-right min-w-[130px] font-black uppercase bg-white">Assessed Value</TableHead>
+              <TableHead className="w-32 text-center font-black uppercase bg-white">Record Status</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -118,7 +115,7 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
                   (row.isDuplicate || row.isCleanup) && "bg-orange-50/30 opacity-70"
                 )}
               >
-                <TableCell className="text-center font-mono text-muted-foreground p-2 border-r">{i + 1}</TableCell>
+                <TableCell className="text-center font-mono text-muted-foreground p-2 border-r bg-muted/5">{i + 1}</TableCell>
                 <TableCell className="whitespace-nowrap p-2">{row.date || '---'}</TableCell>
                 <TableCell className="font-mono text-emerald-800 font-bold p-2">{row.arpNo || '---'}</TableCell>
                 <TableCell className="font-mono p-2">{row.pin || '---'}</TableCell>
@@ -131,11 +128,11 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
                     <span className="text-muted-foreground opacity-30">---</span>
                   )}
                 </TableCell>
-                <TableCell className="max-w-[140px] truncate uppercase font-bold p-2">{row.acctName || '---'}</TableCell>
-                <TableCell className="max-w-[200px] truncate uppercase p-2 text-muted-foreground italic">
+                <TableCell className="max-w-[180px] truncate uppercase font-bold p-2">{row.acctName || '---'}</TableCell>
+                <TableCell className="max-w-[250px] truncate uppercase p-2 text-muted-foreground italic">
                   {row.address || '---'}
                 </TableCell>
-                <TableCell className="max-w-[200px] truncate uppercase p-2 font-bold text-emerald-900 bg-emerald-50/30">
+                <TableCell className="max-w-[250px] truncate uppercase p-2 font-bold text-emerald-900 bg-emerald-50/20 border-x border-emerald-100/50">
                   {row.location || '---'}
                 </TableCell>
                 <TableCell className="p-2 font-bold">{row.kind || '---'}</TableCell>
@@ -167,18 +164,28 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
         </Table>
       </div>
 
-      {hasMore && (
-        <div className="p-4 bg-white border-x border-b rounded-b-md flex justify-center shadow-inner">
+      {/* Footer / Control Section */}
+      <div className="p-2 bg-muted/20 border-x border-b rounded-b-md flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2 text-[9px] font-bold text-muted-foreground uppercase tracking-widest px-2">
+          <MoveHorizontal className="w-3 h-3 text-primary" />
+          Click and drag table to scroll horizontally
+        </div>
+        
+        {hasMore && (
           <Button 
             variant="outline" 
             size="sm" 
             onClick={handleLoadMore}
-            className="text-[10px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 shadow-sm"
+            className="text-[10px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 h-7"
           >
-            <Plus className="w-3 h-3 mr-2" /> Load More Results ({data.length - displayLimit} remaining)
+            <Plus className="w-3 h-3 mr-2" /> Load More ({data.length - displayLimit} left)
           </Button>
+        )}
+
+        <div className="text-[9px] font-bold text-muted-foreground px-2">
+          SHOWING {visibleData.length.toLocaleString()} OF {data.length.toLocaleString()} RECORDS
         </div>
-      )}
+      </div>
     </div>
   );
 }

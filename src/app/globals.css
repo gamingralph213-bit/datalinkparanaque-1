@@ -36,18 +36,31 @@
   }
 }
 
-/* Custom scrollbar for spreadsheet look */
-.scrollbar-thin::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* Custom prominent horizontal scrollbar for data tables */
+.scrollbar-custom::-webkit-scrollbar {
+  height: 12px; /* Thicker for better "grab" feel */
+  width: 8px;
 }
-.scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
+
+.scrollbar-custom::-webkit-scrollbar-track {
+  background: hsl(var(--muted) / 0.5);
+  border-radius: 6px;
 }
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 10px;
+
+.scrollbar-custom::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary) / 0.3);
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: content-box;
 }
-.scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+
+.scrollbar-custom::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary));
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+/* Ensure spreadsheet-like rendering */
+.select-none {
+  user-select: none;
 }
