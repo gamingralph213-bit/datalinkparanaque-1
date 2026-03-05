@@ -22,6 +22,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as XLSX from 'xlsx';
 import { SettingsPanel } from '@/components/dashboard/settings-panel';
 import { defaultLocationSettings, BarangayConfig } from '@/lib/locations';
+import { ModeToggle } from '@/components/mode-toggle';
 
 export default function Home() {
   const { toast } = useToast();
@@ -70,7 +71,7 @@ export default function Home() {
 
   useEffect(() => {
     setIsClient(true);
-    const saved = localStorage.getItem('panaque_session_v13'); // Force cache reset
+    const saved = localStorage.getItem('panaque_session_v15'); // Force cache reset
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed.rules) setRules(parsed.rules);
@@ -113,7 +114,7 @@ export default function Home() {
 
   useEffect(() => {
     if (isClient) {
-      localStorage.setItem('panaque_session_v13', JSON.stringify({ rules, exportColumns, locationSettings }));
+      localStorage.setItem('panaque_session_v15', JSON.stringify({ rules, exportColumns, locationSettings }));
     }
   }, [rules, exportColumns, locationSettings, isClient]);
 
@@ -257,8 +258,8 @@ export default function Home() {
     : (processedData.length > 0 ? processedData : previewData.filter(r => !r.isDuplicate && !r.isCleanup));
 
   return (
-    <div className="min-h-screen bg-[#F7F9FB] flex flex-col font-body">
-      <header className="bg-white border-b px-6 py-4 flex items-center justify-between shadow-sm sticky top-0 z-50">
+    <div className="min-h-screen bg-background flex flex-col font-body">
+      <header className="bg-card border-b px-6 py-4 flex items-center justify-between shadow-sm sticky top-0 z-50">
         <div className="flex items-center gap-3">
           <div className="bg-primary p-2 rounded-lg">
             <Database className="text-white w-6 h-6" />
@@ -268,7 +269,8 @@ export default function Home() {
             <p className="text-xs text-muted-foreground font-medium uppercase tracking-tight">Land Data Processor</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <ModeToggle />
           <Button variant="ghost" size="icon" onClick={() => setIsSettingsOpen(true)}>
             <Settings className="w-5 h-5" />
           </Button>
@@ -276,7 +278,7 @@ export default function Home() {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        <aside className="w-[260px] border-r bg-white p-6 overflow-y-auto hidden lg:block shadow-[1px_0_5px_rgba(0,0,0,0.02)]">
+        <aside className="w-[260px] border-r bg-card p-6 overflow-y-auto hidden lg:block shadow-[1px_0_5px_rgba(0,0,0,0.02)]">
           <CalibrationSidebar 
             rules={rules} 
             setRules={setRules}
@@ -295,34 +297,34 @@ export default function Home() {
           ) : (
             <>
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <Card className="p-4 bg-white border-none shadow-sm flex flex-col justify-center border-l-4 border-l-slate-400">
+                <Card className="p-4 border-none shadow-sm flex flex-col justify-center border-l-4 border-l-slate-400">
                   <span className="text-[9px] font-bold text-muted-foreground uppercase flex items-center gap-1">
                     <FileSearch className="w-2.5 h-2.5" /> Total Rows
                   </span>
-                  <span className="text-lg font-black text-slate-800">{stats.totalRawRows.toLocaleString()}</span>
+                  <span className="text-lg font-black text-slate-800 dark:text-slate-200">{stats.totalRawRows.toLocaleString()}</span>
                 </Card>
-                <Card className="p-4 bg-white border-none shadow-sm flex flex-col justify-center border-l-4 border-l-orange-400">
+                <Card className="p-4 border-none shadow-sm flex flex-col justify-center border-l-4 border-l-orange-400">
                   <span className="text-[9px] font-bold text-muted-foreground uppercase">System Cleanup</span>
-                  <span className="text-lg font-black text-orange-600">{stats.systemCleanup.toLocaleString()}</span>
+                  <span className="text-lg font-black text-orange-600 dark:text-orange-400">{stats.systemCleanup.toLocaleString()}</span>
                 </Card>
-                <Card className="p-4 bg-emerald-50 border-none shadow-sm flex flex-col justify-center border-l-4 border-l-emerald-400">
+                <Card className="p-4 bg-emerald-50 dark:bg-emerald-950 border-none shadow-sm flex flex-col justify-center border-l-4 border-l-emerald-400">
                   <span className="text-[9px] font-bold text-muted-foreground uppercase">Final Records</span>
-                  <span className="text-lg font-black text-emerald-700">{stats.finalCount.toLocaleString()}</span>
+                  <span className="text-lg font-black text-emerald-700 dark:text-emerald-300">{stats.finalCount.toLocaleString()}</span>
                 </Card>
-                <Card className="p-4 bg-amber-50 border-none shadow-sm flex flex-col justify-center border-l-4 border-l-amber-400">
+                <Card className="p-4 bg-amber-50 dark:bg-amber-950 border-none shadow-sm flex flex-col justify-center border-l-4 border-l-amber-400">
                   <span className="text-[9px] font-bold text-muted-foreground uppercase">Duplicates</span>
-                  <span className="text-lg font-black text-amber-700">{stats.duplicatesRemoved.toLocaleString()}</span>
+                  <span className="text-lg font-black text-amber-700 dark:text-amber-300">{stats.duplicatesRemoved.toLocaleString()}</span>
                 </Card>
-                <Card className="p-4 bg-green-50 border-none shadow-sm flex flex-col justify-center border-l-4 border-l-green-600">
+                <Card className="p-4 bg-green-50 dark:bg-green-950 border-none shadow-sm flex flex-col justify-center border-l-4 border-l-green-600">
                   <span className="text-[9px] font-bold text-muted-foreground uppercase">Market Value</span>
-                  <span className="text-lg font-black text-green-700">₱{stats.totalMarket.toLocaleString()}</span>
+                  <span className="text-lg font-black text-green-700 dark:text-green-300">₱{stats.totalMarket.toLocaleString()}</span>
                 </Card>
               </div>
 
-              <Card className="flex-1 bg-white shadow-lg border-none overflow-hidden flex flex-col">
+              <Card className="flex-1 bg-card shadow-lg border-none overflow-hidden flex flex-col">
                 <div className="p-4 bg-muted/30 border-b flex items-center justify-between">
                   <Tabs value={viewMode} onValueChange={(val: any) => setViewMode(val)} className="w-[400px]">
-                    <TabsList className="bg-white border">
+                    <TabsList className="bg-background border">
                       <TabsTrigger value="results" className="data-[state=active]:bg-primary data-[state=active]:text-white">
                         <CheckCircle2 className="w-3.5 h-3.5 mr-2" />
                         {processedData.length > 0 ? "Results" : "Preview"}
@@ -348,7 +350,7 @@ export default function Home() {
                 </div>
               </Card>
 
-              <div className="flex items-center justify-between bg-white p-4 rounded-xl border shadow-md">
+              <div className="flex items-center justify-between bg-card p-4 rounded-xl border shadow-md">
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={() => handleExport('results')} size="lg" className="font-bold border-primary text-primary hover:bg-primary/5">
                     <FileDown className="w-4 h-4 mr-2" /> Export Results
