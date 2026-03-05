@@ -153,13 +153,13 @@ export function SettingsPanel({
               </div>
               <div className="overflow-y-auto scrollbar-vertical-custom flex-1">
                 <div className="p-4 space-y-4">
-                {filteredSections.map((section) => {
+                {filteredSections.map((section, index) => {
                     const sectionParts = section.section.split(/-(.+)/s);
                     const baseSection = sectionParts[0];
                     const lotPattern = sectionParts.length > 1 ? sectionParts[1] : '';
 
                     return (
-                        <div key={section.section} className="grid grid-cols-12 gap-2 items-center">
+                        <div key={index} className="grid grid-cols-12 gap-2 items-center">
                             <div className="col-span-2 font-mono font-bold truncate" title={baseSection}>
                                 {baseSection}
                             </div>
