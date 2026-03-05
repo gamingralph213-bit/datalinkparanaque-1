@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { 
   Table, 
   TableBody, 
@@ -27,10 +27,12 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
   const [scrollLeft, setScrollLeft] = useState(0);
   const [displayLimit, setDisplayLimit] = useState(350);
 
+  // Use a more robust drag-to-scroll implementation
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!scrollContainerRef.current) return;
     setIsDragging(true);
-    setStartX(e.pageX - scrollContainerRef.current.offsetLeft);
+    // Use clientX for better precision in cross-browser scenarios
+    setStartX(e.clientX - scrollContainerRef.current.offsetLeft);
     setScrollLeft(scrollContainerRef.current.scrollLeft);
   };
 
@@ -45,10 +47,17 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging || !scrollContainerRef.current) return;
     e.preventDefault();
-    const x = e.pageX - scrollContainerRef.current.offsetLeft;
-    const walk = (x - startX) * 2; 
+    const x = e.clientX - scrollContainerRef.current.offsetLeft;
+    const walk = (x - startX) * 1.5; // Adjusted multiplier for smooth feel
     scrollContainerRef.current.scrollLeft = scrollLeft - walk;
   };
+
+  // Ensure dragging stops if the mouse button is released outside the element
+  useEffect(() => {
+    const handleGlobalMouseUp = () => setIsDragging(false);
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, []);
 
   const handleLoadMore = () => {
     setDisplayLimit(prev => prev + 350);
@@ -78,7 +87,9 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
           isDragging ? "cursor-grabbing" : "cursor-grab"
         )}
       >
-        <Table className="text-[10px] min-w-[1600px] pointer-events-none">
+        {/* Table needs pointer-events-none to let the drag events fall through to the container, 
+            but we keep internal elements accessible via CSS if needed */}
+        <Table className="text-[10px] min-w-[1800px] pointer-events-none select-none">
           <TableHeader className="bg-muted/50 sticky top-0 z-10 shadow-sm">
             <TableRow className="hover:bg-transparent border-b-2">
               <TableHead className="w-10 text-center font-black">#</TableHead>
@@ -87,8 +98,8 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
               <TableHead className="min-w-[160px] font-black uppercase">PIN</TableHead>
               <TableHead className="min-w-[60px] font-black uppercase text-center">Upd</TableHead>
               <TableHead className="min-w-[140px] font-black uppercase">AcctName</TableHead>
-              <TableHead className="min-w-[180px] font-black uppercase">Address</TableHead>
-              <TableHead className="min-w-[180px] font-black uppercase bg-emerald-50/50">Location</TableHead>
+              <TableHead className="min-w-[200px] font-black uppercase">Address</TableHead>
+              <TableHead className="min-w-[200px] font-black uppercase bg-emerald-50/50">Location</TableHead>
               <TableHead className="min-w-[60px] font-black uppercase">Kind</TableHead>
               <TableHead className="min-w-[60px] font-black uppercase">AU</TableHead>
               <TableHead className="text-right w-[80px] font-black uppercase">Area</TableHead>
@@ -121,10 +132,10 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
                   )}
                 </TableCell>
                 <TableCell className="max-w-[140px] truncate uppercase font-bold p-2">{row.acctName || '---'}</TableCell>
-                <TableCell className="max-w-[180px] truncate uppercase p-2 text-muted-foreground italic">
+                <TableCell className="max-w-[200px] truncate uppercase p-2 text-muted-foreground italic">
                   {row.address || '---'}
                 </TableCell>
-                <TableCell className="max-w-[180px] truncate uppercase p-2 font-bold text-emerald-900 bg-emerald-50/30">
+                <TableCell className="max-w-[200px] truncate uppercase p-2 font-bold text-emerald-900 bg-emerald-50/30">
                   {row.location || '---'}
                 </TableCell>
                 <TableCell className="p-2 font-bold">{row.kind || '---'}</TableCell>
@@ -162,7 +173,7 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
             variant="outline" 
             size="sm" 
             onClick={handleLoadMore}
-            className="text-[10px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+            className="text-[10px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 shadow-sm"
           >
             <Plus className="w-3 h-3 mr-2" /> Load More Results ({data.length - displayLimit} remaining)
           </Button>
