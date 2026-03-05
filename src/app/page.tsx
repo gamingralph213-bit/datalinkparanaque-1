@@ -238,7 +238,7 @@ export default function Home() {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        <aside className="w-[360px] border-r bg-white p-6 overflow-y-auto hidden lg:block shadow-[1px_0_5px_rgba(0,0,0,0.02)]">
+        <aside className="w-[260px] border-r bg-white p-6 overflow-y-auto hidden lg:block shadow-[1px_0_5px_rgba(0,0,0,0.02)]">
           <CalibrationSidebar 
             rules={rules} 
             setRules={setRules}
@@ -259,35 +259,35 @@ export default function Home() {
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <Card className="p-4 bg-white border-none shadow-sm flex flex-col justify-center border-l-4 border-l-slate-400">
                   <span className="text-[9px] font-bold text-muted-foreground uppercase flex items-center gap-1">
-                    <FileSearch className="w-2.5 h-2.5" /> Total Rows in File
+                    <FileSearch className="w-2.5 h-2.5" /> Total Rows
                   </span>
                   <span className="text-lg font-black text-slate-800">{stats.totalRawRows.toLocaleString()}</span>
                 </Card>
                 <Card className="p-4 bg-white border-none shadow-sm flex flex-col justify-center border-l-4 border-l-orange-400">
-                  <span className="text-[9px] font-bold text-muted-foreground uppercase">System Cleanup (Totals/Empty)</span>
+                  <span className="text-[9px] font-bold text-muted-foreground uppercase">System Cleanup</span>
                   <span className="text-lg font-black text-orange-600">{stats.systemCleanup.toLocaleString()}</span>
                 </Card>
                 <Card className="p-4 bg-emerald-50 border-none shadow-sm flex flex-col justify-center border-l-4 border-l-emerald-400">
-                  <span className="text-[9px] font-bold text-muted-foreground uppercase">Final Processed Records</span>
+                  <span className="text-[9px] font-bold text-muted-foreground uppercase">Final Records</span>
                   <span className="text-lg font-black text-emerald-700">{stats.finalCount.toLocaleString()}</span>
                 </Card>
                 <Card className="p-4 bg-amber-50 border-none shadow-sm flex flex-col justify-center border-l-4 border-l-amber-400">
-                  <span className="text-[9px] font-bold text-muted-foreground uppercase">Duplicate PINs Removed</span>
+                  <span className="text-[9px] font-bold text-muted-foreground uppercase">Duplicates</span>
                   <span className="text-lg font-black text-amber-700">{stats.duplicatesRemoved.toLocaleString()}</span>
                 </Card>
                 <Card className="p-4 bg-green-50 border-none shadow-sm flex flex-col justify-center border-l-4 border-l-green-600">
-                  <span className="text-[9px] font-bold text-muted-foreground uppercase">Total Market Value</span>
+                  <span className="text-[9px] font-bold text-muted-foreground uppercase">Market Value</span>
                   <span className="text-lg font-black text-green-700">₱{stats.totalMarket.toLocaleString()}</span>
                 </Card>
               </div>
 
               <Card className="flex-1 bg-white shadow-lg border-none overflow-hidden flex flex-col">
                 <div className="p-4 bg-muted/30 border-b flex items-center justify-between">
-                  <Tabs value={viewMode} onValueChange={(val: any) => setViewMode(val)} className="w-[450px]">
+                  <Tabs value={viewMode} onValueChange={(val: any) => setViewMode(val)} className="w-[400px]">
                     <TabsList className="bg-white border">
                       <TabsTrigger value="results" className="data-[state=active]:bg-primary data-[state=active]:text-white">
                         <CheckCircle2 className="w-3.5 h-3.5 mr-2" />
-                        {processedData.length > 0 ? "Processed Results" : "Import Preview"}
+                        {processedData.length > 0 ? "Results" : "Preview"}
                       </TabsTrigger>
                       <TabsTrigger value="archive" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">
                         <Archive className="w-3.5 h-3.5 mr-2" />

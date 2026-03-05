@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { 
   Table, 
   TableBody, 
@@ -19,6 +19,35 @@ interface DataPreviewTableProps {
 }
 
 export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTableProps) {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!scrollContainerRef.current) return;
+    setIsDragging(true);
+    // Calculate the start position relative to the container
+    setStartX(e.pageX - scrollContainerRef.current.offsetLeft);
+    setScrollLeft(scrollContainerRef.current.scrollLeft);
+  };
+
+  const handleMouseLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !scrollContainerRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollContainerRef.current.offsetLeft;
+    const walk = (x - startX) * 2; // Multiplier for scroll speed
+    scrollContainerRef.current.scrollLeft = scrollLeft - walk;
+  };
+
   if (data.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
@@ -28,8 +57,18 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
   }
 
   return (
-    <div className="relative overflow-auto border rounded-md h-[calc(100vh-320px)] scrollbar-thin">
-      <Table className="text-[10px] min-w-[1600px]">
+    <div 
+      ref={scrollContainerRef}
+      onMouseDown={handleMouseDown}
+      onMouseLeave={handleMouseLeave}
+      onMouseUp={handleMouseUp}
+      onMouseMove={handleMouseMove}
+      className={cn(
+        "relative overflow-auto border rounded-md h-[calc(100vh-320px)] scrollbar-thin select-none",
+        isDragging ? "cursor-grabbing" : "cursor-grab"
+      )}
+    >
+      <Table className="text-[10px] min-w-[1600px] pointer-events-none">
         <TableHeader className="bg-muted/50 sticky top-0 z-10 shadow-sm">
           <TableRow className="hover:bg-transparent border-b-2">
             <TableHead className="w-10 text-center font-black">#</TableHead>
