@@ -100,41 +100,13 @@
         { "section": "091", "location": "DR A SANTOS AVE." }
       ]
     },
-    {
-      "name": "Baclaran",
-      "barangayCode": "002",
-      "sections": []
-    },
-    {
-      "name": "Don Bosco",
-      "barangayCode": "003",
-      "sections": []
-    },
-    {
-      "name": "Dongalo",
-      "barangayCode": "004",
-      "sections": []
-    },
-    {
-      "name": "La Huerta",
-      "barangayCode": "005",
-      "sections": []
-    },
-    {
-      "name": "Marcelo Green",
-      "barangayCode": "006",
-      "sections": []
-    },
-    {
-      "name": "Merville",
-      "barangayCode": "007",
-      "sections": []
-    },
-    {
-      "name": "Moonwalk",
-      "barangayCode": "008",
-      "sections": []
-    },
+    { "name": "Baclaran", "barangayCode": "002", "sections": [] },
+    { "name": "Don Bosco", "barangayCode": "003", "sections": [] },
+    { "name": "Dongalo", "barangayCode": "004", "sections": [] },
+    { "name": "La Huerta", "barangayCode": "005", "sections": [] },
+    { "name": "Marcelo Green", "barangayCode": "006", "sections": [] },
+    { "name": "Merville", "barangayCode": "007", "sections": [] },
+    { "name": "Moonwalk", "barangayCode": "008", "sections": [] },
     {
       "name": "San Antonio",
       "barangayCode": "009",
@@ -203,36 +175,12 @@
         { "section": "061", "location": "FOURTH ESTATE SUBD" }
       ]
     },
-    {
-      "name": "San Dionisio",
-      "barangayCode": "010",
-      "sections": []
-    },
-    {
-      "name": "San Isidro",
-      "barangayCode": "011",
-      "sections": []
-    },
-    {
-      "name": "San Martin",
-      "barangayCode": "012",
-      "sections": []
-    },
-    {
-      "name": "Sto Nino",
-      "barangayCode": "013",
-      "sections": []
-    },
-    {
-      "name": "Sun Valley",
-      "barangayCode": "014",
-      "sections": []
-    },
-    {
-      "name": "Tambo",
-      "barangayCode": "015",
-      "sections": []
-    },
+    { "name": "San Dionisio", "barangayCode": "010", "sections": [] },
+    { "name": "San Isidro", "barangayCode": "011", "sections": [] },
+    { "name": "San Martin", "barangayCode": "012", "sections": [] },
+    { "name": "Sto Nino", "barangayCode": "013", "sections": [] },
+    { "name": "Sun Valley", "barangayCode": "014", "sections": [] },
+    { "name": "Tambo", "barangayCode": "015", "sections": [] },
     {
       "name": "Vitalez",
       "barangayCode": "016",
