@@ -13,7 +13,7 @@ import { LandRecord } from '@/lib/processor';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Plus, MoveHorizontal } from 'lucide-react';
+import { Plus } from 'lucide-react';
 
 interface DataPreviewTableProps {
   data: LandRecord[];
@@ -127,10 +127,7 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
 
       {/* Footer / Control Section */}
       <div className="p-2 bg-muted/30 border-x border-b rounded-b-md flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-[10px] font-black text-emerald-800 uppercase tracking-widest px-3 py-1 bg-emerald-50 rounded-full border border-emerald-100 shadow-sm">
-          <MoveHorizontal className="w-3.5 h-3.5 text-primary animate-pulse" />
-          Use Emerald Scrollbar above to navigate columns
-        </div>
+        <div className="flex-1" />
         
         {hasMore && (
           <Button 
