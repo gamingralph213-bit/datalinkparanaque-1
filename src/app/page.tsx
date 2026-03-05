@@ -70,7 +70,7 @@ export default function Home() {
 
   useEffect(() => {
     setIsClient(true);
-    const saved = localStorage.getItem('panaque_session_v5');
+    const saved = localStorage.getItem('panaque_session_v7');
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed.rules) setRules(parsed.rules);
@@ -91,7 +91,7 @@ export default function Home() {
 
   useEffect(() => {
     if (isClient) {
-      localStorage.setItem('panaque_session_v5', JSON.stringify({ rules, exportColumns, locationSettings }));
+      localStorage.setItem('panaque_session_v7', JSON.stringify({ rules, exportColumns, locationSettings }));
     }
   }, [rules, exportColumns, locationSettings, isClient]);
 
