@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Table, 
   TableBody, 
@@ -21,37 +21,7 @@ interface DataPreviewTableProps {
 }
 
 export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTableProps) {
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const startX = useRef(0);
-  const scrollLeft = useRef(0);
   const [displayLimit, setDisplayLimit] = useState(350);
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!scrollContainerRef.current) return;
-    setIsDragging(true);
-    // Use the container's relative X coordinate
-    startX.current = e.pageX - scrollContainerRef.current.offsetLeft;
-    scrollLeft.current = scrollContainerRef.current.scrollLeft;
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !scrollContainerRef.current) return;
-    e.preventDefault();
-    const x = e.pageX - scrollContainerRef.current.offsetLeft;
-    const walk = (x - startX.current) * 1.5; // Drag sensitivity
-    scrollContainerRef.current.scrollLeft = scrollLeft.current - walk;
-  };
-
-  const stopDragging = () => {
-    setIsDragging(false);
-  };
-
-  useEffect(() => {
-    const handleGlobalMouseUp = () => stopDragging();
-    window.addEventListener('mouseup', handleGlobalMouseUp);
-    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
-  }, []);
 
   const handleLoadMore = () => {
     setDisplayLimit(prev => prev + 350);
@@ -69,20 +39,15 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
   const hasMore = data.length > displayLimit;
 
   return (
-    <div className="relative flex flex-col h-[calc(100vh-320px)] bg-white">
-      {/* Scrollable Container */}
-      <div 
-        ref={scrollContainerRef}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={stopDragging}
-        onMouseUp={stopDragging}
-        className={cn(
-          "flex-1 overflow-x-auto overflow-y-auto border rounded-t-md scrollbar-custom select-none touch-none",
-          isDragging ? "cursor-grabbing" : "cursor-grab"
-        )}
-      >
-        <Table className="text-[10px] min-w-[2200px] pointer-events-none select-none border-separate border-spacing-0">
+    <div className="relative flex flex-col h-[calc(100vh-320px)] bg-white overflow-hidden">
+      {/* 
+         Main Scroll Container: 
+         By setting overflow-auto here and ensuring the height is constrained, 
+         the horizontal scrollbar will stay at the bottom of the visible area.
+         Drag functionality has been removed as per request.
+      */}
+      <div className="flex-1 overflow-auto border-t scrollbar-custom">
+        <Table className="text-[10px] min-w-[2200px] select-none border-separate border-spacing-0">
           <TableHeader className="bg-white sticky top-0 z-20 shadow-sm">
             <TableRow className="hover:bg-transparent border-b-2">
               <TableHead className="w-12 text-center font-black bg-white border-r">#</TableHead>
@@ -164,7 +129,7 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
       <div className="p-2 bg-muted/30 border-x border-b rounded-b-md flex items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-[10px] font-black text-emerald-800 uppercase tracking-widest px-3 py-1 bg-emerald-50 rounded-full border border-emerald-100 shadow-sm">
           <MoveHorizontal className="w-3.5 h-3.5 text-primary animate-pulse" />
-          Click & Drag or use Emerald Scrollbar below
+          Use Emerald Scrollbar above to navigate columns
         </div>
         
         {hasMore && (
