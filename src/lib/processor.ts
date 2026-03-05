@@ -29,6 +29,29 @@ export interface CalibrationRule {
   overwrite: boolean;
 }
 
+function lotMatchesPattern(lot: string, pattern: string): boolean {
+  const lotNum = parseInt(lot, 10);
+  if (isNaN(lotNum)) return false;
+
+  const patternCleaned = pattern.replace(/[{()}]/g, '');
+  const parts = patternCleaned.split('/');
+
+  for (const part of parts) {
+    if (part.includes(' TO ')) {
+      const [start, end] = part.split(' TO ').map(s => parseInt(s.trim(), 10));
+      if (!isNaN(start) && !isNaN(end) && lotNum >= start && lotNum <= end) {
+        return true;
+      }
+    } else {
+      const singleLot = parseInt(part.trim(), 10);
+      if (!isNaN(singleLot) && lotNum === singleLot) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 export function extractArpNumeric(arp: string): number {
   if (!arp) return 0;
   // Handle Parañaque ARP format like 124-00-001-010-002
@@ -172,13 +195,32 @@ export function processRecords(
         if (pinParts.length >= 4) {
             const barangayCode = pinParts[2];
             const sectionCode = pinParts[3];
+            const lotCode = pinParts.length > 4 ? pinParts[4] : '';
 
-            // Find the specific barangay using the barangay code from the PIN
             const targetBarangay = locationSettings.find(b => b.barangayCode === barangayCode);
 
             if (targetBarangay) {
-                // Now, find the section within that specific barangay
-                const sectionSetting = targetBarangay.sections.find(s => s.section === sectionCode);
+                let sectionSetting = null;
+
+                // Prioritize lot-specific matches
+                if (lotCode) {
+                    for (const section of targetBarangay.sections) {
+                        const sectionParts = section.section.split(/-(.+)/);
+                        if (sectionParts.length > 1 && sectionParts[0] === sectionCode) {
+                            const lotPattern = sectionParts[1];
+                            if (lotMatchesPattern(lotCode, lotPattern)) {
+                                sectionSetting = section;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // Fallback to generic section match
+                if (!sectionSetting) {
+                    sectionSetting = targetBarangay.sections.find(s => s.section === sectionCode) || null;
+                }
+
                 if (sectionSetting) {
                     updated.location = sectionSetting.location.toUpperCase();
                     if (sectionSetting.unitValue && sectionSetting.unitValue > 0) {
