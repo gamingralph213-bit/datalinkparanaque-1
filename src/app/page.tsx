@@ -36,7 +36,6 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<'results' | 'archive'>('results');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [locationSettings, setLocationSettings] = useState<BarangayConfig[]>(defaultLocationSettings);
-  const [parallaxStyle, setParallaxStyle] = useState({});
   const [options, setOptions] = useState({
     removeDuplicates: true,
     applyCalibration: true
@@ -72,7 +71,7 @@ export default function Home() {
 
   useEffect(() => {
     setIsClient(true);
-    const saved = localStorage.getItem('panaque_session_v17_green'); // Force cache reset
+    const saved = localStorage.getItem('panaque_session_v18_cyber');
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed.rules) setRules(parsed.rules);
@@ -86,58 +85,31 @@ export default function Home() {
         
         const mergedSettings = defaultLocationSettings.map(defaultBrgy => {
           const savedBrgy = savedSettingsMap.get(defaultBrgy.name);
-          // If we have saved data for this barangay...
           if (savedBrgy) {
             const savedSectionsMap = new Map(savedBrgy.sections.map(s => [s.section, s]));
-            // ...go through the default sections and apply any saved values.
             const mergedSections = defaultBrgy.sections.map(defaultSection => {
               const savedSection = savedSectionsMap.get(defaultSection.section);
-              // If a matching section is found in saved data, use it to preserve edits.
-              // Otherwise, use the fresh default section.
               return savedSection || defaultSection;
             });
             return { ...defaultBrgy, sections: mergedSections };
           }
-          // If no saved data for this barangay, use the default.
           return defaultBrgy;
         });
         setLocationSettings(mergedSettings);
 
       } else {
-        // If there are no saved location settings, use the defaults.
         setLocationSettings(defaultLocationSettings);
       }
     } else {
-      // If there's no saved session at all, use the defaults.
       setLocationSettings(defaultLocationSettings);
     }
   }, []);
 
   useEffect(() => {
     if (isClient) {
-      localStorage.setItem('panaque_session_v17_green', JSON.stringify({ rules, exportColumns, locationSettings }));
+      localStorage.setItem('panaque_session_v18_cyber', JSON.stringify({ rules, exportColumns, locationSettings }));
     }
   }, [rules, exportColumns, locationSettings, isClient]);
-  
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (window.innerWidth < 768) return; // Disable on mobile
-      const { clientX, clientY } = e;
-      const x = (clientX / window.innerWidth - 0.5) * -30; // Invert and control intensity
-      const y = (clientY / window.innerHeight - 0.5) * -30; // Invert and control intensity
-  
-      setParallaxStyle({
-        transform: `perspective(1200px) rotateY(${x / 4}deg) rotateX(${y / 4}deg) scale3d(1.03, 1.03, 1.03)`,
-        transition: 'transform 0.2s cubic-bezier(0.23, 1, 0.32, 1)'
-      });
-    };
-  
-    window.addEventListener('mousemove', handleMouseMove);
-  
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-    };
-  }, []);
 
 
   const handleDataImported = (imported: LandRecord[], fileName: string, rawCount: number) => {
@@ -312,7 +284,7 @@ export default function Home() {
         </aside>
 
         <main className="flex-1 flex flex-col p-8 overflow-hidden gap-6">
-          <div style={parallaxStyle}>
+          <div>
             {rawData.length === 0 ? (
               <div className="flex-1 flex items-center justify-center">
                 <ImportZone onDataImported={handleDataImported} />
