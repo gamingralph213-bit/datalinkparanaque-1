@@ -48,7 +48,7 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
       */}
       <div className="flex-1 overflow-auto border-t scrollbar-custom">
         <Table 
-          className="text-[10px] min-w-[2200px] select-none border-separate border-spacing-0"
+          className="text-[10px] min-w-[2350px] select-none border-separate border-spacing-0"
           wrapperClassName="overflow-visible" 
         >
           <TableHeader className="bg-card sticky top-0 z-20 shadow-sm">
@@ -67,6 +67,7 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
               <TableHead className="text-right min-w-[120px] font-black uppercase bg-card">Unit Value</TableHead>
               <TableHead className="text-right min-w-[130px] font-black uppercase bg-card">Market Value</TableHead>
               <TableHead className="text-right min-w-[130px] font-black uppercase bg-card">Assessed Value</TableHead>
+              <TableHead className="text-right min-w-[130px] font-black uppercase bg-card border-l">Yearly Tax</TableHead>
               <TableHead className="w-32 text-center font-black uppercase bg-card">Record Status</TableHead>
             </TableRow>
           </TableHeader>
@@ -111,6 +112,7 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
                 </TableCell>
                 <TableCell className="text-right font-mono font-black p-2 text-emerald-700 dark:text-emerald-300">₱{row.marketValue?.toLocaleString() || '0'}</TableCell>
                 <TableCell className="text-right font-mono font-black p-2 text-green-800 dark:text-green-300">₱{row.assessedValue?.toLocaleString() || '0'}</TableCell>
+                <TableCell className="text-right font-mono font-black p-2 text-primary border-l">₱{row.yearlyTax?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}</TableCell>
                 <TableCell className="text-center p-2">
                   {row.isCleanup ? (
                     <Badge variant="outline" className="text-[8px] h-4 font-black uppercase tracking-tighter bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">

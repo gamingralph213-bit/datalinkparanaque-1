@@ -56,7 +56,8 @@ export default function Home() {
     "LAND AREA": true,
     "UNIT VALUE": true,
     "MARKET VALUE": true,
-    "ASSESSED VALUE": true
+    "ASSESSED VALUE": true,
+    "YEARLY TAX": true,
   };
 
   const [exportColumns, setExportColumns] = useState<Record<string, boolean>>(defaultExportColumns);
@@ -216,7 +217,8 @@ export default function Home() {
       landArea: "LAND AREA",
       unitValue: "UNIT VALUE",
       marketValue: "MARKET VALUE",
-      assessedValue: "ASSESSED VALUE"
+      assessedValue: "ASSESSED VALUE",
+      yearlyTax: "YEARLY TAX"
     };
 
     const formattedExport = dataToExport.map(record => {

@@ -15,6 +15,7 @@ export interface LandRecord {
   unitValue?: number;
   marketValue: number;
   assessedValue: number;
+  yearlyTax?: number;
   isDuplicate?: boolean;
   isCleanup?: boolean;
   cleanupReason?: string;
@@ -91,6 +92,22 @@ export function calculateAssessedValue(marketValue: number, au: string): number 
   return marketValue * level;
 }
 
+export function calculateYearlyTax(assessedValue: number, au: string): number {
+  const auUpper = (au || '').toUpperCase();
+  let taxRate = 0;
+
+  // Tax Rates: COMM = 3%, RES = 2%
+  if (auUpper.includes('COMM')) {
+    taxRate = 0.03;
+  } else if (auUpper.includes('RESI')) {
+    taxRate = 0.02;
+  } else {
+    taxRate = 0.02; // Default to Residential 2% fallback
+  }
+
+  return assessedValue * taxRate;
+}
+
 export function processRecords(
   records: LandRecord[],
   rules: CalibrationRule[],
@@ -128,6 +145,7 @@ export function processRecords(
     }
 
     const assessedValue = calculateAssessedValue(marketValue, r.au || '');
+    const yearlyTax = calculateYearlyTax(assessedValue, r.au || '');
 
     return {
       ...r,
@@ -143,6 +161,7 @@ export function processRecords(
       unitValue,
       marketValue,
       assessedValue,
+      yearlyTax,
       isDuplicate: false
     };
   });
@@ -242,6 +261,9 @@ export function processRecords(
         updated.marketValue = updated.landArea * updated.unitValue;
         updated.assessedValue = calculateAssessedValue(updated.marketValue, updated.au);
     }
+    
+    // Recalculate yearly tax based on final assessed value
+    updated.yearlyTax = calculateYearlyTax(updated.assessedValue, updated.au);
     
     return updated;
   });
