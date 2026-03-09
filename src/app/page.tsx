@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -22,8 +23,10 @@ import { LandRecord, CalibrationRule, processRecords } from '@/lib/processor';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as XLSX from 'xlsx';
 import { SettingsPanel } from '@/components/dashboard/settings-panel';
-import { defaultLocationSettings, BarangayConfig } from '@/lib/locations';
+import { allBarangays, BarangayConfig, SectionConfig } from '@/lib/locations';
 import { ModeToggle } from '@/components/mode-toggle';
+import { db } from '@/lib/firebase';
+import { collection, getDocs } from 'firebase/firestore';
 
 export default function Home() {
   const { toast } = useToast();
@@ -36,7 +39,6 @@ export default function Home() {
   const [rules, setRules] = useState<CalibrationRule[]>([]);
   const [viewMode, setViewMode] = useState<'results' | 'archive'>('results');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [locationSettings, setLocationSettings] = useState<BarangayConfig[]>(defaultLocationSettings);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [options, setOptions] = useState({
     removeDuplicates: true,
@@ -92,21 +94,14 @@ export default function Home() {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
 
-    const saved = localStorage.getItem('paranaque_datalink_v21_redesign');
+    // Simplified localStorage for rules and export columns, location settings are now in Firestore
+    const saved = localStorage.getItem('paranaque_datalink_v22_firestore');
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed.rules) setRules(parsed.rules);
       if (parsed.exportColumns) {
         setExportColumns({ ...defaultExportColumns, ...parsed.exportColumns });
       }
-      
-      if (parsed.locationSettings) {
-        setLocationSettings(parsed.locationSettings);
-      } else {
-        setLocationSettings(defaultLocationSettings);
-      }
-    } else {
-      setLocationSettings(defaultLocationSettings);
     }
 
     return () => {
@@ -117,9 +112,9 @@ export default function Home() {
 
   useEffect(() => {
     if (isClient) {
-      localStorage.setItem('paranaque_datalink_v21_redesign', JSON.stringify({ rules, exportColumns, locationSettings }));
+      localStorage.setItem('paranaque_datalink_v22_firestore', JSON.stringify({ rules, exportColumns }));
     }
-  }, [rules, exportColumns, locationSettings, isClient]);
+  }, [rules, exportColumns, isClient]);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
@@ -136,6 +131,7 @@ export default function Home() {
     setProcessedData([]);
     setViewMode('results');
     
+    // Preview is run without any calibration to give a raw import summary
     const { allWithDuplicateMarkers, duplicatesRemoved, cleanupCount } = processRecords(imported, [], [], {
       removeDuplicates: true,
       applyCalibration: false
@@ -158,12 +154,42 @@ export default function Home() {
     });
   };
 
-  const runProcess = () => {
+  const runProcess = async () => {
     if (rawData.length === 0) return;
 
     setIsProcessing(true);
-    setTimeout(() => {
-      const { processed, allWithDuplicateMarkers, duplicatesRemoved, cleanupCount } = processRecords(rawData, rules, locationSettings, options);
+    try {
+      // 1. Get unique barangay codes from raw data to fetch only necessary settings
+      const uniqueBarangayCodes = [...new Set(rawData.map(r => r.pin?.split('-')[2]).filter(Boolean))];
+      
+      // 2. Fetch all location settings for those barangays from Firestore
+      const settingsPromises = uniqueBarangayCodes.map(async (code) => {
+        const barangayInfo = allBarangays.find(b => b.barangayCode === code);
+        if (!barangayInfo) return null;
+
+        const locationsSnap = await getDocs(collection(db, "barangays", code, "locations"));
+        const sections: SectionConfig[] = locationsSnap.docs.map(docSnap => {
+          const data = docSnap.data();
+          // Adapt Firestore structure to the one processRecords expects
+          return {
+            section: data.lotFilter ? `${data.section}-${data.lotFilter}` : data.section,
+            location: data.locationName,
+            unitValue: Number(data.unitValue) || 0,
+          };
+        });
+
+        return {
+          name: barangayInfo.name,
+          barangayCode: code,
+          sections: sections,
+        };
+      });
+
+      const fetchedSettings = (await Promise.all(settingsPromises)).filter(Boolean) as BarangayConfig[];
+
+      // 3. Now call the synchronous processor with the live settings from Firestore
+      const { processed, allWithDuplicateMarkers, duplicatesRemoved, cleanupCount } = processRecords(rawData, rules, fetchedSettings, options);
+      
       setProcessedData(processed);
       setPreviewData(allWithDuplicateMarkers);
       setStats(prev => ({
@@ -174,12 +200,21 @@ export default function Home() {
         totalMarket: processed.reduce((sum, r) => sum + (r.marketValue || 0), 0),
         totalAssessed: processed.reduce((sum, r) => sum + (r.assessedValue || 0), 0)
       }));
-      setIsProcessing(false);
+      
       toast({
         title: "Process Complete",
         description: `Final count: ${processed.length} records.`,
       });
-    }, 400);
+    } catch (error) {
+      console.error("Error processing records:", error);
+      toast({
+        variant: "destructive",
+        title: "Processing Error",
+        description: "Failed to fetch settings from database. Please check your connection and try again.",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleExport = (exportType: 'results' | 'archive' = 'results') => {
@@ -316,31 +351,31 @@ export default function Home() {
             ) : (
               <div className="flex flex-col gap-6">
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                  <Card className="p-4 border-l-4 border-l-slate-400">
+                   <Card className="p-4 border-l-4 border-l-slate-400 flex flex-col">
                     <div className="text-[9px] font-bold text-muted-foreground uppercase flex items-center gap-1 mb-1">
                       <FileSearch className="w-2.5 h-2.5" /> Total Rows
                     </div>
                     <div className="text-lg font-black text-gradient leading-tight">{stats.totalRawRows.toLocaleString()}</div>
                   </Card>
-                  <Card className="p-4 border-l-4 border-l-orange-400">
+                  <Card className="p-4 border-l-4 border-l-orange-400 flex flex-col">
                     <div className="text-[9px] font-bold text-muted-foreground uppercase flex items-center gap-1 mb-1">
                       <Eraser className="w-2.5 h-2.5" /> System Cleanup
                     </div>
                     <div className="text-lg font-black text-orange-600 dark:text-orange-400 leading-tight">{stats.systemCleanup.toLocaleString()}</div>
                   </Card>
-                  <Card className="p-4 bg-primary/10 border-l-4 border-l-primary">
+                  <Card className="p-4 bg-primary/10 border-l-4 border-l-primary flex flex-col">
                     <div className="text-[9px] font-bold text-muted-foreground uppercase flex items-center gap-1 mb-1">
                       <CheckCircle2 className="w-2.5 h-2.5" /> Final Records
                     </div>
                     <div className="text-lg font-black text-gradient leading-tight">{stats.finalCount.toLocaleString()}</div>
                   </Card>
-                  <Card className="p-4 bg-amber-500/10 border-l-4 border-l-amber-400">
+                  <Card className="p-4 bg-amber-500/10 border-l-4 border-l-amber-400 flex flex-col">
                     <div className="text-[9px] font-bold text-muted-foreground uppercase flex items-center gap-1 mb-1">
                       <Archive className="w-2.5 h-2.5" /> Duplicates
                     </div>
                     <div className="text-lg font-black text-amber-500 leading-tight">{stats.duplicatesRemoved.toLocaleString()}</div>
                   </Card>
-                  <Card className="p-4 bg-green-500/10 border-l-4 border-l-green-600">
+                  <Card className="p-4 bg-green-500/10 border-l-4 border-l-green-600 flex flex-col">
                     <div className="text-[9px] font-bold text-muted-foreground uppercase flex items-center gap-1 mb-1">
                       <Database className="w-2.5 h-2.5" /> Market Value
                     </div>
@@ -413,9 +448,9 @@ export default function Home() {
       <SettingsPanel 
         open={isSettingsOpen}
         onOpenChange={setIsSettingsOpen}
-        locationSettings={locationSettings}
-        onLocationSettingsChange={setLocationSettings}
       />
     </div>
   );
 }
+
+    

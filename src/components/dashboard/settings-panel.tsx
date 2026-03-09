@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -12,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BarangayConfig, SectionConfig } from '@/lib/locations';
+import { Barangay, LocationSetting, allBarangays } from '@/lib/locations';
 import {
   Select,
   SelectContent,
@@ -20,95 +21,127 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search } from 'lucide-react';
+import { Search, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { db } from '@/lib/firebase';
+import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
 
 interface SettingsPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  locationSettings: BarangayConfig[];
-  onLocationSettingsChange: (settings: BarangayConfig[]) => void;
 }
 
 export function SettingsPanel({
   open,
   onOpenChange,
-  locationSettings,
-  onLocationSettingsChange,
 }: SettingsPanelProps) {
   const { toast } = useToast();
-  const [localSettings, setLocalSettings] = useState<BarangayConfig[]>(locationSettings);
-  const [selectedBarangay, setSelectedBarangay] = useState<string>(
-    locationSettings[0]?.name || ''
-  );
+  const [barangays, setBarangays] = useState<Barangay[]>([]);
+  const [selectedBarangay, setSelectedBarangay] = useState<Barangay | undefined>();
+  const [locations, setLocations] = useState<LocationSetting[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    if (open) {
-      // Deep copy to ensure edits don't affect the main state until saved
-      setLocalSettings(JSON.parse(JSON.stringify(locationSettings)));
-      // Ensure selected barangay is valid
-      if (!locationSettings.some(b => b.name === selectedBarangay)) {
-        setSelectedBarangay(locationSettings[0]?.name || '');
-      }
+    // Load the static list of barangays on component mount
+    setBarangays(allBarangays);
+    if (allBarangays.length > 0) {
+      setSelectedBarangay(allBarangays[0]);
     }
-  }, [open, locationSettings, selectedBarangay]);
+  }, []);
   
-  const handleSaveChanges = () => {
-    onLocationSettingsChange(localSettings);
-    toast({
+  useEffect(() => {
+    if (!open || !selectedBarangay) return;
+
+    const fetchLocations = async () => {
+      setIsLoading(true);
+      try {
+        const collectionRef = collection(db, "barangays", selectedBarangay.barangayCode, "locations");
+        const snapshot = await getDocs(collectionRef);
+        
+        const fetchedLocations = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        } as LocationSetting)).sort((a, b) => a.section.localeCompare(b.section, undefined, { numeric: true }));
+
+        setLocations(fetchedLocations);
+
+      } catch (error) {
+        console.error("Failed to fetch location settings:", error);
+        toast({
+          variant: "destructive",
+          title: "Fetch Error",
+          description: "Could not load location data from the database.",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchLocations();
+  }, [open, selectedBarangay, toast]);
+  
+  const handleSaveChanges = async () => {
+    if (!selectedBarangay) return;
+    setIsSaving(true);
+    try {
+      // Create a batch write operation
+      const promises = locations.map(location => {
+        const { id, ...data } = location;
+        const docRef = doc(db, "barangays", selectedBarangay.barangayCode, "locations", id);
+        return setDoc(docRef, data, { merge: true });
+      });
+
+      await Promise.all(promises);
+
+      toast({
         title: "Settings Saved",
-        description: "Your location & unit value settings have been updated.",
-    });
-    onOpenChange(false);
+        description: `Location & unit value settings for ${selectedBarangay.name} have been updated.`,
+      });
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+       toast({
+          variant: "destructive",
+          title: "Save Error",
+          description: "Could not save settings to the database.",
+        });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleSectionUpdate = (
-    sectionKey: string,
-    field: keyof SectionConfig | 'lotFilter',
+  const handleLocationUpdate = (
+    id: string,
+    field: keyof Omit<LocationSetting, 'id' | 'section'>,
     value: string | number
   ) => {
-    setLocalSettings(prevSettings => {
-        const newSettings = JSON.parse(JSON.stringify(prevSettings));
-        const brgyToUpdate = newSettings.find(b => b.name === selectedBarangay);
-        if (!brgyToUpdate) return prevSettings;
-
-        const sectionIndex = brgyToUpdate.sections.findIndex(s => s.section === sectionKey);
-        if (sectionIndex === -1) return prevSettings;
-        
-        const sectionToUpdate = brgyToUpdate.sections[sectionIndex];
-
-        if (field === 'lotFilter') {
-            const baseSection = sectionToUpdate.section.split(/-(.+)/s)[0];
-            const newFilter = String(value);
-            sectionToUpdate.section = newFilter ? `${baseSection}-${newFilter}` : baseSection;
-        } else if (field === 'unitValue') {
-             sectionToUpdate.unitValue = typeof value === 'string' ? parseFloat(value) : value;
-        } else if (field === 'location') {
-             sectionToUpdate.location = String(value);
+    setLocations(prev => 
+      prev.map(loc => {
+        if (loc.id === id) {
+          const updatedValue = field === 'unitValue' ? Number(value) : value;
+          return { ...loc, [field]: updatedValue };
         }
-
-        return newSettings;
-    });
+        return loc;
+      })
+    );
   };
 
-  const currentBarangayData = localSettings.find(
-    (b) => b.name === selectedBarangay
-  );
-
-  const filteredSections = currentBarangayData?.sections.filter(
+  const filteredSections = locations.filter(
     (s) =>
       s.section.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.location.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+      (s.lotFilter && s.lotFilter.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      s.locationName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[800px] sm:max-w-[800px] flex flex-col">
+      <SheetContent className="w-[900px] sm:max-w-[900px] flex flex-col">
         <SheetHeader>
           <SheetTitle>Location & Unit Value Settings</SheetTitle>
           <SheetDescription>
-            Manage default location names and unit values based on Barangay Code and Section from the PIN. Changes are saved for future sessions.
+            Manage default location names and unit values from Firestore. Changes are saved for future sessions.
           </SheetDescription>
         </SheetHeader>
         <div className="flex flex-col gap-4 py-4 flex-1 overflow-hidden">
@@ -116,19 +149,19 @@ export function SettingsPanel({
                 <Label htmlFor="barangay-select" className="text-right col-span-1">
                     Barangay
                 </Label>
-                <Select value={selectedBarangay} onValueChange={setSelectedBarangay}>
+                <Select value={selectedBarangay?.name} onValueChange={(name) => setSelectedBarangay(barangays.find(b => b.name === name))}>
                     <SelectTrigger className="col-span-3" id="barangay-select">
                         <SelectValue placeholder="Select a barangay" />
                     </SelectTrigger>
                     <SelectContent>
-                        {localSettings.map(b => (
+                        {barangays.map(b => (
                             <SelectItem key={b.name} value={b.name}>{b.name}</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
                 <Input 
                     readOnly 
-                    value={currentBarangayData?.barangayCode || '---'} 
+                    value={selectedBarangay?.barangayCode || '---'} 
                     className="h-10 bg-muted/50 text-center font-mono"
                     title="Barangay Code"
                 />
@@ -152,54 +185,59 @@ export function SettingsPanel({
                   </div>
               </div>
               <div className="overflow-y-auto scrollbar-vertical-custom flex-1">
-                <div className="p-4 space-y-4">
-                {filteredSections.map((section, index) => {
-                    const sectionParts = section.section.split(/-(.+)/s);
-                    const baseSection = sectionParts[0];
-                    const lotPattern = sectionParts.length > 1 ? sectionParts[1] : '';
-
-                    return (
-                        <div key={index} className="grid grid-cols-12 gap-2 items-center">
-                            <div className="col-span-2 font-mono font-bold truncate" title={baseSection}>
-                                {baseSection}
-                            </div>
-                            <Input
-                              className="col-span-3 text-[10px] font-mono"
-                              value={lotPattern}
-                              placeholder="ALL LOTS"
-                              onChange={(e) => handleSectionUpdate(section.section, 'lotFilter', e.target.value)}
-                            />
-                            <Input
-                                className="col-span-5"
-                                value={section.location}
-                                onChange={(e) =>
-                                    handleSectionUpdate(section.section, 'location', e.target.value)
-                                }
-                            />
-                            <div className="col-span-2 relative">
-                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₱</span>
-                                <Input
-                                    type="number"
-                                    className="pl-5"
-                                    value={section.unitValue || ''}
-                                    placeholder="Unit Value"
-                                    onChange={(e) =>
-                                        handleSectionUpdate(section.section, 'unitValue', e.target.value)
-                                    }
-                                />
-                            </div>
-                        </div>
-                    );
-                })}
-                </div>
+                {isLoading ? (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <Loader2 className="w-6 h-6 animate-spin mr-2"/> Loading data...
+                  </div>
+                ) : filteredSections.length === 0 ? (
+                   <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                    No location data found for this barangay.
+                  </div>
+                ) : (
+                  <div className="p-4 space-y-4">
+                  {filteredSections.map((location) => (
+                      <div key={location.id} className="grid grid-cols-12 gap-2 items-center">
+                          <div className="col-span-2 font-mono font-bold truncate" title={location.section}>
+                              {location.section}
+                          </div>
+                          <Input
+                            className="col-span-3 text-xs font-mono"
+                            value={location.lotFilter || ''}
+                            placeholder="ALL LOTS"
+                            onChange={(e) => handleLocationUpdate(location.id, 'lotFilter', e.target.value)}
+                          />
+                          <Input
+                              className="col-span-5"
+                              value={location.locationName}
+                              onChange={(e) => handleLocationUpdate(location.id, 'locationName', e.target.value)}
+                          />
+                          <div className="col-span-2 relative">
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₱</span>
+                              <Input
+                                  type="number"
+                                  className="pl-5"
+                                  value={location.unitValue || ''}
+                                  placeholder="Unit Value"
+                                  onChange={(e) => handleLocationUpdate(location.id, 'unitValue', e.target.value)}
+                              />
+                          </div>
+                      </div>
+                  ))}
+                  </div>
+                )}
               </div>
             </div>
         </div>
         <SheetFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSaveChanges}>Save Changes</Button>
+          <Button onClick={handleSaveChanges} disabled={isSaving}>
+            {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            Save Changes
+          </Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>
   );
 }
+
+    
