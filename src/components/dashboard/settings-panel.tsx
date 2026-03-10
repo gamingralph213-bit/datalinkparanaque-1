@@ -31,6 +31,24 @@ interface SettingsPanelProps {
   onSettingsChange: (newSettings: BarangayConfig[]) => void;
 }
 
+// Helper to parse a section key like "004-{(...)}" into its base and filter parts
+const parseSectionKey = (key: string): { base: string; filter: string } => {
+    const parts = key.split(/-(.+)/); // Splits only on the first hyphen
+    if (parts.length > 1) {
+        return { base: parts[0].trim(), filter: parts[1].trim() };
+    }
+    return { base: key.trim(), filter: '' };
+};
+
+// Helper to build a section key from its parts
+const buildSectionKey = (base: string, filter: string): string => {
+    const cleanFilter = filter.trim();
+    if (!cleanFilter || cleanFilter.toUpperCase() === 'ALL LOTS') {
+        return base.trim();
+    }
+    return `${base.trim()}-${cleanFilter}`;
+};
+
 export function SettingsPanel({
   open,
   onOpenChange,
@@ -55,7 +73,6 @@ export function SettingsPanel({
   const handleSaveChanges = () => {
     if (!selectedBarangay) return;
     
-    // Create a new array with the updated barangay settings
     const newSettings = locationSettings.map(b => {
       if (b.barangayCode === selectedBarangay.barangayCode) {
         return { ...b, sections: currentSections };
@@ -66,7 +83,7 @@ export function SettingsPanel({
     onSettingsChange(newSettings);
     toast({
       title: "Settings Saved",
-      description: `Location settings for ${selectedBarangay.name} have been updated locally.`,
+      description: `Location settings for ${selectedBarangay.name} have been updated.`,
     });
     onOpenChange(false);
   };
@@ -87,21 +104,29 @@ export function SettingsPanel({
     );
   };
   
-  const handleSectionKeyUpdate = (oldSectionKey: string, newSectionKey: string) => {
+  const handleKeyPartUpdate = (originalFullKey: string, partToUpdate: 'base' | 'filter', newValue: string) => {
     setCurrentSections(prev => {
-      // Check if new key already exists to prevent duplicates
-      if(prev.some(sec => sec.section === newSectionKey)) {
-        toast({
-            variant: "destructive",
-            title: "Duplicate Section",
-            description: "A section with this identifier already exists.",
-        });
-        return prev;
-      }
-      return prev.map(sec => sec.section === oldSectionKey ? { ...sec, section: newSectionKey } : sec)
+        const { base: oldBase, filter: oldFilter } = parseSectionKey(originalFullKey);
+        
+        const newBase = partToUpdate === 'base' ? newValue : oldBase;
+        const newFilter = partToUpdate === 'filter' ? newValue : oldFilter;
+        const newFullKey = buildSectionKey(newBase, newFilter);
+
+        // Prevent creating a duplicate key
+        if (newFullKey !== originalFullKey && prev.some(sec => sec.section === newFullKey)) {
+            toast({
+                variant: "destructive",
+                title: "Duplicate Section Identifier",
+                description: `The identifier "${newFullKey}" already exists for this barangay.`,
+            });
+            return prev;
+        }
+
+        return prev.map(sec => 
+            sec.section === originalFullKey ? { ...sec, section: newFullKey } : sec
+        );
     });
   };
-
 
   const filteredSections = currentSections.filter(
     (s) =>
@@ -111,15 +136,15 @@ export function SettingsPanel({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[900px] sm:max-w-[900px] flex flex-col">
+      <SheetContent className="w-[900px] sm:max-w-[900px] flex flex-col bg-card/95 backdrop-blur-xl border-white/10">
         <SheetHeader>
           <SheetTitle>Location & Unit Value Settings</SheetTitle>
           <SheetDescription>
-            Manage default location names and unit values. Changes are saved to your browser's local storage.
+            Manage default location names and unit values based on Barangay Code and Section from the PIN. Changes are saved for future sessions.
           </SheetDescription>
         </SheetHeader>
         <div className="flex flex-col gap-4 py-4 flex-1 overflow-hidden">
-            <div className="grid grid-cols-5 items-center gap-2 px-1">
+            <div className="grid grid-cols-5 items-center gap-4 px-1">
                 <Label htmlFor="barangay-select" className="text-right col-span-1">
                     Barangay
                 </Label>
@@ -143,17 +168,18 @@ export function SettingsPanel({
             <div className="relative px-1">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
-                    placeholder="Search section or location name..."
+                    placeholder="Search section, lot filter, or location name..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-9"
                 />
             </div>
-            <div className="flex-1 border rounded-md overflow-hidden flex flex-col">
+            <div className="flex-1 border rounded-md overflow-hidden flex flex-col bg-muted/20">
               <div className="sticky top-0 bg-muted/80 backdrop-blur-sm p-4 border-b z-10">
-                  <div className="grid grid-cols-12 gap-2 items-center">
-                      <div className="col-span-4 text-xs font-bold uppercase text-muted-foreground">Section Identifier</div>
-                      <div className="col-span-6 text-xs font-bold uppercase text-muted-foreground">Location Name</div>
+                  <div className="grid grid-cols-12 gap-4 items-center">
+                      <div className="col-span-2 text-xs font-bold uppercase text-muted-foreground">Section</div>
+                      <div className="col-span-3 text-xs font-bold uppercase text-muted-foreground">Lot Filter</div>
+                      <div className="col-span-5 text-xs font-bold uppercase text-muted-foreground">Location Name</div>
                       <div className="col-span-2 text-xs font-bold uppercase text-muted-foreground">Unit Value</div>
                   </div>
               </div>
@@ -163,32 +189,42 @@ export function SettingsPanel({
                     No location data found for this barangay.
                   </div>
                 ) : (
-                  <div className="p-4 space-y-4">
-                  {filteredSections.map((location) => (
-                      <div key={location.section} className="grid grid-cols-12 gap-2 items-center">
-                          <Input
-                            className="col-span-4 font-mono"
-                            value={location.section}
-                            placeholder="e.g. 001 or 022-{...}"
-                            onChange={(e) => handleSectionKeyUpdate(location.section, e.target.value)}
-                          />
-                          <Input
-                              className="col-span-6"
-                              value={location.location}
-                              onChange={(e) => handleLocationUpdate(location.section, 'location', e.target.value)}
-                          />
-                          <div className="col-span-2 relative">
-                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₱</span>
-                              <Input
-                                  type="number"
-                                  className="pl-5"
-                                  value={location.unitValue || ''}
-                                  placeholder="Unit Value"
-                                  onChange={(e) => handleLocationUpdate(location.section, 'unitValue', e.target.value)}
-                              />
-                          </div>
-                      </div>
-                  ))}
+                  <div className="p-4 space-y-3">
+                  {filteredSections.map((location) => {
+                      const { base, filter } = parseSectionKey(location.section);
+                      const lotFilterDisplay = filter || 'ALL LOTS';
+
+                      return (
+                        <div key={location.section} className="grid grid-cols-12 gap-4 items-center">
+                            <Input
+                                className="col-span-2 font-mono"
+                                value={base}
+                                onChange={(e) => handleKeyPartUpdate(location.section, 'base', e.target.value)}
+                            />
+                            <Input
+                                className="col-span-3 font-mono text-xs"
+                                value={filter}
+                                placeholder="ALL LOTS"
+                                onChange={(e) => handleKeyPartUpdate(location.section, 'filter', e.target.value)}
+                            />
+                            <Input
+                                className="col-span-5"
+                                value={location.location}
+                                onChange={(e) => handleLocationUpdate(location.section, 'location', e.target.value)}
+                            />
+                            <div className="col-span-2 relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₱</span>
+                                <Input
+                                    type="number"
+                                    className="pl-6 font-mono"
+                                    value={location.unitValue || ''}
+                                    placeholder="0"
+                                    onChange={(e) => handleLocationUpdate(location.section, 'unitValue', e.target.value)}
+                                />
+                            </div>
+                        </div>
+                      )
+                  })}
                   </div>
                 )}
               </div>
@@ -204,5 +240,3 @@ export function SettingsPanel({
     </Sheet>
   );
 }
-
-    
