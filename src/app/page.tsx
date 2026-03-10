@@ -26,7 +26,7 @@ import { SettingsPanel } from '@/components/dashboard/settings-panel';
 import { BarangayConfig, initialLocationSettings } from '@/lib/locations';
 import { ModeToggle } from '@/components/mode-toggle';
 
-const LOCAL_STORAGE_KEY = 'paranaque_datalink_v23_local';
+const LOCAL_STORAGE_KEY = 'paranaque_datalink_v24_local';
 
 export default function Home() {
   const { toast } = useToast();
@@ -379,5 +379,7 @@ export default function Home() {
     </div>
   );
 }
+
+    
 
     
