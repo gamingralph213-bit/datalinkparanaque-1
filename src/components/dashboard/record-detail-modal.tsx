@@ -108,8 +108,7 @@ export function RecordDetailModal({ record, open, onOpenChange }: RecordDetailMo
                         <div className="mt-1">{getStatusBadge()}</div>
                     </div>
                     <div className="md:col-span-2">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Class</p>
-                        <div className="mt-1 flex gap-8">
+                        <div className="flex gap-8">
                             <ClassificationItem label="Update" value={record.update} />
                             <ClassificationItem label="Kind" value={record.kind} />
                             <ClassificationItem label="AU" value={record.au} />
