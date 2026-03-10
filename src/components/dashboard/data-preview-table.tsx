@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -18,9 +19,10 @@ import { Plus } from 'lucide-react';
 interface DataPreviewTableProps {
   data: LandRecord[];
   isProcessed?: boolean;
+  onRowClick: (record: LandRecord) => void;
 }
 
-export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTableProps) {
+export function DataPreviewTable({ data, isProcessed = false, onRowClick }: DataPreviewTableProps) {
   const [displayLimit, setDisplayLimit] = useState(350);
 
   const handleLoadMore = () => {
@@ -74,9 +76,10 @@ export function DataPreviewTable({ data, isProcessed = false }: DataPreviewTable
           <TableBody>
             {visibleData.map((row, i) => (
               <TableRow 
-                key={i} 
+                key={row.id || i}
+                onClick={() => onRowClick(row)}
                 className={cn(
-                  "border-b transition-all duration-200 ease-in-out hover:scale-[1.015] hover:shadow-2xl hover:relative hover:z-20 hover:!bg-card/90 hover:backdrop-blur-sm",
+                  "border-b transition-all duration-200 ease-in-out hover:scale-[1.015] hover:shadow-2xl hover:relative hover:z-20 hover:!bg-card/90 hover:backdrop-blur-sm cursor-pointer",
                   (row.isDuplicate || row.isCleanup) && "bg-orange-50/30 dark:bg-orange-950/50 opacity-70"
                 )}
               >

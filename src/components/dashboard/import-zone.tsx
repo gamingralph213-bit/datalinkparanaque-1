@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -84,7 +85,7 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
   };
 
   const mapRawToRecords = (raw: any[]): LandRecord[] => {
-    return raw.map((item) => {
+    return raw.map((item, index) => {
       const norm: any = {};
       Object.keys(item).forEach(key => {
         const cleanKey = key.trim().toLowerCase();
@@ -137,11 +138,15 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         kind = parts[0]?.trim() || kind;
         au = parts[1]?.trim() || au;
       }
+      
+      const pin = String(norm['pin'] || '').trim();
+      const arpNo = String(norm['current'] || norm['arp no#'] || norm['arp no'] || '').trim();
 
       return {
+        id: `${index}-${pin}-${arpNo}`,
         date: String(norm['effectivity'] || norm['date'] || '').trim(),
-        arpNo: String(norm['current'] || norm['arp no#'] || norm['arp no'] || '').trim(),
-        pin: String(norm['pin'] || '').trim(),
+        arpNo: arpNo,
+        pin: pin,
         update: String(norm['update'] || norm['upd'] || norm['update code'] || norm['type'] || '').trim(),
         acctName: String(norm['owner'] || norm['acctname'] || '').trim(),
         address: String(norm['address'] || norm['location'] || '').trim(),

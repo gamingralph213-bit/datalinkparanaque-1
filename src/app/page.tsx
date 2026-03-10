@@ -25,8 +25,9 @@ import * as XLSX from 'xlsx';
 import { SettingsPanel } from '@/components/dashboard/settings-panel';
 import { BarangayConfig, initialLocationSettings } from '@/lib/locations';
 import { ModeToggle } from '@/components/mode-toggle';
+import { RecordDetailModal } from '@/components/dashboard/record-detail-modal';
 
-const LOCAL_STORAGE_KEY = 'paranaque_datalink_v24_local';
+const LOCAL_STORAGE_KEY = 'paranaque_datalink_v24_local_v2';
 
 export default function Home() {
   const { toast } = useToast();
@@ -40,6 +41,7 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<'results' | 'archive'>('results');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [selectedRecord, setSelectedRecord] = useState<LandRecord | null>(null);
 
   // App settings state
   const [options, setOptions] = useState({
@@ -70,14 +72,32 @@ export default function Home() {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
 
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed.rules) setRules(parsed.rules);
-      if (parsed.exportColumns) setExportColumns({ ...defaultExportColumns, ...parsed.exportColumns });
-      if (parsed.locationSettings) setLocationSettings(parsed.locationSettings);
-      if (parsed.options) setOptions(parsed.options);
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.rules) setRules(parsed.rules);
+        if (parsed.exportColumns) setExportColumns({ ...defaultExportColumns, ...parsed.exportColumns });
+        if (parsed.locationSettings) {
+           // Basic validation to ensure it's not the old structure
+          if (Array.isArray(parsed.locationSettings) && parsed.locationSettings[0]?.sections) {
+            setLocationSettings(parsed.locationSettings);
+          } else {
+            // If old structure, fallback to initial.
+            setLocationSettings(initialLocationSettings);
+          }
+        }
+        if (parsed.options) setOptions(parsed.options);
+      } else {
+        // If nothing is in local storage, prime it with the initial settings
+        setLocationSettings(initialLocationSettings);
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ rules: [], exportColumns: defaultExportColumns, locationSettings: initialLocationSettings, options }));
+      }
+    } catch (error) {
+        console.error("Failed to parse localStorage, resetting to defaults:", error);
+        setLocationSettings(initialLocationSettings);
     }
+
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -224,6 +244,10 @@ export default function Home() {
     });
   };
 
+  const handleRowClick = (record: LandRecord) => {
+    setSelectedRecord(record);
+  };
+
   if (!isClient) return null;
 
   const currentDisplayData = viewMode === 'archive' 
@@ -333,6 +357,7 @@ export default function Home() {
                     <DataPreviewTable 
                       data={currentDisplayData} 
                       isProcessed={processedData.length > 0 || viewMode === 'archive'} 
+                      onRowClick={handleRowClick}
                     />
                   </div>
                 </Card>
@@ -376,10 +401,15 @@ export default function Home() {
         locationSettings={locationSettings}
         onSettingsChange={setLocationSettings}
       />
+      <RecordDetailModal
+        record={selectedRecord}
+        open={!!selectedRecord}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setSelectedRecord(null);
+          }
+        }}
+      />
     </div>
   );
 }
-
-    
-
-    
