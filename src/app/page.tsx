@@ -62,6 +62,7 @@ export default function Home() {
 
   // Search and Filter State
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchField, setSearchField] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
 
   // App settings state
@@ -272,21 +273,33 @@ export default function Home() {
       : (processedData.length > 0 ? processedData : previewData.filter(r => !r.isDuplicate && !r.isCleanup));
 
     return baseData.filter(record => {
-      const matchesSearch = 
-        record.acctName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        record.pin?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        record.arpNo?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        record.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        record.au?.toLowerCase().includes(searchQuery.toLowerCase());
+      const query = searchQuery.toLowerCase();
+      let matchesSearch = true;
+
+      if (query) {
+        if (searchField === 'all') {
+          matchesSearch = 
+            record.acctName?.toLowerCase().includes(query) ||
+            record.pin?.toLowerCase().includes(query) ||
+            record.arpNo?.toLowerCase().includes(query) ||
+            record.location?.toLowerCase().includes(query) ||
+            record.au?.toLowerCase().includes(query);
+        } else {
+          const value = record[searchField as keyof LandRecord];
+          matchesSearch = String(value || '').toLowerCase().includes(query);
+        }
+      }
       
-      if (statusFilter === 'all') return matchesSearch;
-      if (statusFilter === 'valid') return matchesSearch && !record.isDuplicate && !record.isCleanup;
-      if (statusFilter === 'duplicate') return matchesSearch && record.isDuplicate;
-      if (statusFilter === 'cleanup') return matchesSearch && record.isCleanup;
+      if (!matchesSearch) return false;
+
+      if (statusFilter === 'all') return true;
+      if (statusFilter === 'valid') return !record.isDuplicate && !record.isCleanup;
+      if (statusFilter === 'duplicate') return record.isDuplicate;
+      if (statusFilter === 'cleanup') return record.isCleanup;
       
-      return matchesSearch;
+      return true;
     });
-  }, [previewData, processedData, viewMode, searchQuery, statusFilter]);
+  }, [previewData, processedData, viewMode, searchQuery, searchField, statusFilter]);
 
   // Analytics Data
   const analyticsData = useMemo(() => {
@@ -390,7 +403,7 @@ export default function Home() {
                 </div>
 
                 <Card className="flex-1 overflow-hidden flex flex-col min-h-0">
-                  <div className="p-4 bg-muted/30 border-b flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="p-4 bg-muted/30 border-b flex flex-col xl:flex-row items-center justify-between gap-4">
                     <TabsList className="bg-background border">
                       <TabsTrigger value="results" className="data-[state=active]:bg-primary data-[state=active]:text-white">
                         <TableIcon className="w-3.5 h-3.5 mr-2" />
@@ -407,15 +420,31 @@ export default function Home() {
                     </TabsList>
 
                     {viewMode !== 'analytics' && (
-                      <div className="flex flex-1 items-center gap-2 w-full md:max-w-md">
-                        <div className="relative flex-1">
-                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                          <Input 
-                            placeholder="Search Name, PIN, ARP, or Usage..." 
-                            className="pl-8 text-xs h-9"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                          />
+                      <div className="flex flex-1 items-center gap-2 w-full md:max-w-3xl">
+                        <div className="flex items-center gap-2 flex-1">
+                          <Select value={searchField} onValueChange={setSearchField}>
+                            <SelectTrigger className="w-[140px] h-9 text-xs">
+                              <SelectValue placeholder="Search In" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Fields</SelectItem>
+                              <SelectItem value="date">Date</SelectItem>
+                              <SelectItem value="arpNo">ARP No#</SelectItem>
+                              <SelectItem value="pin">PIN</SelectItem>
+                              <SelectItem value="acctName">Account Name</SelectItem>
+                              <SelectItem value="location">Location</SelectItem>
+                              <SelectItem value="au">Usage (AU)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <div className="relative flex-1">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                            <Input 
+                              placeholder={`Search ${searchField === 'all' ? 'any field' : searchField}...`} 
+                              className="pl-8 text-xs h-9"
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                          </div>
                         </div>
                         <Select value={statusFilter} onValueChange={setStatusFilter}>
                           <SelectTrigger className="w-32 h-9 text-xs">
