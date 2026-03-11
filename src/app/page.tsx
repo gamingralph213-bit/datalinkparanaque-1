@@ -27,7 +27,8 @@ import { BarangayConfig, initialLocationSettings } from '@/lib/locations';
 import { ModeToggle } from '@/components/mode-toggle';
 import { RecordDetailModal } from '@/components/dashboard/record-detail-modal';
 
-const LOCAL_STORAGE_KEY = 'paranaque_datalink_v24_local_v2';
+// Bumped to v3 to force reload of default location settings for Merville
+const LOCAL_STORAGE_KEY = 'paranaque_datalink_v24_local_v3';
 
 export default function Home() {
   const { toast } = useToast();
