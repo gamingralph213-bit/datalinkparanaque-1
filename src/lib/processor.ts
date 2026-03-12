@@ -1,4 +1,3 @@
-
 import { BarangayConfig } from './locations';
 
 export interface LandRecord {
@@ -167,38 +166,40 @@ export function processRecords(
     };
   });
 
-  // 2. Exact PIN Duplicate Detection (Only for non-cleanup rows)
-  const pinToBestRecord = new Map<string, { index: number, arpVal: number }>();
-  
-  result.forEach((record, idx) => {
-    if (record.isCleanup || !record.pin || record.pin === '') return;
-
-    const currentArpVal = extractArpNumeric(record.arpNo);
-    const existing = pinToBestRecord.get(record.pin);
+  // 2. Exact PIN Duplicate Detection (Only if enabled)
+  if (options.removeDuplicates) {
+    const pinToBestRecord = new Map<string, { index: number, arpVal: number }>();
     
-    if (!existing) {
-      pinToBestRecord.set(record.pin, { index: idx, arpVal: currentArpVal });
-    } else {
-      if (currentArpVal > existing.arpVal) {
-        result[existing.index].isDuplicate = true;
+    result.forEach((record, idx) => {
+      if (record.isCleanup || !record.pin || record.pin === '') return;
+
+      const currentArpVal = extractArpNumeric(record.arpNo);
+      const existing = pinToBestRecord.get(record.pin);
+      
+      if (!existing) {
         pinToBestRecord.set(record.pin, { index: idx, arpVal: currentArpVal });
       } else {
-        record.isDuplicate = true;
+        if (currentArpVal > existing.arpVal) {
+          result[existing.index].isDuplicate = true;
+          pinToBestRecord.set(record.pin, { index: idx, arpVal: currentArpVal });
+        } else {
+          record.isDuplicate = true;
+        }
       }
-    }
-  });
+    });
+  }
 
   const duplicatesCount = result.filter(r => r.isDuplicate && !r.isCleanup).length;
   const cleanupCount = result.filter(r => r.isCleanup).length;
 
-  // 3. Apply Calibration and Location Settings
-  result = result.map(record => {
-    if (record.isCleanup) return record;
+  // 3. Apply Calibration and Location Settings (Only if enabled)
+  if (options.applyCalibration) {
+    result = result.map(record => {
+      if (record.isCleanup) return record;
 
-    let updated = { ...record };
-    
-    // Apply standard calibration rules first
-    if (options.applyCalibration) {
+      let updated = { ...record };
+      
+      // Apply standard calibration rules first
       const matchingRule = rules.find(rule => matchesPinPattern(record.pin, rule.pinPattern));
       
       if (matchingRule) {
@@ -213,61 +214,61 @@ export function processRecords(
           updated.unitValue = Math.round(matchingRule.unitValue);
         }
       }
-    }
-    
-    // Apply Location Settings from admin panel (higher precedence)
-    if (locationSettings) {
-        const pinParts = updated.pin.split('-');
-        if (pinParts.length >= 4) {
-            const barangayCode = pinParts[2];
-            const sectionCode = pinParts[3];
-            const lotCode = pinParts.length > 4 ? pinParts[4] : '';
+      
+      // Apply Location Settings from admin panel (higher precedence)
+      if (locationSettings) {
+          const pinParts = updated.pin.split('-');
+          if (pinParts.length >= 4) {
+              const barangayCode = pinParts[2];
+              const sectionCode = pinParts[3];
+              const lotCode = pinParts.length > 4 ? pinParts[4] : '';
 
-            const targetBarangay = locationSettings.find(b => b.barangayCode === barangayCode);
+              const targetBarangay = locationSettings.find(b => b.barangayCode === barangayCode);
 
-            if (targetBarangay) {
-                let sectionSetting = null;
+              if (targetBarangay) {
+                  let sectionSetting = null;
 
-                // Prioritize lot-specific matches
-                if (lotCode) {
-                    for (const section of targetBarangay.sections) {
-                        const sectionParts = section.section.split(/-(.+)/);
-                        if (sectionParts.length > 1 && sectionParts[0] === sectionCode) {
-                            const lotPattern = sectionParts[1];
-                            if (lotMatchesPattern(lotCode, lotPattern)) {
-                                sectionSetting = section;
-                                break;
-                            }
-                        }
-                    }
-                }
+                  // Prioritize lot-specific matches
+                  if (lotCode) {
+                      for (const section of targetBarangay.sections) {
+                          const sectionParts = section.section.split(/-(.+)/);
+                          if (sectionParts.length > 1 && sectionParts[0] === sectionCode) {
+                              const lotPattern = sectionParts[1];
+                              if (lotMatchesPattern(lotCode, lotPattern)) {
+                                  sectionSetting = section;
+                                  break;
+                              }
+                          }
+                      }
+                  }
 
-                // Fallback to generic section match
-                if (!sectionSetting) {
-                    sectionSetting = targetBarangay.sections.find(s => s.section === sectionCode) || null;
-                }
+                  // Fallback to generic section match
+                  if (!sectionSetting) {
+                      sectionSetting = targetBarangay.sections.find(s => s.section === sectionCode) || null;
+                  }
 
-                if (sectionSetting) {
-                    updated.location = sectionSetting.location.toUpperCase();
-                    if (sectionSetting.unitValue && sectionSetting.unitValue > 0) {
-                        updated.unitValue = sectionSetting.unitValue;
-                    }
-                }
-            }
-        }
-    }
+                  if (sectionSetting) {
+                      updated.location = sectionSetting.location.toUpperCase();
+                      if (sectionSetting.unitValue && sectionSetting.unitValue > 0) {
+                          updated.unitValue = sectionSetting.unitValue;
+                      }
+                  }
+              }
+          }
+      }
 
-    // Always recalculate market and assessed values if unit value is present and valid
-    if (updated.unitValue && updated.unitValue > 0 && updated.landArea > 0) {
-        updated.marketValue = updated.landArea * updated.unitValue;
-        updated.assessedValue = calculateAssessedValue(updated.marketValue, updated.au);
-    }
-    
-    // Recalculate yearly tax based on final assessed value
-    updated.yearlyTax = calculateYearlyTax(updated.assessedValue, updated.au);
-    
-    return updated;
-  });
+      // Always recalculate market and assessed values if unit value is present and valid
+      if (updated.unitValue && updated.unitValue > 0 && updated.landArea > 0) {
+          updated.marketValue = updated.landArea * updated.unitValue;
+          updated.assessedValue = calculateAssessedValue(updated.marketValue, updated.au);
+      }
+      
+      // Recalculate yearly tax based on final assessed value
+      updated.yearlyTax = calculateYearlyTax(updated.assessedValue, updated.au);
+      
+      return updated;
+    });
+  }
 
   return {
     processed: result.filter(r => !r.isDuplicate && !r.isCleanup),
@@ -276,5 +277,3 @@ export function processRecords(
     cleanupCount
   };
 }
-
-    

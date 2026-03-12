@@ -153,10 +153,8 @@ export default function Home() {
     setProcessedData([]);
     setViewMode('results');
     
-    const { allWithDuplicateMarkers, duplicatesRemoved, cleanupCount } = processRecords(imported, [], [], {
-      removeDuplicates: true,
-      applyCalibration: false
-    });
+    // Pass current options instead of hardcoded true/false
+    const { allWithDuplicateMarkers, duplicatesRemoved, cleanupCount } = processRecords(imported, [], [], options);
     
     setPreviewData(allWithDuplicateMarkers);
     setStats({ 
