@@ -385,10 +385,10 @@ export default function Home() {
 
   const getDynamicFontSize = (text: string) => {
     const length = text.length;
-    if (length > 18) return "text-[10px]";
-    if (length > 15) return "text-[11px]";
-    if (length > 12) return "text-sm";
-    return "text-lg";
+    if (length > 18) return "text-[11px]";
+    if (length > 15) return "text-xs";
+    if (length > 12) return "text-base";
+    return "text-xl";
   };
 
   if (!isClient) return null;
