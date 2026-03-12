@@ -21,9 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Percent, MapPin } from 'lucide-react';
+import { Search, Percent, MapPin, Database } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
 
 interface SettingsPanelProps {
   open: boolean;
@@ -94,7 +94,7 @@ export function SettingsPanel({
 
     toast({
       title: "Settings Saved",
-      description: "Location settings and Tax rates have been updated successfully.",
+      description: "Calibration rules and tax rates have been updated successfully.",
     });
     onOpenChange(false);
   };
@@ -154,22 +154,19 @@ export function SettingsPanel({
         <SheetHeader className="shrink-0">
           <SheetTitle className="text-2xl font-black text-gradient uppercase">Global Calibration Panel</SheetTitle>
           <SheetDescription className="font-medium">
-            Manage your land data processing rules, location mappings, and financial tax rates.
+            Manage your land data processing rules and financial tax rates in one view.
           </SheetDescription>
         </SheetHeader>
 
-        <Tabs defaultValue="locations" className="flex-1 flex flex-col mt-4 min-h-0 overflow-hidden">
-          <TabsList className="grid w-full grid-cols-2 bg-muted/50 border shrink-0">
-            <TabsTrigger value="locations" className="text-xs font-bold uppercase gap-2">
-              <MapPin className="w-3 h-3" /> Location Settings
-            </TabsTrigger>
-            <TabsTrigger value="rates" className="text-xs font-bold uppercase gap-2">
-              <Percent className="w-3 h-3" /> Rates Calibration
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="locations" className="flex-1 flex flex-col gap-4 outline-none m-0 mt-2 min-h-0 overflow-hidden">
-            <div className="flex flex-col gap-4 px-1 shrink-0">
+        <div className="flex-1 overflow-y-auto scrollbar-vertical-custom space-y-10 py-6 pr-2">
+          {/* SECTION 1: LOCATION CALIBRATION */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 px-1">
+              <MapPin className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-black uppercase tracking-wider">Location Mappings</h3>
+            </div>
+            
+            <div className="flex flex-col gap-4 px-1">
                 <div className="grid grid-cols-5 items-center gap-4">
                     <Label htmlFor="barangay-select" className="text-right col-span-1 text-xs font-black uppercase">
                         Barangay
@@ -201,8 +198,8 @@ export function SettingsPanel({
                 </div>
             </div>
 
-            <div className="flex-1 border rounded-md overflow-hidden flex flex-col bg-muted/20 min-h-0">
-              <div className="sticky top-0 bg-muted/80 backdrop-blur-sm p-4 border-b z-10 shrink-0">
+            <div className="border rounded-md overflow-hidden bg-muted/20 min-h-[400px] flex flex-col">
+              <div className="bg-muted/80 backdrop-blur-sm p-4 border-b shrink-0">
                   <div className="grid grid-cols-12 gap-4 items-center">
                       <div className="col-span-2 text-[10px] font-black uppercase text-muted-foreground">Section</div>
                       <div className="col-span-3 text-[10px] font-black uppercase text-muted-foreground">Lot Filter</div>
@@ -210,7 +207,7 @@ export function SettingsPanel({
                       <div className="col-span-2 text-[10px] font-black uppercase text-muted-foreground">Unit Value</div>
                   </div>
               </div>
-              <div className="overflow-y-auto scrollbar-vertical-custom flex-1 p-4 space-y-2">
+              <div className="p-4 space-y-2 max-h-[500px] overflow-y-auto scrollbar-vertical-custom">
                 {filteredSections.map((location) => {
                     const { base, filter } = parseSectionKey(location.section);
                     return (
@@ -246,26 +243,34 @@ export function SettingsPanel({
                 })}
               </div>
             </div>
-          </TabsContent>
+          </div>
 
-          <TabsContent value="rates" className="flex-1 flex flex-col gap-4 outline-none m-0 mt-2 min-h-0 overflow-hidden">
-            <div className="px-1 shrink-0">
+          <Separator className="opacity-50" />
+
+          {/* SECTION 2: RATES CALIBRATION */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 px-1">
+              <Percent className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-black uppercase tracking-wider">Tax & Assessment Calibration</h3>
+            </div>
+
+            <div className="px-1">
               <div className="bg-primary/5 p-4 rounded-lg border border-primary/20">
                 <p className="text-[11px] font-medium leading-relaxed text-muted-foreground">
-                  <span className="font-black text-primary uppercase">Note:</span> These rates are applied globally across all records based on their <span className="font-bold">Actual Use (AU)</span> code. Assessment Levels determine what portion of Market Value is taxable.
+                  <span className="font-black text-primary uppercase">Financial Settings:</span> These rates determine how Assessed Value and Yearly Tax are calculated based on <span className="font-bold">Actual Use (AU)</span>.
                 </p>
               </div>
             </div>
             
-            <div className="flex-1 border rounded-md overflow-hidden flex flex-col bg-muted/20 min-h-0">
-              <div className="sticky top-0 bg-muted/80 backdrop-blur-sm p-4 border-b z-10 shrink-0">
+            <div className="border rounded-md overflow-hidden bg-muted/20 flex flex-col">
+              <div className="bg-muted/80 backdrop-blur-sm p-4 border-b shrink-0">
                   <div className="grid grid-cols-12 gap-6 items-center">
                       <div className="col-span-3 text-[10px] font-black uppercase text-muted-foreground">Usage Code (AU)</div>
                       <div className="col-span-4 text-[10px] font-black uppercase text-muted-foreground">Assessment Level (%)</div>
                       <div className="col-span-5 text-[10px] font-black uppercase text-muted-foreground">Tax Rate (%)</div>
                   </div>
               </div>
-              <div className="overflow-y-auto scrollbar-vertical-custom flex-1 p-4 space-y-3">
+              <div className="p-4 space-y-3">
                 {Object.keys(currentTaxRates).sort().map((au) => (
                   <div key={au} className="grid grid-cols-12 gap-6 items-center">
                     <div className="col-span-3 font-black text-xs uppercase text-emerald-900 dark:text-emerald-400">
@@ -294,10 +299,10 @@ export function SettingsPanel({
                 ))}
               </div>
             </div>
-          </TabsContent>
-        </Tabs>
+          </div>
+        </div>
 
-        <SheetFooter className="pt-6 border-t mt-4 shrink-0">
+        <SheetFooter className="pt-6 border-t mt-4 shrink-0 bg-card/50 backdrop-blur-sm">
           <Button variant="outline" className="font-bold uppercase text-[10px]" onClick={() => onOpenChange(false)}>Discard Changes</Button>
           <Button className="font-black uppercase text-[10px] bg-primary hover:bg-emerald-800" onClick={handleSaveChanges}>
             Update Global Settings
