@@ -51,15 +51,15 @@ import {
 } from '@/components/ui/dialog';
 import { Bar, BarChart, XAxis, YAxis, ResponsiveContainer, Cell, Pie, PieChart, Legend, CartesianGrid } from 'recharts';
 
-// Bumped version for updated default tax rates
-const LOCAL_STORAGE_KEY = 'paranaque_datalink_v27';
+// Bumped version for updated AGRI and GOV default rates
+const LOCAL_STORAGE_KEY = 'paranaque_datalink_v28';
 
 const defaultTaxRates: TaxRateMap = {
   "RESI": { assessmentLevel: 0.20, taxRate: 0.02 },
   "COMM": { assessmentLevel: 0.50, taxRate: 0.03 },
   "INDU": { assessmentLevel: 0.50, taxRate: 0.03 },
-  "AGRI": { assessmentLevel: 0.40, taxRate: 0.02 },
-  "GOV": { assessmentLevel: 0.00, taxRate: 0.00 },
+  "AGRI": { assessmentLevel: 0.20, taxRate: 0.025 },
+  "GOV": { assessmentLevel: 0.15, taxRate: 0.00 },
   "SPEC": { assessmentLevel: 0.15, taxRate: 0.025 },
   "SPC1": { assessmentLevel: 0.15, taxRate: 0.025 },
   "SPC2": { assessmentLevel: 0.15, taxRate: 0.025 },
