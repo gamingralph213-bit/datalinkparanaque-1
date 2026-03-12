@@ -237,8 +237,8 @@ export default function Home() {
     }
 
     setIsExporting(true);
-    const totalMarket = dataToExport.reduce((sum, r) => sum + (r.marketValue || 0), 0);
-    const totalAssessed = dataToExport.reduce((sum, r) => sum + (r.assessedValue || 0), 0);
+    const totalMarketValue = dataToExport.reduce((sum, r) => sum + (r.marketValue || 0), 0);
+    const totalAssessedValue = dataToExport.reduce((sum, r) => sum + (r.assessedValue || 0), 0);
 
     const headerMapping: Record<string, string> = {
       date: "DATE", arpNo: "ARP NO#", pin: "PIN", update: "UPDATE",
@@ -258,7 +258,6 @@ export default function Home() {
     });
 
     try {
-      // Use cache buster to fetch the latest template from the public folder
       const response = await fetch(`/export_template.xlsx?v=${Date.now()}`);
       if (!response.ok) throw new Error("Template 'export_template.xlsx' not found in public folder.");
       
@@ -267,33 +266,36 @@ export default function Home() {
       const sheetName = workbook.SheetNames[0];
       const ws = workbook.Sheets[sheetName];
 
-      // Populating the dashboard/summary header (Rows 1-3)
+      // Exact layout based on image provided
+      // Row 1: Title
       const title = exportType === 'results' ? "PARAÑAQUE DATA LINK - SUMMARY RESULTS" : "PARAÑAQUE DATA LINK - ARCHIVE";
       XLSX.utils.sheet_add_aoa(ws, [[title]], { origin: "A1" });
       
-      XLSX.utils.sheet_add_aoa(ws, [[
-        "TOTAL RECORDS:", dataToExport.length.toLocaleString(), 
-        "", 
-        "TOTAL MARKET VALUE:", `₱${totalMarket.toLocaleString()}`, 
-        "", 
-        "TOTAL ASSESSED VALUE:", `₱${totalAssessed.toLocaleString()}`
-      ]], { origin: "A2" });
-      
-      XLSX.utils.sheet_add_aoa(ws, [["EXPORT DATE:", new Date().toLocaleDateString()]], { origin: "A3" });
+      // Rows 2-4: Summary Statistics Dashboard
+      XLSX.utils.sheet_add_aoa(ws, [
+        ["TOTAL RECORDS:", dataToExport.length.toLocaleString()],
+        ["TOTAL MARKET VALUE:", `₱${totalMarketValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+        ["TOTAL ASSESSED VALUE:", `₱${totalAssessedValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]
+      ], { origin: "A2" });
 
-      // Update Column Headers (Row 4)
+      // Row 5: Column Headers
       const activeHeaders = Object.values(headerMapping).filter(h => exportColumns[h]);
-      XLSX.utils.sheet_add_aoa(ws, [activeHeaders], { origin: "A4" });
+      XLSX.utils.sheet_add_aoa(ws, [activeHeaders], { origin: "A5" });
       
-      // Add records starting at Row 5
-      XLSX.utils.sheet_add_json(ws, formattedExport, { origin: "A5", skipHeader: true });
+      // Row 6+: Property Data
+      XLSX.utils.sheet_add_json(ws, formattedExport, { origin: "A6", skipHeader: true });
       
-      // Apply Freeze Pane to the first 4 rows
+      // Apply Freeze Pane to the first 5 rows (Summary + Headers)
       if (!ws['!views']) ws['!views'] = [];
-      ws['!views'][0] = { state: 'frozen', ySplit: 4, topLeftCell: 'A5', activePane: 'bottomLeft' };
+      ws['!views'][0] = { 
+        state: 'frozen', 
+        ySplit: 5, 
+        topLeftCell: 'A6', 
+        activePane: 'bottomLeft' 
+      };
       
-      // Auto-set some standard widths
-      ws['!cols'] = activeHeaders.map(() => ({ wch: 20 }));
+      // Auto-set widths for clarity
+      ws['!cols'] = activeHeaders.map(() => ({ wch: 22 }));
 
       const baseName = importedFileName.replace(/\.[^/.]+$/, "") || "LandRecords";
       const dateStr = new Date().toISOString().split('T')[0];
@@ -311,7 +313,7 @@ export default function Home() {
       toast({
         variant: "destructive",
         title: "Template Export Failed",
-        description: error.message || "Ensure 'export_template.xlsx' exists in the public folder.",
+        description: error.message || "Check template location.",
       });
     } finally {
       setIsExporting(false);
