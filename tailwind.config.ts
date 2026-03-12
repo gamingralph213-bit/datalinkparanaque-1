@@ -10,8 +10,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['"Nunito"', 'sans-serif'],
-        headline: ['"Nunito"', 'sans-serif'],
+        body: ['"Plus Jakarta Sans"', 'sans-serif'],
+        headline: ['"Plus Jakarta Sans"', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {
