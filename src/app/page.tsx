@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -14,7 +15,8 @@ import {
   Filter,
   BarChart3,
   Table as TableIcon,
-  Maximize2
+  Maximize2,
+  Info
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -29,6 +31,7 @@ import { SettingsPanel } from '@/components/dashboard/settings-panel';
 import { BarangayConfig, initialLocationSettings } from '@/lib/locations';
 import { ModeToggle } from '@/components/mode-toggle';
 import { RecordDetailModal } from '@/components/dashboard/record-detail-modal';
+import { AboutModal } from '@/components/dashboard/about-modal';
 import { Input } from '@/components/ui/input';
 import { 
   Select, 
@@ -52,7 +55,6 @@ import {
 } from '@/components/ui/dialog';
 import { Bar, BarChart, XAxis, YAxis, Cell, Pie, PieChart, Legend, CartesianGrid } from 'recharts';
 
-// Bumped version for updated AGRI and GOV default rates
 const LOCAL_STORAGE_KEY = 'paranaque_datalink_v29';
 
 const defaultTaxRates: TaxRateMap = {
@@ -88,16 +90,15 @@ export default function Home() {
   const [rules, setRules] = useState<CalibrationRule[]>([]);
   const [viewMode, setViewMode] = useState<'results' | 'archive' | 'analytics'>('results');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [selectedRecord, setSelectedRecord] = useState<LandRecord | null>(null);
   const [isMarketDetailOpen, setIsMarketDetailOpen] = useState(false);
 
-  // Search and Filter State
   const [searchQuery, setSearchQuery] = useState("");
   const [searchField, setSearchField] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  // App settings state
   const [options, setOptions] = useState({
     removeDuplicates: true,
     applyCalibration: true,
@@ -176,7 +177,6 @@ export default function Home() {
     setProcessedData([]);
     setViewMode('results');
     
-    // Initial import ALWAYS shows data raw per user request
     const { allWithDuplicateMarkers } = processRecords(imported, [], [], taxRates, {
       removeDuplicates: false,
       applyCalibration: false,
@@ -273,7 +273,6 @@ export default function Home() {
       const sheetName = workbook.SheetNames[0];
       const ws = workbook.Sheets[sheetName];
 
-      // Exact layout based on image provided
       const title = exportType === 'results' ? "PARAÑAQUE DATA LINK - SUMMARY RESULTS" : "PARAÑAQUE DATA LINK - ARCHIVE";
       XLSX.utils.sheet_add_aoa(ws, [[title]], { origin: "A1" });
       
@@ -388,23 +387,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-body" suppressHydrationWarning>
-      {/* SVG Filters for "3D" Shadow and Gradients */}
-      <svg width="0" height="0" className="absolute invisible">
-        <defs>
-          <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
-            <feOffset dx="2" dy="4" result="offsetblur" />
-            <feComponentTransfer>
-              <feFuncA type="linear" slope="0.3" />
-            </feComponentTransfer>
-            <feMerge>
-              <feMergeNode />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-      </svg>
-
       <header className="bg-card/80 backdrop-blur-lg border-b border-white/10 px-6 py-4 flex items-center justify-between shadow-lg sticky top-0 z-50">
         <div className="flex items-center gap-3">
           <div className="bg-primary p-2 rounded-lg">
@@ -421,8 +403,11 @@ export default function Home() {
               <Download className="w-5 h-5" />
             </Button>
           )}
+          <Button variant="ghost" size="icon" onClick={() => setIsAboutOpen(true)} title="About & Instructions">
+            <Info className="w-5 h-5" />
+          </Button>
           <ModeToggle />
-          <Button variant="ghost" size="icon" onClick={() => setIsSettingsOpen(true)}>
+          <Button variant="ghost" size="icon" onClick={() => setIsSettingsOpen(true)} title="Settings">
             <Settings className="w-5 h-5" />
           </Button>
         </div>
@@ -601,7 +586,6 @@ export default function Home() {
                                 <Bar 
                                   dataKey="value" 
                                   radius={[6, 6, 0, 0]} 
-                                  filter="url(#softShadow)"
                                 >
                                   {analyticsData.auChart.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -634,7 +618,6 @@ export default function Home() {
                                   paddingAngle={8}
                                   dataKey="value"
                                   stroke="none"
-                                  filter="url(#softShadow)"
                                   label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
                                 >
                                   {analyticsData.marketChart.map((entry, index) => (
@@ -695,6 +678,10 @@ export default function Home() {
         taxRates={taxRates}
         onTaxRatesChange={setTaxRates}
       />
+      <AboutModal
+        open={isAboutOpen}
+        onOpenChange={setIsAboutOpen}
+      />
       <RecordDetailModal
         record={selectedRecord}
         open={!!selectedRecord}
@@ -725,7 +712,6 @@ export default function Home() {
                     paddingAngle={10}
                     dataKey="value"
                     stroke="none"
-                    filter="url(#softShadow)"
                     label={({ name, percent }) => `${name} (${(percent * 100).toFixed(1)}%)`}
                     labelLine={true}
                   >
