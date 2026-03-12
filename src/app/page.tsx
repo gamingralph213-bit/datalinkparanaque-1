@@ -53,7 +53,7 @@ import {
 import { Bar, BarChart, XAxis, YAxis, ResponsiveContainer, Cell, Pie, PieChart, Legend, CartesianGrid } from 'recharts';
 
 // Bumped version for updated AGRI and GOV default rates
-const LOCAL_STORAGE_KEY = 'paranaque_datalink_v28';
+const LOCAL_STORAGE_KEY = 'paranaque_datalink_v29';
 
 const defaultTaxRates: TaxRateMap = {
   "RESI": { assessmentLevel: 0.20, taxRate: 0.02 },
@@ -112,7 +112,6 @@ export default function Home() {
     finalCount: 0, totalMarket: 0, totalAssessed: 0
   });
 
-  // Effect to set client-side rendering and load from localStorage
   useEffect(() => {
     setIsClient(true);
     
@@ -142,7 +141,7 @@ export default function Home() {
         }));
       }
     } catch (error) {
-        console.error("Failed to parse localStorage, resetting to defaults:", error);
+        console.error("Failed to parse localStorage:", error);
     }
 
     return () => {
@@ -151,7 +150,6 @@ export default function Home() {
     };
   }, []);
 
-  // Effect to save to localStorage whenever settings change
   useEffect(() => {
     if (isClient) {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ rules, exportColumns, locationSettings, options, taxRates }));
@@ -171,7 +169,7 @@ export default function Home() {
     setProcessedData([]);
     setViewMode('results');
     
-    // Initial import ALWAYS shows data raw
+    // Initial import ALWAYS shows data raw per user request
     const { allWithDuplicateMarkers } = processRecords(imported, [], [], taxRates, {
       removeDuplicates: false,
       applyCalibration: false,
@@ -190,8 +188,8 @@ export default function Home() {
     });
 
     toast({
-      title: "Data Imported",
-      description: `${rawCount} property records loaded as raw data. Click "Run Processor" to apply rules.`,
+      title: "Data Loaded",
+      description: `${rawCount} records imported. Click "Run Processor" to apply rules.`,
     });
   };
 
@@ -214,7 +212,7 @@ export default function Home() {
     
     toast({
       title: "Process Complete",
-      description: `Final count: ${processed.length} records. ${duplicatesRemoved} duplicates found.`,
+      description: `Final count: ${processed.length} records.`,
     });
     setIsProcessing(false);
   };
@@ -233,7 +231,7 @@ export default function Home() {
       toast({
         variant: "destructive",
         title: "Export Failed",
-        description: `No records found to export for ${exportType}.`,
+        description: `No records found to export.`,
       });
       return;
     }
@@ -260,40 +258,42 @@ export default function Home() {
     });
 
     try {
-      // Fetch the user provided template
-      const response = await fetch('/export_template.xlsx');
-      if (!response.ok) throw new Error("Template not found in public folder.");
+      // Use cache buster to fetch the latest template from the public folder
+      const response = await fetch(`/export_template.xlsx?v=${Date.now()}`);
+      if (!response.ok) throw new Error("Template 'export_template.xlsx' not found in public folder.");
       
       const arrayBuffer = await response.arrayBuffer();
-      const workbook = XLSX.read(arrayBuffer, { type: 'array', cellStyles: true });
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
       const sheetName = workbook.SheetNames[0];
       const ws = workbook.Sheets[sheetName];
 
-      // Insert Summary Data (Dashboard Row 1-3)
-      XLSX.utils.sheet_add_aoa(ws, [
-        [exportType === 'results' ? "PARAÑAQUE DATA LINK - SUMMARY RESULTS" : "PARAÑAQUE DATA LINK - ARCHIVE"],
-        [
-          "TOTAL RECORDS:", dataToExport.length.toLocaleString(), 
-          "", // Spacer
-          "TOTAL MARKET VALUE:", `₱${totalMarket.toLocaleString()}`, 
-          "", // Spacer
-          "TOTAL ASSESSED VALUE:", `₱${totalAssessed.toLocaleString()}`
-        ],
-        ["EXPORT DATE:", new Date().toLocaleDateString()]
-      ], { origin: "A1" });
+      // Populating the dashboard/summary header (Rows 1-3)
+      const title = exportType === 'results' ? "PARAÑAQUE DATA LINK - SUMMARY RESULTS" : "PARAÑAQUE DATA LINK - ARCHIVE";
+      XLSX.utils.sheet_add_aoa(ws, [[title]], { origin: "A1" });
+      
+      XLSX.utils.sheet_add_aoa(ws, [[
+        "TOTAL RECORDS:", dataToExport.length.toLocaleString(), 
+        "", 
+        "TOTAL MARKET VALUE:", `₱${totalMarket.toLocaleString()}`, 
+        "", 
+        "TOTAL ASSESSED VALUE:", `₱${totalAssessed.toLocaleString()}`
+      ]], { origin: "A2" });
+      
+      XLSX.utils.sheet_add_aoa(ws, [["EXPORT DATE:", new Date().toLocaleDateString()]], { origin: "A3" });
 
-      // Update Column Headers (Row 4) based on current sidebar configuration
+      // Update Column Headers (Row 4)
       const activeHeaders = Object.values(headerMapping).filter(h => exportColumns[h]);
       XLSX.utils.sheet_add_aoa(ws, [activeHeaders], { origin: "A4" });
       
-      // Add Records starting at Row 5
+      // Add records starting at Row 5
       XLSX.utils.sheet_add_json(ws, formattedExport, { origin: "A5", skipHeader: true });
       
-      // Ensure the top 4 rows are frozen for sticky dashboard effect
-      ws['!freeze'] = { xSplit: 0, ySplit: 4 };
+      // Apply Freeze Pane to the first 4 rows
+      if (!ws['!views']) ws['!views'] = [];
+      ws['!views'][0] = { state: 'frozen', ySplit: 4, topLeftCell: 'A5', activePane: 'bottomLeft' };
       
-      // Set column widths for better readability
-      ws['!cols'] = activeHeaders.map(() => ({ wch: 22 }));
+      // Auto-set some standard widths
+      ws['!cols'] = activeHeaders.map(() => ({ wch: 20 }));
 
       const baseName = importedFileName.replace(/\.[^/.]+$/, "") || "LandRecords";
       const dateStr = new Date().toISOString().split('T')[0];
@@ -303,11 +303,11 @@ export default function Home() {
       XLSX.writeFile(workbook, finalFileName);
       
       toast({
-        title: `${exportType === 'results' ? 'Results' : 'Archive'} Export Successful`,
-        description: `Saved as ${finalFileName} using custom template.`,
+        title: "Export Successful",
+        description: `Saved as ${finalFileName} using local template.`,
       });
     } catch (error: any) {
-      console.error("Export template error:", error);
+      console.error("Export Error:", error);
       toast({
         variant: "destructive",
         title: "Template Export Failed",
@@ -322,7 +322,6 @@ export default function Home() {
     setSelectedRecord(record);
   };
 
-  // Memoized Filtered Data
   const filteredDisplayData = useMemo(() => {
     const baseData = viewMode === 'archive' 
       ? previewData.filter(r => r.isDuplicate || r.isCleanup)
@@ -357,7 +356,6 @@ export default function Home() {
     });
   }, [previewData, processedData, viewMode, searchQuery, searchField, statusFilter]);
 
-  // Analytics Data
   const analyticsData = useMemo(() => {
     const activeData = processedData.length > 0 ? processedData : previewData.filter(r => !r.isCleanup && !r.isDuplicate);
     
@@ -620,9 +618,6 @@ export default function Home() {
                               </PieChart>
                             </ResponsiveContainer>
                           </div>
-                          <div className="mt-4 text-center text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
-                            Click to View Full Breakdown
-                          </div>
                         </Card>
                       </div>
                     </TabsContent>
@@ -635,7 +630,7 @@ export default function Home() {
                       variant="outline" 
                       onClick={() => handleExport('results')} 
                       size="lg" 
-                      className="font-bold border-primary text-primary hover:bg-primary/5 hover:text-primary"
+                      className="font-bold border-primary text-primary hover:bg-primary/5"
                       disabled={isExporting}
                     >
                       <FileDown className="w-4 h-4 mr-2" /> {isExporting ? "Exporting..." : "Export Results"}
@@ -644,7 +639,7 @@ export default function Home() {
                       variant="outline" 
                       onClick={() => handleExport('archive')} 
                       size="lg" 
-                      className="font-bold border-orange-500 text-orange-600 hover:bg-orange-500/10 hover:text-orange-600"
+                      className="font-bold border-orange-500 text-orange-600 hover:bg-orange-500/10"
                       disabled={isExporting}
                     >
                       <Archive className="w-4 h-4 mr-2" /> {isExporting ? "Exporting..." : "Export Archive"}
@@ -652,7 +647,7 @@ export default function Home() {
                   </div>
                   <Button 
                     size="lg" 
-                    className="bg-primary hover:bg-green-700 px-12 font-bold shadow-lg shadow-green-500/20"
+                    className="bg-primary hover:bg-green-700 px-12 font-bold shadow-lg"
                     disabled={isProcessing}
                     onClick={runProcess}
                   >
@@ -675,22 +670,17 @@ export default function Home() {
       <RecordDetailModal
         record={selectedRecord}
         open={!!selectedRecord}
-        onOpenChange={(isOpen) => {
-          if (!isOpen) {
-            setSelectedRecord(null);
-          }
-        }}
+        onOpenChange={(isOpen) => !isOpen && setSelectedRecord(null)}
       />
       
-      {/* Expanded Market Value Detail Modal - Optimized for high density */}
       <Dialog open={isMarketDetailOpen} onOpenChange={setIsMarketDetailOpen}>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col bg-card/95 backdrop-blur-xl border-white/10 p-4 sm:p-5">
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col bg-card/95 backdrop-blur-xl border-white/10 p-5">
           <DialogHeader className="mb-2 shrink-0">
             <DialogTitle className="text-xl font-black text-gradient uppercase flex items-center gap-2 leading-none">
               <Database className="w-5 h-5 text-primary" /> Market Value Breakdown
             </DialogTitle>
             <DialogDescription className="font-medium text-xs">
-              Complete distribution by property usage (Actual Use).
+              Complete distribution by property usage.
             </DialogDescription>
           </DialogHeader>
           
@@ -720,39 +710,26 @@ export default function Home() {
             
             <div className="lg:col-span-6 flex flex-col gap-3 min-h-0">
               <div className="flex items-center justify-between px-3">
-                <h5 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
-                  Usage Categories
-                </h5>
-                <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">
-                  Market Value
-                </span>
+                <h5 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Usage Categories</h5>
+                <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Market Value</span>
               </div>
               
               <div className="flex-1 overflow-y-auto pr-2 scrollbar-vertical-custom space-y-1.5">
                 {analyticsData.marketChart.map((item, index) => {
                   const total = analyticsData.marketChart.reduce((sum, curr) => sum + curr.value, 0);
                   const percentage = ((item.value / total) * 100).toFixed(1);
-                  
                   return (
-                    <div key={item.name} className="flex flex-col gap-1 p-2 px-3 rounded-lg bg-muted/30 border border-white/5 transition-colors hover:bg-muted/50">
+                    <div key={item.name} className="flex flex-col gap-1 p-2 px-3 rounded-lg bg-muted/30 border border-white/5 hover:bg-muted/50 transition-colors">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
                           <span className="text-xs font-black uppercase tracking-tight">{item.name}</span>
-                          <span className="text-[9px] font-black text-primary/70 px-1 rounded bg-primary/5 leading-none">
-                            {percentage}%
-                          </span>
+                          <span className="text-[9px] font-black text-primary/70 px-1 rounded bg-primary/5 leading-none">{percentage}%</span>
                         </div>
                         <span className="text-xs font-mono font-bold">₱{item.value.toLocaleString()}</span>
                       </div>
                       <div className="w-full h-1 bg-background/50 rounded-full overflow-hidden mt-0.5">
-                        <div 
-                          className="h-full transition-all duration-1000 ease-out" 
-                          style={{ 
-                            width: `${percentage}%`, 
-                            backgroundColor: COLORS[index % COLORS.length] 
-                          }} 
-                        />
+                        <div className="h-full transition-all duration-1000 ease-out" style={{ width: `${percentage}%`, backgroundColor: COLORS[index % COLORS.length] }} />
                       </div>
                     </div>
                   );
@@ -761,10 +738,8 @@ export default function Home() {
               
               <div className="mt-auto pt-3 border-t border-white/10 shrink-0">
                 <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-primary/20">
-                  <span className="text-[10px] font-black uppercase text-primary tracking-widest">Grand Total Market Value</span>
-                  <span className="text-sm font-black text-gradient">
-                    ₱{analyticsData.marketChart.reduce((sum, curr) => sum + curr.value, 0).toLocaleString()}
-                  </span>
+                  <span className="text-[10px] font-black uppercase text-primary tracking-widest">Grand Total</span>
+                  <span className="text-sm font-black text-gradient">₱{analyticsData.marketChart.reduce((sum, curr) => sum + curr.value, 0).toLocaleString()}</span>
                 </div>
               </div>
             </div>
