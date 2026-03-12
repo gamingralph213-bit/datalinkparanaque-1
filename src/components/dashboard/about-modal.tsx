@@ -15,6 +15,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { Button } from '@/components/ui/button';
 import { Info, HelpCircle, Database, Settings, Table as TableIcon, FileDown, Zap } from 'lucide-react';
 
 interface AboutModalProps {
