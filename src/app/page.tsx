@@ -160,9 +160,10 @@ export default function Home() {
         if (parsed.locationSettings) setLocationSettings(parsed.locationSettings);
         if (parsed.options) setOptions({ ...options, ...parsed.options });
         if (parsed.taxRates) setTaxRates(parsed.taxRates);
+        if (parsed.processingReports) setProcessingReports(parsed.processingReports);
       } else {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ 
-          rules: [], exportColumns: defaultExportColumns, locationSettings: initialLocationSettings, options, taxRates: defaultTaxRates
+          rules: [], exportColumns: defaultExportColumns, locationSettings: initialLocationSettings, options, taxRates: defaultTaxRates, processingReports: []
         }));
       }
     } catch (error) { console.error("Failed to parse localStorage:", error); }
@@ -175,9 +176,9 @@ export default function Home() {
 
   useEffect(() => {
     if (isClient) {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ rules, exportColumns, locationSettings, options, taxRates }));
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ rules, exportColumns, locationSettings, options, taxRates, processingReports }));
     }
-  }, [rules, exportColumns, locationSettings, options, taxRates, isClient]);
+  }, [rules, exportColumns, locationSettings, options, taxRates, processingReports, isClient]);
 
   const toggleFullScreen = () => {
     if (!document.fullscreenElement) {
@@ -322,6 +323,22 @@ export default function Home() {
       const baseName = importedFileName.replace(/\.[^/.]+$/, "") || "LandRecords";
       const finalFileName = `${baseName}-${exportType === 'results' ? 'Clean' : 'Archive'}-${new Date().toISOString().split('T')[0]}.xlsx`;
       XLSX.writeFile(workbook, finalFileName);
+      
+      // Log the export event
+      const exportReport: ProcessingReport = {
+        timestamp: new Date().toLocaleString(),
+        fileName: `${finalFileName} (${exportType.toUpperCase()} EXPORT)`,
+        totalImported: dataToExport.length,
+        cleanupCount: 0,
+        duplicatesDetected: 0,
+        calibratedCount: 0,
+        errorCount: dataToExport.filter(r => !r.isValid).length,
+        validCount: dataToExport.filter(r => r.isValid).length,
+        totalMarketValue: totalMarketValue,
+        totalAssessedValue: totalAssessedValue,
+      };
+      setProcessingReports(prev => [exportReport, ...prev]);
+
       setExportSuccess(true);
       setTimeout(() => setExportSuccess(false), 2500);
     } catch (error: any) {
