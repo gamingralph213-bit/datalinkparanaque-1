@@ -43,7 +43,7 @@ export function DataPreviewTable({ data, isProcessed = false, onRowClick }: Data
     <div className="relative flex-1 flex flex-col min-h-0 bg-card overflow-hidden">
       <div className="flex-1 overflow-auto border-t scrollbar-custom">
         <Table 
-          className="text-[13px] min-w-[2600px] select-none border-separate border-spacing-0"
+          className="text-[13px] min-w-[2800px] select-none border-separate border-spacing-0"
           wrapperClassName="overflow-visible" 
         >
           <TableHeader className="bg-card sticky top-0 z-20 shadow-sm">
@@ -54,7 +54,8 @@ export function DataPreviewTable({ data, isProcessed = false, onRowClick }: Data
               <TableHead className="min-w-[200px] font-black uppercase bg-card">PIN</TableHead>
               <TableHead className="min-w-[80px] font-black uppercase text-center bg-card">Update</TableHead>
               <TableHead className="min-w-[200px] font-black uppercase bg-card">AcctName</TableHead>
-              <TableHead className="min-w-[280px] font-black uppercase bg-emerald-50 dark:bg-emerald-950 border-x border-emerald-100 dark:border-emerald-900">Location</TableHead>
+              <TableHead className="min-w-[250px] font-black uppercase bg-card">Address</TableHead>
+              <TableHead className="min-w-[250px] font-black uppercase bg-emerald-50 dark:bg-emerald-950 border-x border-emerald-100 dark:border-emerald-900">Location</TableHead>
               <TableHead className="min-w-[90px] font-black uppercase bg-card">Kind</TableHead>
               <TableHead className="min-w-[90px] font-black uppercase bg-card">AU</TableHead>
               <TableHead className="text-right min-w-[110px] font-black uppercase bg-card">Area (sqm)</TableHead>
@@ -94,10 +95,10 @@ export function DataPreviewTable({ data, isProcessed = false, onRowClick }: Data
                   )}
                 </TableCell>
                 <TableCell className="max-w-[200px] truncate uppercase font-bold p-3">{row.acctName || '---'}</TableCell>
-                <TableCell className="max-w-[280px] truncate uppercase p-3 text-muted-foreground italic font-medium">
+                <TableCell className="max-w-[250px] truncate uppercase p-3 text-muted-foreground italic font-medium">
                   {row.address || '---'}
                 </TableCell>
-                <TableCell className="max-w-[280px] truncate uppercase p-3 font-bold text-emerald-900 dark:text-emerald-200 bg-emerald-50/20 dark:bg-emerald-950/50 border-x border-emerald-100/50 dark:border-emerald-900/50">
+                <TableCell className="max-w-[250px] truncate uppercase p-3 font-bold text-emerald-900 dark:text-emerald-200 bg-emerald-50/20 dark:bg-emerald-950/50 border-x border-emerald-100/50 dark:border-emerald-900/50">
                   {row.location || '---'}
                 </TableCell>
                 <TableCell className="p-3 font-bold">{row.kind || '---'}</TableCell>

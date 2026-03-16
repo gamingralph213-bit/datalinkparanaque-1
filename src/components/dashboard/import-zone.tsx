@@ -114,12 +114,14 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         if (typeof val === 'number') return val;
         if (typeof val === 'string') {
           const clean = val.replace(/[^0-9.-]/g, '');
-          return parseFloat(clean) || 0;
+          const parsed = parseFloat(clean);
+          return isNaN(parsed) ? 0 : parsed;
         }
         return 0;
       };
 
-      let kind = String(norm['k'] || norm['kind'] || '').trim();
+      // Handle KIND and AU specifically, including legacy K-AU combined format
+      let kind = String(norm['kind'] || norm['k'] || '').trim();
       let au = String(norm['au'] || norm['actual use'] || '').trim();
       const kau = String(norm['k-au'] || '').trim();
       
@@ -130,23 +132,24 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
       }
       
       const pin = String(norm['pin'] || '').trim();
-      const arpNo = String(norm['current'] || norm['arp no#'] || norm['arp no'] || '').trim();
+      const arpNo = String(norm['arp no#'] || norm['arp no'] || norm['current'] || '').trim();
 
       return {
         id: `${index}-${pin}-${arpNo}`,
-        date: String(norm['effectivity'] || norm['date'] || '').trim(),
+        date: String(norm['date'] || norm['effectivity'] || '').trim(),
         arpNo: arpNo,
         pin: pin,
         update: String(norm['update'] || norm['upd'] || norm['update code'] || norm['type'] || '').trim(),
-        acctName: String(norm['owner'] || norm['acctname'] || '').trim(),
-        address: String(norm['address'] || norm['location'] || '').trim(),
-        location: "", 
+        acctName: String(norm['acctname'] || norm['owner'] || '').trim(),
+        address: String(norm['address'] || '').trim(),
+        location: String(norm['location'] || '').trim(), 
         kind: kind,
         au: au,
         landArea: parseNum(norm['land area'] || norm['area']),
         unitValue: parseNum(norm['unit value']),
         marketValue: parseNum(norm['market value']),
         assessedValue: parseNum(norm['assessed value']),
+        yearlyTax: parseNum(norm['yearly tax']),
         isCleanup: false,
         cleanupReason: ""
       };
@@ -197,7 +200,7 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         <h3 className="text-3xl font-black mb-4 text-emerald-900 dark:text-emerald-400">Import Property Data</h3>
         <p className="text-muted-foreground mb-10 max-w-md text-base font-semibold leading-relaxed">
           Drag your Excel file here or click below. <br/>
-          <span className="text-[12px] uppercase opacity-60 tracking-widest text-emerald-600 font-black block mt-2">Raw import. Click "Run Processor" to filter.</span>
+          <span className="text-[12px] uppercase opacity-60 tracking-widest text-emerald-600 font-black block mt-2">Standard Parañaque Header format expected.</span>
         </p>
         
         <div className="flex gap-4 mb-10">
@@ -214,29 +217,29 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         <div className="w-full bg-muted/30 rounded-2xl p-8 border border-white/5 text-left">
           <div className="flex items-center gap-3 mb-5">
             <Info className="w-5 h-5 text-primary" />
-            <h4 className="text-sm font-black uppercase tracking-widest text-emerald-900 dark:text-emerald-400">Excel Template Requirements</h4>
+            <h4 className="text-sm font-black uppercase tracking-widest text-emerald-900 dark:text-emerald-400">Excel Header Mapping</h4>
           </div>
           <p className="text-sm text-muted-foreground mb-6 font-semibold leading-relaxed">
-            To ensure correct processing, your spreadsheet should contain the following headers. The system is designed to map these standard Parañaque City land record columns:
+            The system identifies the following column headers from your spreadsheet:
           </p>
           
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {[
-              { label: "Owner", target: "AcctName" },
-              { label: "Address", target: "Address" },
-              { label: "PIN", target: "PIN" },
-              { label: "Effectivity", target: "Date" },
-              { label: "type", target: "Update Code" },
-              { label: "Current", target: "ARP No" },
-              { label: "K-AU", target: "Kind & Use" },
-              { label: "Area", target: "Land Area" },
-              { label: "Market Value", target: "Value" },
+              { label: "DATE", target: "Effectivity" },
+              { label: "ARP NO#", target: "Current ARP" },
+              { label: "PIN", target: "PIN Number" },
+              { label: "ACCTNAME", target: "Owner Name" },
+              { label: "ADDRESS", target: "Physical Address" },
+              { label: "LOCATION", target: "Barangay/Section" },
+              { label: "KIND / AU", target: "Kind & Actual Use" },
+              { label: "LAND AREA", target: "Sq. Meters" },
+              { label: "UNIT VALUE", target: "Base Price" },
             ].map((col) => (
               <div key={col.label} className="flex items-center gap-3 bg-background/50 p-3 rounded-xl border border-white/5">
                 <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
                 <div>
                   <div className="text-[11px] font-black uppercase tracking-tighter text-foreground leading-tight">{col.label}</div>
-                  <div className="text-[10px] text-muted-foreground italic leading-none font-bold">maps to {col.target}</div>
+                  <div className="text-[10px] text-muted-foreground italic leading-none font-bold">{col.target}</div>
                 </div>
               </div>
             ))}

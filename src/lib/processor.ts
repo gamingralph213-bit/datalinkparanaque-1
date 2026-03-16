@@ -20,7 +20,7 @@ export interface LandRecord {
   update?: string;
   acctName: string;
   address: string; // The original address from source
-  location: string; // The blank/calibrated field for Barangay, Section
+  location: string; // The calibrated field for Barangay, Section
   kind: string;
   au: string;
   landArea: number;
@@ -127,8 +127,8 @@ export function validateRecord(record: LandRecord, allArps: Set<string>): Valida
   // 2. Land Area Validation
   if (record.landArea === undefined || record.landArea === null || isNaN(record.landArea)) {
     errors.push({ field: 'landArea', message: 'Missing land area' });
-  } else if (record.landArea <= 0) {
-    errors.push({ field: 'landArea', message: 'Land area must be greater than 0' });
+  } else if (record.landArea < 0) {
+    errors.push({ field: 'landArea', message: 'Land area cannot be negative' });
   }
 
   // 3. ARP Validation
@@ -204,12 +204,14 @@ export function processRecords(
     let marketValue = Number(r.marketValue) || 0;
     let unitValue = Number(r.unitValue) || 0;
     
+    // Auto-calculate unit value if missing but market value exists
     if (unitValue === 0 && marketValue > 0 && landArea > 0) {
       unitValue = Math.round(marketValue / landArea);
     } else {
       unitValue = Math.round(unitValue);
     }
 
+    // Auto-calculate market value if area and unit value exist
     if (unitValue > 0 && landArea > 0) {
       marketValue = unitValue * landArea;
     }
@@ -224,7 +226,7 @@ export function processRecords(
       update: r.update?.trim() || '',
       acctName: r.acctName?.trim().toUpperCase() || '',
       address: r.address?.trim().toUpperCase() || '',
-      location: r.location || "",
+      location: r.location?.trim().toUpperCase() || "",
       kind: r.kind?.trim().toUpperCase() || '',
       au: r.au?.trim().toUpperCase() || '',
       landArea,
@@ -239,7 +241,6 @@ export function processRecords(
 
     // Run Validation
     const errors = validateRecord(record, new Set());
-    // Check for Duplicate ARP in the whole batch
     if (record.arpNo && (arpCounts.get(record.arpNo) || 0) > 1) {
       errors.push({ field: 'arpNo', message: 'Duplicate ARP Number detected in source file' });
     }
@@ -277,6 +278,7 @@ export function processRecords(
       if (record.isCleanup) return record;
       let updated = { ...record };
       const matchingRule = rules.find(rule => matchesPinPattern(record.pin, rule.pinPattern));
+      
       if (matchingRule) {
         const brgy = (matchingRule.barangay || "").trim();
         const sec = (matchingRule.section || "").trim();
@@ -287,6 +289,7 @@ export function processRecords(
           updated.unitValue = Math.round(matchingRule.unitValue);
         }
       }
+
       if (locationSettings) {
           const pinParts = updated.pin.split('-');
           if (pinParts.length >= 4) {
@@ -320,6 +323,7 @@ export function processRecords(
               }
           }
       }
+      
       if (updated.unitValue && updated.unitValue > 0 && updated.landArea > 0) {
           updated.marketValue = updated.landArea * updated.unitValue;
           updated.assessedValue = calculateAssessedValue(updated.marketValue, updated.au, taxRates);
