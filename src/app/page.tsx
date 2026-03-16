@@ -131,7 +131,7 @@ export default function Home() {
     setIsClient(true);
     
     const handleBeforeInstallPrompt = (e: any) => { e.preventDefault(); setDeferredPrompt(e); };
-    const handleAppInstalled = () => { setDeferredPrompt(null); toast({ title: "Installation Successful", description: "DataLink Parañaque is now available on your device." }); };
+    const handleAppInstalled = () => { setDeferredPrompt(null); toast({ title: "Installation Successful", description: "Data Link Parañaque is now available on your device." }); };
     const handleFullScreenChange = () => { setIsFullScreen(!!document.fullscreenElement); };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -304,7 +304,7 @@ export default function Home() {
       const sheetName = workbook.SheetNames[0];
       const ws = workbook.Sheets[sheetName];
 
-      const title = exportType === 'results' ? "PARAÑAQUE DATA LINK - SUMMARY RESULTS" : "PARAÑAQUE DATA LINK - ARCHIVE";
+      const title = exportType === 'results' ? "DATA LINK PARAÑAQUE - SUMMARY RESULTS" : "DATA LINK PARAÑAQUE - ARCHIVE";
       XLSX.utils.sheet_add_aoa(ws, [[title]], { origin: "A1" });
       
       XLSX.utils.sheet_add_aoa(ws, [
@@ -439,7 +439,7 @@ export default function Home() {
                  Select Workflow Mode
                </DialogTitle>
                <DialogDescription className="text-lg font-bold text-muted-foreground">
-                 Choose how you want to interact with DataLink Parañaque.
+                 Choose how you want to interact with Data Link Parañaque.
                </DialogDescription>
              </div>
 
@@ -503,9 +503,6 @@ export default function Home() {
               <Download className="w-5 h-5" />
             </Button>
           )}
-          <Button variant="ghost" size="icon" onClick={() => setUserMode(null)} title="Change Mode">
-            <Layers className="w-5 h-5" />
-          </Button>
           <Button variant="ghost" size="icon" onClick={toggleFullScreen} title={isFullScreen ? "Exit Full Screen" : "Full Screen"}>
             {isFullScreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
           </Button>
