@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useRef } from 'react';
@@ -18,61 +19,74 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = (file: File) => {
-    setIsLoading(true);
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { 
-          type: 'array',
-          cellDates: false,
-          cellNF: true,
-          cellText: true
-        });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        
-        const json = XLSX.utils.sheet_to_json(worksheet, { raw: false, defval: "" }) as any[];
-        const rawCount = json.length;
-        
-        const mappedData = mapRawToRecords(json);
-        if (mappedData.length === 0) {
-          toast({
-            variant: "destructive",
-            title: "Empty Data",
-            description: "No property records found in this file."
+  const processFile = async (file: File): Promise<{ data: LandRecord[], count: number }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { 
+            type: 'array',
+            cellDates: false,
+            cellNF: true,
+            cellText: true
           });
-          setIsLoading(false);
-          return;
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const json = XLSX.utils.sheet_to_json(worksheet, { raw: false, defval: "" }) as any[];
+          const rawCount = json.length;
+          const mappedData = mapRawToRecords(json, file.name);
+          resolve({ data: mappedData, count: rawCount });
+        } catch (error) {
+          reject(error);
         }
-        
-        setTimeout(() => {
-          onDataImported(mappedData, file.name, rawCount);
-          setIsLoading(false);
-        }, 100);
+      };
+      reader.onerror = () => reject(new Error("File read error"));
+      reader.readAsArrayBuffer(file);
+    });
+  };
 
-      } catch (error) {
-        setIsLoading(false);
+  const handleFilesUpload = async (files: FileList | File[]) => {
+    if (files.length === 0) return;
+    setIsLoading(true);
+
+    const allRecords: LandRecord[] = [];
+    let totalRawCount = 0;
+    const fileNames: string[] = [];
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const result = await processFile(file);
+        allRecords.push(...result.data);
+        totalRawCount += result.count;
+        fileNames.push(file.name);
+      }
+
+      const summaryFileName = fileNames.length > 1 
+        ? `Batch (${fileNames.length} Files)` 
+        : fileNames[0];
+
+      if (allRecords.length === 0) {
         toast({
           variant: "destructive",
-          title: "Import Error",
-          description: "Could not read spreadsheet. Ensure headers match required fields."
+          title: "Empty Data",
+          description: "No property records found in the selected files."
         });
+        setIsLoading(false);
+        return;
       }
-    };
 
-    reader.onerror = () => {
+      onDataImported(allRecords, summaryFileName, totalRawCount);
+      setIsLoading(false);
+    } catch (error) {
       setIsLoading(false);
       toast({
         variant: "destructive",
-        title: "File Read Error",
-        description: "An error occurred while reading the file."
+        title: "Import Error",
+        description: "Could not read one or more spreadsheets. Ensure headers match required fields."
       });
-    };
-
-    reader.readAsArrayBuffer(file);
+    }
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
@@ -97,12 +111,12 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         return obj;
       });
 
-      onDataImported(mapRawToRecords(records), "Clipboard-Data", records.length);
+      onDataImported(mapRawToRecords(records, "Clipboard-Data"), "Clipboard-Data", records.length);
       setIsLoading(false);
     }, 50);
   };
 
-  const mapRawToRecords = (raw: any[]): LandRecord[] => {
+  const mapRawToRecords = (raw: any[], fileName: string): LandRecord[] => {
     return raw.map((item, index) => {
       const norm: any = {};
       Object.keys(item).forEach(key => {
@@ -120,7 +134,6 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         return 0;
       };
 
-      // Handle KIND and AU specifically, including legacy K-AU combined format
       let kind = String(norm['kind'] || norm['k'] || '').trim();
       let au = String(norm['au'] || norm['actual use'] || '').trim();
       const kau = String(norm['k-au'] || '').trim();
@@ -135,7 +148,7 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
       const arpNo = String(norm['arp no#'] || norm['arp no'] || norm['current'] || '').trim();
 
       return {
-        id: `${index}-${pin}-${arpNo}`,
+        id: `${fileName}-${index}-${pin}-${arpNo}`,
         date: String(norm['date'] || norm['effectivity'] || '').trim(),
         arpNo: arpNo,
         pin: pin,
@@ -151,7 +164,8 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         assessedValue: parseNum(norm['assessed value']),
         yearlyTax: parseNum(norm['yearly tax']),
         isCleanup: false,
-        cleanupReason: ""
+        cleanupReason: "",
+        sourceFile: fileName
       };
     });
   };
@@ -167,8 +181,8 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
           e.preventDefault();
           setIsDragging(false);
           if (isLoading) return;
-          const file = e.dataTransfer.files[0];
-          if (file) handleFileUpload(file);
+          const files = Array.from(e.dataTransfer.files);
+          if (files.length > 0) handleFilesUpload(files);
         }}
         onPaste={isLoading ? undefined : handlePaste}
         tabIndex={0}
@@ -176,8 +190,8 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         {isLoading && (
           <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in duration-300">
             <Loader2 className="w-14 h-14 text-primary animate-spin mb-6" />
-            <h3 className="text-2xl font-black text-emerald-900 dark:text-emerald-400">Reading Spreadsheet...</h3>
-            <p className="text-base text-muted-foreground font-semibold">Please wait while we parse your land record data.</p>
+            <h3 className="text-2xl font-black text-emerald-900 dark:text-emerald-400">Processing Files...</h3>
+            <p className="text-base text-muted-foreground font-semibold">Please wait while we parse your land record data batch.</p>
           </div>
         )}
 
@@ -186,9 +200,10 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
           ref={fileInputRef} 
           className="hidden" 
           accept=".xlsx, .xls, .csv" 
+          multiple
           onChange={(e) => {
-            if (e.target.files?.[0]) {
-              handleFileUpload(e.target.files[0]);
+            if (e.target.files) {
+              handleFilesUpload(e.target.files);
             }
             e.target.value = '';
           }} 
@@ -197,10 +212,10 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         <div className="bg-primary/10 p-6 rounded-full mb-8">
           <Upload className="w-12 h-12 text-primary" />
         </div>
-        <h3 className="text-3xl font-black mb-4 text-emerald-900 dark:text-emerald-400">Import Property Data</h3>
+        <h3 className="text-3xl font-black mb-4 text-emerald-900 dark:text-emerald-400">Batch Import Data</h3>
         <p className="text-muted-foreground mb-10 max-w-md text-base font-semibold leading-relaxed">
-          Drag your Excel file here or click below. <br/>
-          <span className="text-[12px] uppercase opacity-60 tracking-widest text-emerald-600 font-black block mt-2">Standard Parañaque Header format expected.</span>
+          Drag multiple Excel files here or click below. <br/>
+          <span className="text-[12px] uppercase opacity-60 tracking-widest text-emerald-600 font-black block mt-2">Processes all files locally.</span>
         </p>
         
         <div className="flex gap-4 mb-10">
@@ -210,7 +225,7 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
             onClick={() => fileInputRef.current?.click()}
             disabled={isLoading}
           >
-            <FileSpreadsheet className="mr-3 h-5 w-5" /> Choose Excel File
+            <FileSpreadsheet className="mr-3 h-5 w-5" /> Select Multiple Files
           </Button>
         </div>
 
@@ -220,30 +235,8 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
             <h4 className="text-sm font-black uppercase tracking-widest text-emerald-900 dark:text-emerald-400">Excel Header Mapping</h4>
           </div>
           <p className="text-sm text-muted-foreground mb-6 font-semibold leading-relaxed">
-            The system identifies the following column headers from your spreadsheet:
+            Standard Parañaque Header format expected. Columns like PIN, ARP NO#, ACCTNAME, and LAND AREA will be mapped automatically across all files.
           </p>
-          
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {[
-              { label: "DATE", target: "Effectivity" },
-              { label: "ARP NO#", target: "Current ARP" },
-              { label: "PIN", target: "PIN Number" },
-              { label: "ACCTNAME", target: "Owner Name" },
-              { label: "ADDRESS", target: "Physical Address" },
-              { label: "LOCATION", target: "Barangay/Section" },
-              { label: "KIND / AU", target: "Kind & Actual Use" },
-              { label: "LAND AREA", target: "Sq. Meters" },
-              { label: "UNIT VALUE", target: "Base Price" },
-            ].map((col) => (
-              <div key={col.label} className="flex items-center gap-3 bg-background/50 p-3 rounded-xl border border-white/5">
-                <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
-                <div>
-                  <div className="text-[11px] font-black uppercase tracking-tighter text-foreground leading-tight">{col.label}</div>
-                  <div className="text-[10px] text-muted-foreground italic leading-none font-bold">{col.target}</div>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       </Card>
     </div>

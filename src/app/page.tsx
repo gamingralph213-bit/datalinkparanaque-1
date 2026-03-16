@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -22,7 +23,9 @@ import {
   Cpu,
   AlertTriangle,
   ShieldCheck,
-  FileText
+  FileText,
+  Files,
+  ArrowRightLeft
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -59,7 +62,8 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogDescription 
+  DialogDescription,
+  DialogFooter
 } from '@/components/ui/dialog';
 import { Bar, BarChart, XAxis, YAxis, Cell, Pie, PieChart, Legend, CartesianGrid } from 'recharts';
 import { cn } from '@/lib/utils';
@@ -114,6 +118,8 @@ export default function Home() {
   const [selectedRecord, setSelectedRecord] = useState<LandRecord | null>(null);
   const [isMarketDetailOpen, setIsMarketDetailOpen] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [isBatchExportDialogOpen, setIsBatchExportDialogOpen] = useState(false);
+  const [currentExportType, setCurrentExportType] = useState<'results' | 'archive'>('results');
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchField, setSearchField] = useState("all");
@@ -201,7 +207,7 @@ export default function Home() {
     if (userMode === 'basic') {
       runProcessWithData(imported, rawCount, fileName);
     } else {
-      const { allWithDuplicateMarkers, report } = processRecords(imported, [], [], taxRates, {
+      const { allWithDuplicateMarkers } = processRecords(imported, [], [], taxRates, {
         removeDuplicates: false,
         applyCalibration: false,
         systemCleanup: false
@@ -210,7 +216,7 @@ export default function Home() {
       updateStats(allWithDuplicateMarkers, rawCount);
       toast({
         title: "Data Loaded",
-        description: `${rawCount} records imported. Review for errors or click "Run Processor".`,
+        description: `${rawCount} records from ${fileName} imported.`,
       });
     }
   };
@@ -241,7 +247,7 @@ export default function Home() {
     updateStats(allWithDuplicateMarkers, rawCount);
     toast({
       title: "Processing Complete",
-      description: `Finalized ${processed.length} records. Found ${report.errorCount} records with errors. Check Audit Log for details.`,
+      description: `Finalized ${processed.length} records. Check Audit Log for details.`,
     });
     setIsProcessing(false);
   };
@@ -267,21 +273,9 @@ export default function Home() {
     toast({ title: "Record Saved", description: "The property record has been updated and re-validated." });
   };
 
-  const handleExport = async (exportType: 'results' | 'archive' = 'results') => {
-    let dataToExport: LandRecord[] = [];
-    if (exportType === 'results') {
-      const currentList = processedData.length > 0 ? processedData : previewData;
-      dataToExport = currentList.filter(r => !r.isCleanup && !r.isDuplicate);
-    } else {
-      dataToExport = previewData.filter(r => r.isDuplicate || r.isCleanup);
-    }
+  const performExcelExport = async (dataToExport: LandRecord[], exportType: 'results' | 'archive', fileNameOverride?: string) => {
+    if (dataToExport.length === 0) return;
 
-    if (dataToExport.length === 0) {
-      toast({ variant: "destructive", title: "Export Failed", description: `No matching records found to export.` });
-      return;
-    }
-
-    setIsExporting(true);
     const totalMarketValue = dataToExport.reduce((sum, r) => sum + (r.marketValue || 0), 0);
     const totalAssessedValue = dataToExport.reduce((sum, r) => sum + (r.assessedValue || 0), 0);
     const headerMapping: Record<string, string> = {
@@ -319,7 +313,8 @@ export default function Home() {
       if (!ws['!views']) ws['!views'] = [];
       ws['!views'][0] = { state: 'frozen', ySplit: 5, topLeftCell: 'A6', activePane: 'bottomLeft' };
       ws['!cols'] = activeHeaders.map(() => ({ wch: 22 }));
-      const baseName = importedFileName.replace(/\.[^/.]+$/, "") || "LandRecords";
+      
+      const baseName = (fileNameOverride || importedFileName).replace(/\.[^/.]+$/, "") || "LandRecords";
       const finalFileName = `${baseName}-${exportType === 'results' ? 'Clean' : 'Archive'}-${new Date().toISOString().split('T')[0]}.xlsx`;
       XLSX.writeFile(workbook, finalFileName);
       
@@ -337,12 +332,58 @@ export default function Home() {
         totalAssessedValue: totalAssessedValue,
       };
       setProcessingReports(prev => [exportReport, ...prev]);
+    } catch (error: any) {
+      throw error;
+    }
+  };
 
+  const handleExportClick = (type: 'results' | 'archive') => {
+    const currentList = type === 'results' 
+      ? (processedData.length > 0 ? processedData : previewData.filter(r => !r.isDuplicate && !r.isCleanup))
+      : previewData.filter(r => r.isDuplicate || r.isCleanup);
+
+    if (currentList.length === 0) {
+      toast({ variant: "destructive", title: "Export Failed", description: "No records found to export." });
+      return;
+    }
+
+    const uniqueSources = Array.from(new Set(currentList.map(r => r.sourceFile).filter(Boolean)));
+    
+    if (uniqueSources.length > 1) {
+      setCurrentExportType(type);
+      setIsBatchExportDialogOpen(true);
+    } else {
+      executeExport(type, 'merged');
+    }
+  };
+
+  const executeExport = async (type: 'results' | 'archive', mode: 'merged' | 'separate') => {
+    setIsExporting(true);
+    setIsBatchExportDialogOpen(false);
+
+    const currentList = type === 'results' 
+      ? (processedData.length > 0 ? processedData : previewData.filter(r => !r.isDuplicate && !r.isCleanup))
+      : previewData.filter(r => r.isDuplicate || r.isCleanup);
+
+    try {
+      if (mode === 'merged') {
+        await performExcelExport(currentList, type);
+      } else {
+        const sources = Array.from(new Set(currentList.map(r => r.sourceFile)));
+        for (const source of sources) {
+          const sourceData = currentList.filter(r => r.sourceFile === source);
+          if (sourceData.length > 0) {
+            await performExcelExport(sourceData, type, source || undefined);
+          }
+        }
+      }
       setExportSuccess(true);
       setTimeout(() => setExportSuccess(false), 2500);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Export Failed", description: error.message });
-    } finally { setIsExporting(false); }
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleRowClick = (record: LandRecord) => { setSelectedRecord(record); };
@@ -357,7 +398,7 @@ export default function Home() {
       let matchesSearch = true;
       if (query) {
         if (searchField === 'all' || userMode === 'basic') {
-          matchesSearch = record.acctName?.toLowerCase().includes(query) || record.pin?.toLowerCase().includes(query) || record.arpNo?.toLowerCase().includes(query) || record.location?.toLowerCase().includes(query) || record.au?.toLowerCase().includes(query);
+          matchesSearch = record.acctName?.toLowerCase().includes(query) || record.pin?.toLowerCase().includes(query) || record.arpNo?.toLowerCase().includes(query) || record.location?.toLowerCase().includes(query) || record.au?.toLowerCase().includes(query) || record.sourceFile?.toLowerCase().includes(query);
         } else {
           const value = record[searchField as keyof LandRecord];
           matchesSearch = String(value || '').toLowerCase().includes(query);
@@ -398,12 +439,12 @@ export default function Home() {
       totalRawRows: 0, systemCleanup: 0, totalImported: 0, duplicatesRemoved: 0,
       finalCount: 0, totalMarket: 0, totalAssessed: 0, totalErrors: 0
     });
-    toast({ title: "Workspace Cleared", description: "All active data has been removed. Audit logs are preserved." });
+    toast({ title: "Workspace Cleared", description: "All active data removed. Audit logs preserved." });
   };
 
   const clearAuditHistory = () => {
     setProcessingReports([]);
-    toast({ title: "History Purged", description: "Audit logs have been permanently cleared." });
+    toast({ title: "History Purged", description: "Audit logs cleared permanently." });
   };
 
   const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#f97316'];
@@ -432,7 +473,7 @@ export default function Home() {
                   <div className="bg-primary/10 p-5 rounded-2xl group-hover:scale-110 transition-transform"><Zap className="w-10 h-10 text-primary" /></div>
                   <div className="space-y-2">
                     <h3 className="text-xl font-black uppercase tracking-tight">Basic Mode</h3>
-                    <p className="text-sm font-bold text-muted-foreground leading-relaxed">Instant processing. Just upload and export. Automates cleanup and calibration.</p>
+                    <p className="text-sm font-bold text-muted-foreground leading-relaxed">Instant batch processing. Just upload multiple files and export. Automates cleanup.</p>
                   </div>
                   <Button className="w-full h-12 font-black uppercase text-xs tracking-widest bg-primary hover:bg-emerald-800">Start Fast</Button>
                 </Card>
@@ -440,7 +481,7 @@ export default function Home() {
                   <div className="bg-blue-600/10 p-5 rounded-2xl group-hover:scale-110 transition-transform"><Cpu className="w-10 h-10 text-blue-600" /></div>
                   <div className="space-y-2">
                     <h3 className="text-xl font-black uppercase tracking-tight">Advanced Mode</h3>
-                    <p className="text-sm font-bold text-muted-foreground leading-relaxed">Full manual control. Adjust engine settings, preview raw data, and custom calibrate.</p>
+                    <p className="text-sm font-bold text-muted-foreground leading-relaxed">Full manual control. Adjust batch settings, review separate files, and custom calibrate.</p>
                   </div>
                   <Button variant="outline" className="w-full h-12 font-black uppercase text-xs tracking-widest border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white">Full Control</Button>
                 </Card>
@@ -460,7 +501,7 @@ export default function Home() {
                     <span className="bg-gradient-to-br from-blue-600 via-emerald-500 to-green-400 bg-clip-text text-transparent drop-shadow-sm">DataLink</span>
                     <span className="text-[12px] bg-primary/10 text-primary border border-primary/30 px-3 py-1 rounded-full font-black uppercase tracking-wider shadow-sm ml-1">Parañaque</span>
                   </h1>
-                  <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-[0.2em] mt-1.5 ml-0.5 opacity-60">Land Data Processor</p>
+                  <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-[0.2em] mt-1.5 ml-0.5 opacity-60">Real Property Batch Processor</p>
                 </div>
               </div>
             </TooltipTrigger>
@@ -493,19 +534,19 @@ export default function Home() {
                 {viewMode !== 'audit' && (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4 shrink-0">
                     <Card className="p-4 border-l-4 border-l-slate-400 flex flex-col shadow-sm">
-                      <div className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5 mb-1.5 tracking-wide"><FileSearch className="w-3 h-3" /> Total Rows</div>
+                      <div className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5 mb-1.5 tracking-wide"><Files className="w-3 h-3" /> Imported Rows</div>
                       <div className={cn("font-black text-foreground leading-tight", getDynamicFontSize(stats.totalRawRows.toLocaleString()))}>{stats.totalRawRows.toLocaleString()}</div>
                     </Card>
                     <Card className="p-4 border-l-4 border-l-red-500 bg-red-500/5 flex flex-col shadow-sm">
-                      <div className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5 mb-1.5 tracking-wide"><AlertTriangle className="w-3 h-3" /> Detected Errors</div>
+                      <div className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5 mb-1.5 tracking-wide"><AlertTriangle className="w-3 h-3" /> Data Errors</div>
                       <div className={cn("font-black text-red-600 leading-tight", getDynamicFontSize(stats.totalErrors.toLocaleString()))}>{stats.totalErrors.toLocaleString()}</div>
                     </Card>
                     <Card className="p-4 border-l-4 border-l-orange-400 flex flex-col shadow-sm">
-                      <div className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5 mb-1.5 tracking-wide"><Eraser className="w-3 h-3" /> System Cleanup</div>
+                      <div className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5 mb-1.5 tracking-wide"><Eraser className="w-3 h-3" /> Engine Cleanup</div>
                       <div className={cn("font-black text-orange-600 leading-tight", getDynamicFontSize(stats.systemCleanup.toLocaleString()))}>{stats.systemCleanup.toLocaleString()}</div>
                     </Card>
                     <Card className="p-4 bg-primary/5 border-l-4 border-l-primary flex flex-col shadow-sm">
-                      <div className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5 mb-1.5 tracking-wide"><CheckCircle2 className="w-3 h-3" /> Final Records</div>
+                      <div className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5 mb-1.5 tracking-wide"><CheckCircle2 className="w-3 h-3" /> Valid Records</div>
                       <div className={cn("font-black text-primary leading-tight", getDynamicFontSize(stats.finalCount.toLocaleString()))}>{stats.finalCount.toLocaleString()}</div>
                     </Card>
                     <Card className="p-4 bg-amber-500/5 border-l-4 border-l-amber-400 flex flex-col shadow-sm">
@@ -513,11 +554,11 @@ export default function Home() {
                       <div className={cn("font-black text-amber-500 leading-tight", getDynamicFontSize(stats.duplicatesRemoved.toLocaleString()))}>{stats.duplicatesRemoved.toLocaleString()}</div>
                     </Card>
                     <Card className="p-4 bg-green-500/5 border-l-4 border-l-green-600 flex flex-col shadow-sm">
-                      <div className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5 mb-1.5 tracking-wide"><Database className="w-3 h-3" /> Market Value</div>
+                      <div className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5 mb-1.5 tracking-wide"><Database className="w-3 h-3" /> Total Market</div>
                       <div className={cn("font-black text-green-600 leading-tight truncate", getDynamicFontSize(`₱${stats.totalMarket.toLocaleString()}`))}>₱{stats.totalMarket.toLocaleString()}</div>
                     </Card>
                     <Card className="p-4 bg-blue-500/5 border-l-4 border-l-blue-600 flex flex-col shadow-sm">
-                      <div className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5 mb-1.5 tracking-wide"><BarChart3 className="w-3 h-3" /> Assessed Value</div>
+                      <div className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5 mb-1.5 tracking-wide"><BarChart3 className="w-3 h-3" /> Total Assessed</div>
                       <div className={cn("font-black text-blue-600 leading-tight truncate", getDynamicFontSize(`₱${stats.totalAssessed.toLocaleString()}`))}>₱{stats.totalAssessed.toLocaleString()}</div>
                     </Card>
                   </div>
@@ -543,14 +584,13 @@ export default function Home() {
                                 <SelectItem value="arpNo">ARP No#</SelectItem>
                                 <SelectItem value="pin">PIN</SelectItem>
                                 <SelectItem value="acctName">Account</SelectItem>
-                                <SelectItem value="location">Location</SelectItem>
-                                <SelectItem value="au">Usage (AU)</SelectItem>
+                                <SelectItem value="sourceFile">Source File</SelectItem>
                               </SelectContent>
                             </Select>
                           )}
                           <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <Input placeholder={`Search property records...`} className="pl-9 text-sm h-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                            <Input placeholder={`Search property records or file names...`} className="pl-9 text-sm h-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                           </div>
                         </div>
                         {userMode === 'advanced' && (
@@ -618,16 +658,16 @@ export default function Home() {
                 </Card>
                 <div className="flex items-center justify-between bg-card p-4 rounded-xl shadow-2xl border border-white/10 shrink-0">
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => handleExport('results')} size="sm" className="font-black uppercase text-xs tracking-widest border-primary/30 text-primary hover:bg-primary hover:text-white transition-all h-10 px-6" disabled={isExporting}><FileDown className="w-4 h-4 mr-2" /> {isExporting ? "..." : "Export Results"}</Button>
-                    <Button variant="outline" onClick={() => handleExport('archive')} size="sm" className="font-black uppercase text-xs tracking-widest border-orange-500/30 text-orange-600 hover:bg-orange-600 hover:text-white transition-all h-10 px-6" disabled={isExporting}><Archive className="w-4 h-4 mr-2" /> {isExporting ? "..." : "Export Archive"}</Button>
+                    <Button variant="outline" onClick={() => handleExportClick('results')} size="sm" className="font-black uppercase text-xs tracking-widest border-primary/30 text-primary hover:bg-primary hover:text-white transition-all h-10 px-6" disabled={isExporting}><FileDown className="w-4 h-4 mr-2" /> {isExporting ? "..." : "Export Results"}</Button>
+                    <Button variant="outline" onClick={() => handleExportClick('archive')} size="sm" className="font-black uppercase text-xs tracking-widest border-orange-500/30 text-orange-600 hover:bg-orange-600 hover:text-white transition-all h-10 px-6" disabled={isExporting}><Archive className="w-4 h-4 mr-2" /> {isExporting ? "..." : "Export Archive"}</Button>
                     {latestReport && (
                       <Button variant="outline" onClick={() => setIsReportOpen(true)} size="sm" className="font-black uppercase text-xs tracking-widest border-emerald-600/30 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-all h-10 px-6">
-                        <ShieldCheck className="w-4 h-4 mr-2" /> Processing Report
+                        <ShieldCheck className="w-4 h-4 mr-2" /> Latest Audit
                       </Button>
                     )}
                   </div>
                   {userMode === 'advanced' && viewMode !== 'audit' && (
-                    <Button size="lg" className="bg-primary hover:bg-green-700 px-12 font-black uppercase tracking-widest text-xs shadow-2xl transition-all active:scale-95 h-10" disabled={isProcessing} onClick={runProcess}>{isProcessing ? "Processing..." : "Run Processor"}</Button>
+                    <Button size="lg" className="bg-primary hover:bg-green-700 px-12 font-black uppercase tracking-widest text-xs shadow-2xl transition-all active:scale-95 h-10" disabled={isProcessing} onClick={runProcess}>{isProcessing ? "Processing Batch..." : "Run Batch Processor"}</Button>
                   )}
                   {viewMode === 'audit' && (
                     <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 px-12 font-black uppercase tracking-widest text-xs shadow-2xl transition-all active:scale-95 h-10" onClick={() => setViewMode('results')}>Return to Dashboard</Button>
@@ -639,12 +679,51 @@ export default function Home() {
         </main>
       </div>
 
+      <Dialog open={isBatchExportDialogOpen} onOpenChange={setIsBatchExportDialogOpen}>
+        <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-3xl border-white/10 p-8 shadow-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <Files className="w-6 h-6 text-primary" />
+              <DialogTitle className="text-xl font-black uppercase tracking-tight">Batch Export Options</DialogTitle>
+            </div>
+            <DialogDescription className="text-sm font-bold text-muted-foreground leading-relaxed">
+              You have records from multiple source files. How would you like to export your processed data?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-4 py-6">
+            <Button 
+              variant="outline" 
+              className="h-20 flex flex-col items-center justify-center gap-1 border-2 border-primary/20 hover:border-primary hover:bg-primary/5 group"
+              onClick={() => executeExport(currentExportType, 'merged')}
+            >
+              <div className="flex items-center gap-2 font-black uppercase text-xs tracking-widest">
+                <FileDown className="w-4 h-4" /> Single Merged File
+              </div>
+              <span className="text-[10px] font-bold text-muted-foreground group-hover:text-primary/70">Combine all processed records into one spreadsheet</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              className="h-20 flex flex-col items-center justify-center gap-1 border-2 border-blue-600/20 hover:border-blue-600 hover:bg-blue-600/5 group"
+              onClick={() => executeExport(currentExportType, 'separate')}
+            >
+              <div className="flex items-center gap-2 font-black uppercase text-xs tracking-widest text-blue-600">
+                <ArrowRightLeft className="w-4 h-4" /> Separate Files
+              </div>
+              <span className="text-[10px] font-bold text-muted-foreground group-hover:text-blue-600/70">Download a separate spreadsheet for each original file</span>
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" className="w-full font-black uppercase text-[10px] tracking-widest" onClick={() => setIsBatchExportDialogOpen(false)}>Cancel Export</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {exportSuccess && (
         <div className="fixed inset-0 z-[100] bg-background/60 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in zoom-in duration-300">
           <div className="bg-card p-12 rounded-3xl shadow-2xl border border-primary/20 flex flex-col items-center scale-110">
             <div className="bg-primary/20 p-6 rounded-full mb-6 animate-bounce"><CheckCircle2 className="w-16 h-16 text-primary" /></div>
             <h3 className="text-3xl font-black text-primary uppercase tracking-tighter">Export Successful</h3>
-            <p className="text-muted-foreground font-bold mt-2">Your land records have been saved.</p>
+            <p className="text-muted-foreground font-bold mt-2">Your land records have been saved locally.</p>
           </div>
         </div>
       )}

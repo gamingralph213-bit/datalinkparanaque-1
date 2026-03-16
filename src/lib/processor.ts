@@ -34,6 +34,7 @@ export interface LandRecord {
   cleanupReason?: string;
   isValid?: boolean;
   errors?: ValidationError[];
+  sourceFile?: string; // Track original file in batch processing
 }
 
 export interface CalibrationRule {
