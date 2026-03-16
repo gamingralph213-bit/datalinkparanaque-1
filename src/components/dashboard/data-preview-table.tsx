@@ -54,7 +54,6 @@ export function DataPreviewTable({ data, isProcessed = false, onRowClick }: Data
               <TableHead className="min-w-[200px] font-black uppercase bg-card">PIN</TableHead>
               <TableHead className="min-w-[80px] font-black uppercase text-center bg-card">Update</TableHead>
               <TableHead className="min-w-[200px] font-black uppercase bg-card">AcctName</TableHead>
-              <TableHead className="min-w-[280px] font-black uppercase bg-card">Address</TableHead>
               <TableHead className="min-w-[280px] font-black uppercase bg-emerald-50 dark:bg-emerald-950 border-x border-emerald-100 dark:border-emerald-900">Location</TableHead>
               <TableHead className="min-w-[90px] font-black uppercase bg-card">Kind</TableHead>
               <TableHead className="min-w-[90px] font-black uppercase bg-card">AU</TableHead>
@@ -118,9 +117,15 @@ export function DataPreviewTable({ data, isProcessed = false, onRowClick }: Data
                 <TableCell className="text-right font-mono font-black p-3 text-primary border-l">₱{row.yearlyTax?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}</TableCell>
                 <TableCell className="text-center p-3">
                   {!row.isValid ? (
-                    <Badge variant="destructive" className="text-[10px] h-5 font-black uppercase tracking-tighter flex items-center gap-1 justify-center">
-                      <AlertTriangle className="w-2.5 h-2.5" /> ERROR
-                    </Badge>
+                    row.landArea === 0 ? (
+                      <Badge variant="destructive" className="text-[10px] h-5 font-black uppercase tracking-tighter flex items-center gap-1 justify-center">
+                        <AlertTriangle className="w-2.5 h-2.5" /> ERROR
+                      </Badge>
+                    ) : (
+                      <Badge variant="destructive" className="text-[10px] h-5 font-black uppercase tracking-tighter flex items-center gap-1 justify-center">
+                        INVALID
+                      </Badge>
+                    )
                   ) : row.isCleanup ? (
                     <Badge variant="outline" className="text-[10px] h-5 font-black uppercase tracking-tighter bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">
                       {row.cleanupReason || 'CLEANUP'}

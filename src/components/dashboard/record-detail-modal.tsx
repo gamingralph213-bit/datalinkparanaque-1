@@ -63,9 +63,16 @@ export function RecordDetailModal({ record, open, onOpenChange, onSave }: Record
   
   const getStatusBadge = () => {
     if (!editedRecord.isValid) {
+      if (editedRecord.landArea === 0) {
+        return (
+          <Badge variant="destructive" className="text-xs h-6 px-3 font-black uppercase tracking-tighter flex items-center gap-1">
+            <AlertTriangle className="w-3 h-3" /> ERROR
+          </Badge>
+        );
+      }
       return (
-        <Badge variant="destructive" className="text-xs h-6 px-3 font-black uppercase tracking-tighter flex items-center gap-1">
-          <AlertTriangle className="w-3 h-3" /> ERROR
+        <Badge variant="destructive" className="text-xs h-6 px-3 font-black uppercase tracking-tighter">
+          INVALID
         </Badge>
       );
     }
