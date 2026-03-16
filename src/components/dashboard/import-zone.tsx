@@ -48,8 +48,6 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
           return;
         }
         
-        // Use a small timeout to ensure the UI has a chance to render the loading state
-        // before the main thread gets potentially busy with state updates in the parent
         setTimeout(() => {
           onDataImported(mappedData, file.name, rawCount);
           setIsLoading(false);
@@ -158,7 +156,7 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
   return (
     <div className="w-full max-w-4xl mx-auto space-y-8">
       <Card 
-        className={`relative p-12 border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center text-center group outline-none overflow-hidden
+        className={`relative p-16 border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center text-center group outline-none overflow-hidden
           ${isDragging ? 'border-primary bg-primary/5 scale-[0.99]' : 'border-muted-foreground/20 hover:border-primary/50'}`}
         onDragOver={(e) => { e.preventDefault(); if (!isLoading) setIsDragging(true); }}
         onDragLeave={() => setIsDragging(false)}
@@ -172,12 +170,11 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         onPaste={isLoading ? undefined : handlePaste}
         tabIndex={0}
       >
-        {/* Loading Overlay */}
         {isLoading && (
           <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in duration-300">
-            <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
-            <h3 className="text-xl font-black text-emerald-900 dark:text-emerald-400">Reading Spreadsheet...</h3>
-            <p className="text-sm text-muted-foreground font-medium">Please wait while we parse your land record data.</p>
+            <Loader2 className="w-14 h-14 text-primary animate-spin mb-6" />
+            <h3 className="text-2xl font-black text-emerald-900 dark:text-emerald-400">Reading Spreadsheet...</h3>
+            <p className="text-base text-muted-foreground font-semibold">Please wait while we parse your land record data.</p>
           </div>
         )}
 
@@ -190,41 +187,40 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
             if (e.target.files?.[0]) {
               handleFileUpload(e.target.files[0]);
             }
-            // Reset input so the same file can be uploaded again if needed
             e.target.value = '';
           }} 
         />
         
-        <div className="bg-primary/10 p-5 rounded-full mb-6">
-          <Upload className="w-10 h-10 text-primary" />
+        <div className="bg-primary/10 p-6 rounded-full mb-8">
+          <Upload className="w-12 h-12 text-primary" />
         </div>
-        <h3 className="text-2xl font-black mb-3 text-emerald-900 dark:text-emerald-400">Import Property Data</h3>
-        <p className="text-muted-foreground mb-8 max-w-sm text-sm font-medium">
+        <h3 className="text-3xl font-black mb-4 text-emerald-900 dark:text-emerald-400">Import Property Data</h3>
+        <p className="text-muted-foreground mb-10 max-w-md text-base font-semibold leading-relaxed">
           Drag your Excel file here or click below. <br/>
-          <span className="text-[10px] uppercase opacity-50 tracking-widest text-emerald-600 font-bold">Raw import. Click "Run Processor" to filter.</span>
+          <span className="text-[12px] uppercase opacity-60 tracking-widest text-emerald-600 font-black block mt-2">Raw import. Click "Run Processor" to filter.</span>
         </p>
         
-        <div className="flex gap-4 mb-8">
+        <div className="flex gap-4 mb-10">
           <Button 
             size="lg" 
-            className="px-10 font-bold bg-primary hover:bg-emerald-800 shadow-xl shadow-primary/20" 
+            className="px-12 py-7 text-base font-black bg-primary hover:bg-emerald-800 shadow-xl shadow-primary/20 h-auto" 
             onClick={() => fileInputRef.current?.click()}
             disabled={isLoading}
           >
-            <FileSpreadsheet className="mr-2 h-4 w-4" /> Choose Excel File
+            <FileSpreadsheet className="mr-3 h-5 w-5" /> Choose Excel File
           </Button>
         </div>
 
-        <div className="w-full bg-muted/30 rounded-xl p-6 border border-white/5 text-left">
-          <div className="flex items-center gap-2 mb-4">
-            <Info className="w-4 h-4 text-primary" />
-            <h4 className="text-xs font-black uppercase tracking-widest text-emerald-900 dark:text-emerald-400">Excel Template Requirements</h4>
+        <div className="w-full bg-muted/30 rounded-2xl p-8 border border-white/5 text-left">
+          <div className="flex items-center gap-3 mb-5">
+            <Info className="w-5 h-5 text-primary" />
+            <h4 className="text-sm font-black uppercase tracking-widest text-emerald-900 dark:text-emerald-400">Excel Template Requirements</h4>
           </div>
-          <p className="text-[11px] text-muted-foreground mb-4 font-medium leading-relaxed">
+          <p className="text-sm text-muted-foreground mb-6 font-semibold leading-relaxed">
             To ensure correct processing, your spreadsheet should contain the following headers. The system is designed to map these standard Parañaque City land record columns:
           </p>
           
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {[
               { label: "Owner", target: "AcctName" },
               { label: "Address", target: "Address" },
@@ -236,11 +232,11 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
               { label: "Area", target: "Land Area" },
               { label: "Market Value", target: "Value" },
             ].map((col) => (
-              <div key={col.label} className="flex items-center gap-2 bg-background/50 p-2 rounded-md border border-white/5">
-                <CheckCircle2 className="w-3 h-3 text-primary shrink-0" />
+              <div key={col.label} className="flex items-center gap-3 bg-background/50 p-3 rounded-xl border border-white/5">
+                <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
                 <div>
-                  <div className="text-[9px] font-black uppercase tracking-tighter text-foreground">{col.label}</div>
-                  <div className="text-[8px] text-muted-foreground italic leading-none">maps to {col.target}</div>
+                  <div className="text-[11px] font-black uppercase tracking-tighter text-foreground leading-tight">{col.label}</div>
+                  <div className="text-[10px] text-muted-foreground italic leading-none font-bold">maps to {col.target}</div>
                 </div>
               </div>
             ))}

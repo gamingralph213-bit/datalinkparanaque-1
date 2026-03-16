@@ -38,29 +38,29 @@ export function CalibrationSidebar({
   const columns = Object.keys(exportColumns);
 
   return (
-    <Card className="h-full border-none shadow-none bg-transparent flex flex-col gap-6 pb-10">
+    <Card className="h-full border-none shadow-none bg-transparent flex flex-col gap-8 pb-10">
       {/* SECTION 1: SYSTEM OPTIONS */}
       <div className="space-y-4">
-        <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-          <Settings className="w-3.5 h-3.5" /> Processor Engine
+        <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2.5">
+          <Settings className="w-4 h-4" /> Processor Engine
         </h3>
-        <Card className="p-3 space-y-3">
+        <Card className="p-4 space-y-4">
           <div className="flex items-center justify-between">
-            <Label className="text-[11px] font-bold">SYSTEM CLEANUP</Label>
+            <Label className="text-sm font-bold tracking-tight">SYSTEM CLEANUP</Label>
             <Switch 
               checked={options.systemCleanup}
               onCheckedChange={(val) => setOptions({ ...options, systemCleanup: val })}
             />
           </div>
           <div className="flex items-center justify-between">
-            <Label className="text-[11px] font-bold">REMOVE DUPLICATES</Label>
+            <Label className="text-sm font-bold tracking-tight">REMOVE DUPLICATES</Label>
             <Switch 
               checked={options.removeDuplicates}
               onCheckedChange={(val) => setOptions({ ...options, removeDuplicates: val })}
             />
           </div>
           <div className="flex items-center justify-between">
-            <Label className="text-[11px] font-bold">APPLY CALIBRATION</Label>
+            <Label className="text-sm font-bold tracking-tight">APPLY CALIBRATION</Label>
             <Switch 
               checked={options.applyCalibration}
               onCheckedChange={(val) => setOptions({ ...options, applyCalibration: val })}
@@ -71,18 +71,18 @@ export function CalibrationSidebar({
 
       {/* SECTION 2: EXPORT CONFIGURATION */}
       <div className="space-y-4">
-        <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-          <CheckSquare className="w-3.5 h-3.5" /> Export Columns
+        <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2.5">
+          <CheckSquare className="w-4 h-4" /> Export Columns
         </h3>
-        <Card className="p-3 space-y-2">
+        <Card className="p-4 space-y-3">
           {columns.map(col => (
-            <div key={col} className="flex items-center gap-2">
+            <div key={col} className="flex items-center gap-3">
               <Checkbox 
                 id={`col-${col}`} 
                 checked={exportColumns[col]} 
                 onCheckedChange={() => toggleColumn(col)}
               />
-              <label htmlFor={`col-${col}`} className="text-[9px] font-bold uppercase cursor-pointer truncate">
+              <label htmlFor={`col-${col}`} className="text-xs font-bold uppercase cursor-pointer truncate tracking-tight text-foreground/80">
                 {col}
               </label>
             </div>

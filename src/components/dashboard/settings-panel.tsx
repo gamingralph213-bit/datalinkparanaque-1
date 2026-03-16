@@ -67,7 +67,6 @@ export function SettingsPanel({
   const [currentTaxRates, setCurrentTaxRates] = useState<TaxRateMap>({});
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Refs for auto-scrolling
   const locationRef = useRef<HTMLDivElement>(null);
   const ratesRef = useRef<HTMLDivElement>(null);
 
@@ -159,11 +158,11 @@ export function SettingsPanel({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[900px] sm:max-w-[900px] flex flex-col bg-card/95 backdrop-blur-xl border-white/10 p-0">
-        <div className="p-6 pb-2 shrink-0">
+      <SheetContent className="w-[1000px] sm:max-w-[1000px] flex flex-col bg-card/95 backdrop-blur-xl border-white/10 p-0">
+        <div className="p-8 pb-4 shrink-0">
           <SheetHeader>
-            <SheetTitle className="text-2xl font-black text-gradient uppercase">Global Calibration Panel</SheetTitle>
-            <SheetDescription className="font-medium">
+            <SheetTitle className="text-3xl font-black text-gradient uppercase">Global Calibration Panel</SheetTitle>
+            <SheetDescription className="font-bold text-base mt-2">
               Manage your land data processing rules and financial tax rates in one view.
             </SheetDescription>
           </SheetHeader>
@@ -171,17 +170,17 @@ export function SettingsPanel({
 
         <div className="flex-1 flex overflow-hidden">
           {/* LEFT NAV BAR */}
-          <div className="w-14 shrink-0 flex flex-col items-center py-6 gap-6 border-r border-white/5 bg-muted/10">
+          <div className="w-16 shrink-0 flex flex-col items-center py-8 gap-8 border-r border-white/5 bg-muted/10">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="h-10 w-10 rounded-full hover:bg-primary/20 hover:text-primary transition-all shadow-sm"
+                    className="h-12 w-12 rounded-full hover:bg-primary/20 hover:text-primary transition-all shadow-sm"
                     onClick={() => scrollToSection(locationRef)}
                   >
-                    <MapPin className="w-5 h-5" />
+                    <MapPin className="w-6 h-6" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="right">Location Mappings</TooltipContent>
@@ -192,10 +191,10 @@ export function SettingsPanel({
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="h-10 w-10 rounded-full hover:bg-primary/20 hover:text-primary transition-all shadow-sm"
+                    className="h-12 w-12 rounded-full hover:bg-primary/20 hover:text-primary transition-all shadow-sm"
                     onClick={() => scrollToSection(ratesRef)}
                   >
-                    <Percent className="w-5 h-5" />
+                    <Percent className="w-6 h-6" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="right">Tax Rates</TooltipContent>
@@ -204,21 +203,21 @@ export function SettingsPanel({
           </div>
 
           {/* MAIN SCROLLABLE CONTENT */}
-          <div className="flex-1 overflow-y-auto scrollbar-vertical-custom px-6 space-y-10 py-6">
+          <div className="flex-1 overflow-y-auto scrollbar-vertical-custom px-8 space-y-12 py-8">
             {/* SECTION 1: LOCATION CALIBRATION */}
-            <div className="space-y-4" ref={locationRef}>
-              <div className="flex items-center gap-2 px-1">
-                <MapPin className="w-4 h-4 text-primary" />
-                <h3 className="text-sm font-black uppercase tracking-wider">Location Mappings</h3>
+            <div className="space-y-6" ref={locationRef}>
+              <div className="flex items-center gap-3 px-1">
+                <MapPin className="w-5 h-5 text-primary" />
+                <h3 className="text-base font-black uppercase tracking-wider">Location Mappings</h3>
               </div>
               
-              <div className="flex flex-col gap-4 px-1">
-                  <div className="grid grid-cols-5 items-center gap-4">
-                      <Label htmlFor="barangay-select" className="text-right col-span-1 text-xs font-black uppercase">
+              <div className="flex flex-col gap-6 px-1">
+                  <div className="grid grid-cols-5 items-center gap-6">
+                      <Label htmlFor="barangay-select" className="text-right col-span-1 text-sm font-black uppercase tracking-tight">
                           Barangay
                       </Label>
                       <Select value={selectedBarangay?.name} onValueChange={(name) => setSelectedBarangay(allBarangays.find(b => b.name === name))}>
-                          <SelectTrigger className="col-span-3 h-9 text-xs" id="barangay-select">
+                          <SelectTrigger className="col-span-3 h-11 text-sm font-semibold" id="barangay-select">
                               <SelectValue placeholder="Select a barangay" />
                           </SelectTrigger>
                           <SelectContent>
@@ -230,55 +229,55 @@ export function SettingsPanel({
                       <Input 
                           readOnly 
                           value={selectedBarangay?.barangayCode || '---'} 
-                          className="h-9 bg-muted/50 text-center font-mono text-xs font-black"
+                          className="h-11 bg-muted/50 text-center font-mono text-sm font-black"
                       />
                   </div>
                   <div className="relative">
-                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                       <Input 
                           placeholder="Search section, filter, or location..."
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
-                          className="pl-9 h-9 text-xs"
+                          className="pl-11 h-11 text-sm font-medium"
                       />
                   </div>
               </div>
 
-              <div className="border rounded-md overflow-hidden bg-muted/20 min-h-[400px] flex flex-col">
-                <div className="bg-muted/80 backdrop-blur-sm p-4 border-b shrink-0">
-                    <div className="grid grid-cols-12 gap-4 items-center">
-                        <div className="col-span-2 text-[10px] font-black uppercase text-muted-foreground">Section</div>
-                        <div className="col-span-3 text-[10px] font-black uppercase text-muted-foreground">Lot Filter</div>
-                        <div className="col-span-5 text-[10px] font-black uppercase text-muted-foreground">Location Name</div>
-                        <div className="col-span-2 text-[10px] font-black uppercase text-muted-foreground">Unit Value</div>
+              <div className="border rounded-xl overflow-hidden bg-muted/20 min-h-[450px] flex flex-col shadow-inner">
+                <div className="bg-muted/80 backdrop-blur-sm p-5 border-b shrink-0">
+                    <div className="grid grid-cols-12 gap-5 items-center">
+                        <div className="col-span-2 text-xs font-black uppercase text-muted-foreground tracking-wide">Section</div>
+                        <div className="col-span-3 text-xs font-black uppercase text-muted-foreground tracking-wide">Lot Filter</div>
+                        <div className="col-span-5 text-xs font-black uppercase text-muted-foreground tracking-wide">Location Name</div>
+                        <div className="col-span-2 text-xs font-black uppercase text-muted-foreground tracking-wide">Unit Value</div>
                     </div>
                 </div>
-                <div className="p-4 space-y-2 max-h-[500px] overflow-y-auto scrollbar-vertical-custom">
+                <div className="p-5 space-y-3 max-h-[550px] overflow-y-auto scrollbar-vertical-custom">
                   {filteredSections.map((location) => {
                       const { base, filter } = parseSectionKey(location.section);
                       return (
-                        <div key={location.originalIndex} className="grid grid-cols-12 gap-4 items-center group">
+                        <div key={location.originalIndex} className="grid grid-cols-12 gap-5 items-center group">
                             <Input
-                                className="col-span-2 font-mono h-8 text-xs bg-background"
+                                className="col-span-2 font-mono h-10 text-sm bg-background font-bold"
                                 value={base}
                                 onChange={(e) => handleKeyPartUpdate(location.originalIndex, 'base', e.target.value)}
                             />
                             <Input
-                                className="col-span-3 font-mono text-[10px] h-8 bg-background"
+                                className="col-span-3 font-mono text-xs h-10 bg-background"
                                 value={filter}
                                 placeholder="ALL LOTS"
                                 onChange={(e) => handleKeyPartUpdate(location.originalIndex, 'filter', e.target.value)}
                             />
                             <Input
-                                className="col-span-5 h-8 text-xs bg-background uppercase font-bold"
+                                className="col-span-5 h-10 text-sm bg-background uppercase font-black tracking-tight"
                                 value={location.location}
                                 onChange={(e) => handleLocationUpdate(location.originalIndex, 'location', e.target.value)}
                             />
                             <div className="col-span-2 relative">
-                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground font-black">₱</span>
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-black">₱</span>
                                 <Input
                                     type="number"
-                                    className="pl-5 font-mono h-8 text-xs bg-background"
+                                    className="pl-6 font-mono h-10 text-sm bg-background font-black tabular-nums"
                                     value={location.unitValue || ''}
                                     placeholder="0"
                                     onChange={(e) => handleLocationUpdate(location.originalIndex, 'unitValue', e.target.value)}
@@ -291,55 +290,55 @@ export function SettingsPanel({
               </div>
             </div>
 
-            <Separator className="opacity-50" />
+            <Separator className="opacity-30" />
 
             {/* SECTION 2: RATES CALIBRATION */}
-            <div className="space-y-4" ref={ratesRef}>
-              <div className="flex items-center gap-2 px-1">
-                <Percent className="w-4 h-4 text-primary" />
-                <h3 className="text-sm font-black uppercase tracking-wider">Tax & Assessment Calibration</h3>
+            <div className="space-y-6 pb-10" ref={ratesRef}>
+              <div className="flex items-center gap-3 px-1">
+                <Percent className="w-5 h-5 text-primary" />
+                <h3 className="text-base font-black uppercase tracking-wider">Tax & Assessment Calibration</h3>
               </div>
 
               <div className="px-1">
-                <div className="bg-primary/5 p-4 rounded-lg border border-primary/20">
-                  <p className="text-[11px] font-medium leading-relaxed text-muted-foreground">
-                    <span className="font-black text-primary uppercase">Financial Settings:</span> These rates determine how Assessed Value and Yearly Tax are calculated based on <span className="font-bold">Actual Use (AU)</span>.
+                <div className="bg-primary/5 p-5 rounded-2xl border border-primary/20">
+                  <p className="text-sm font-bold leading-relaxed text-muted-foreground">
+                    <span className="font-black text-primary uppercase mr-2">Financial Settings:</span> These rates determine how Assessed Value and Yearly Tax are calculated based on <span className="font-black text-foreground underline decoration-primary/30 underline-offset-4">Actual Use (AU)</span>.
                   </p>
                 </div>
               </div>
               
-              <div className="border rounded-md overflow-hidden bg-muted/20 flex flex-col">
-                <div className="bg-muted/80 backdrop-blur-sm p-4 border-b shrink-0">
-                    <div className="grid grid-cols-12 gap-6 items-center">
-                        <div className="col-span-3 text-[10px] font-black uppercase text-muted-foreground">Usage Code (AU)</div>
-                        <div className="col-span-4 text-[10px] font-black uppercase text-muted-foreground">Assessment Level (%)</div>
-                        <div className="col-span-5 text-[10px] font-black uppercase text-muted-foreground">Tax Rate (%)</div>
+              <div className="border rounded-xl overflow-hidden bg-muted/20 flex flex-col shadow-inner">
+                <div className="bg-muted/80 backdrop-blur-sm p-5 border-b shrink-0">
+                    <div className="grid grid-cols-12 gap-8 items-center">
+                        <div className="col-span-3 text-xs font-black uppercase text-muted-foreground tracking-wide">Usage Code (AU)</div>
+                        <div className="col-span-4 text-xs font-black uppercase text-muted-foreground tracking-wide">Assessment Level (%)</div>
+                        <div className="col-span-5 text-xs font-black uppercase text-muted-foreground tracking-wide">Tax Rate (%)</div>
                     </div>
                 </div>
-                <div className="p-4 space-y-3">
+                <div className="p-5 space-y-4">
                   {Object.keys(currentTaxRates).sort().map((au) => (
-                    <div key={au} className="grid grid-cols-12 gap-6 items-center">
-                      <div className="col-span-3 font-black text-xs uppercase text-emerald-900 dark:text-emerald-400">
+                    <div key={au} className="grid grid-cols-12 gap-8 items-center">
+                      <div className="col-span-3 font-black text-sm uppercase text-emerald-900 dark:text-emerald-400">
                         {au}
                       </div>
                       <div className="col-span-4 relative">
                         <Input
                           type="number"
-                          className="h-8 text-xs pr-6 font-mono font-bold"
+                          className="h-10 text-sm pr-8 font-mono font-black text-right"
                           value={Math.round((currentTaxRates[au].assessmentLevel * 100))}
                           onChange={(e) => handleRateUpdate(au, 'assessmentLevel', Number(e.target.value))}
                         />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-muted-foreground">%</span>
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-muted-foreground">%</span>
                       </div>
                       <div className="col-span-5 relative">
                         <Input
                           type="number"
                           step="0.1"
-                          className="h-8 text-xs pr-6 font-mono font-bold"
+                          className="h-10 text-sm pr-8 font-mono font-black text-right"
                           value={(currentTaxRates[au].taxRate * 100)}
                           onChange={(e) => handleRateUpdate(au, 'taxRate', Number(e.target.value))}
                         />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-muted-foreground">%</span>
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-muted-foreground">%</span>
                       </div>
                     </div>
                   ))}
@@ -349,9 +348,9 @@ export function SettingsPanel({
           </div>
         </div>
 
-        <SheetFooter className="p-6 border-t shrink-0 bg-card/50 backdrop-blur-sm">
-          <Button variant="outline" className="font-bold uppercase text-[10px]" onClick={() => onOpenChange(false)}>Discard Changes</Button>
-          <Button className="font-black uppercase text-[10px] bg-primary hover:bg-emerald-800" onClick={handleSaveChanges}>
+        <SheetFooter className="p-8 border-t shrink-0 bg-card/50 backdrop-blur-sm gap-4">
+          <Button variant="outline" className="font-black uppercase text-xs h-12 px-8" onClick={() => onOpenChange(false)}>Discard Changes</Button>
+          <Button className="font-black uppercase text-xs h-12 px-12 bg-primary hover:bg-emerald-800 shadow-lg" onClick={handleSaveChanges}>
             Update Global Settings
           </Button>
         </SheetFooter>
