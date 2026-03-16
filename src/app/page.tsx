@@ -364,7 +364,7 @@ export default function Home() {
       let matchesSearch = true;
 
       if (query) {
-        if (searchField === 'all') {
+        if (searchField === 'all' || userMode === 'basic') {
           matchesSearch = 
             record.acctName?.toLowerCase().includes(query) ||
             record.pin?.toLowerCase().includes(query) ||
@@ -386,7 +386,7 @@ export default function Home() {
       
       return true;
     });
-  }, [previewData, processedData, viewMode, searchQuery, searchField, statusFilter]);
+  }, [previewData, processedData, viewMode, searchQuery, searchField, statusFilter, userMode]);
 
   const analyticsData = useMemo(() => {
     const activeData = processedData.length > 0 ? processedData : previewData.filter(r => !r.isCleanup && !r.isDuplicate);
@@ -510,9 +510,11 @@ export default function Home() {
             <Info className="w-5 h-5" />
           </Button>
           <ModeToggle />
-          <Button variant="ghost" size="icon" onClick={() => setIsSettingsOpen(true)} title="Settings">
-            <Settings className="w-5 h-5" />
-          </Button>
+          {userMode === 'advanced' && (
+            <Button variant="ghost" size="icon" onClick={() => setIsSettingsOpen(true)} title="Settings">
+              <Settings className="w-5 h-5" />
+            </Button>
+          )}
         </div>
       </header>
 
@@ -600,51 +602,57 @@ export default function Home() {
                         <Archive className="w-3.5 h-3.5 mr-2" />
                         Archive
                       </TabsTrigger>
-                      <TabsTrigger value="analytics" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white h-9 text-xs font-bold px-4">
-                        <BarChart3 className="w-3.5 h-3.5 mr-2" />
-                        Analytics
-                      </TabsTrigger>
+                      {userMode === 'advanced' && (
+                        <TabsTrigger value="analytics" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white h-9 text-xs font-bold px-4">
+                          <BarChart3 className="w-3.5 h-3.5 mr-2" />
+                          Analytics
+                        </TabsTrigger>
+                      )}
                     </TabsList>
 
                     {viewMode !== 'analytics' && (
                       <div className="flex flex-1 items-center gap-2 w-full max-w-2xl">
                         <div className="flex items-center gap-2 flex-1">
-                          <Select value={searchField} onValueChange={setSearchField}>
-                            <SelectTrigger className="w-[120px] h-9 text-xs font-bold uppercase">
-                              <SelectValue placeholder="In" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Fields</SelectItem>
-                              <SelectItem value="date">Date</SelectItem>
-                              <SelectItem value="arpNo">ARP No#</SelectItem>
-                              <SelectItem value="pin">PIN</SelectItem>
-                              <SelectItem value="acctName">Account</SelectItem>
-                              <SelectItem value="location">Location</SelectItem>
-                              <SelectItem value="au">Usage (AU)</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          {userMode === 'advanced' && (
+                            <Select value={searchField} onValueChange={setSearchField}>
+                              <SelectTrigger className="w-[120px] h-9 text-xs font-bold uppercase">
+                                <SelectValue placeholder="In" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All Fields</SelectItem>
+                                <SelectItem value="date">Date</SelectItem>
+                                <SelectItem value="arpNo">ARP No#</SelectItem>
+                                <SelectItem value="pin">PIN</SelectItem>
+                                <SelectItem value="acctName">Account</SelectItem>
+                                <SelectItem value="location">Location</SelectItem>
+                                <SelectItem value="au">Usage (AU)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
                           <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                             <Input 
-                              placeholder={`Search ${searchField === 'all' ? 'any field' : searchField}...`} 
+                              placeholder={`Search ${userMode === 'basic' ? 'property records' : (searchField === 'all' ? 'any field' : searchField)}...`} 
                               className="pl-9 text-sm h-9"
                               value={searchQuery}
                               onChange={(e) => setSearchQuery(e.target.value)}
                             />
                           </div>
                         </div>
-                        <Select value={statusFilter} onValueChange={setStatusFilter}>
-                          <SelectTrigger className="w-24 h-9 text-xs font-bold uppercase">
-                            <Filter className="w-3.5 h-3.5 mr-1" />
-                            <SelectValue placeholder="Status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All</SelectItem>
-                            <SelectItem value="valid">Valid</SelectItem>
-                            <SelectItem value="duplicate">Duplicates</SelectItem>
-                            <SelectItem value="cleanup">Cleanup</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        {userMode === 'advanced' && (
+                          <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger className="w-24 h-9 text-xs font-bold uppercase">
+                              <Filter className="w-3.5 h-3.5 mr-1" />
+                              <SelectValue placeholder="Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All</SelectItem>
+                              <SelectItem value="valid">Valid</SelectItem>
+                              <SelectItem value="duplicate">Duplicates</SelectItem>
+                              <SelectItem value="cleanup">Cleanup</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
                         <Button variant="ghost" size="sm" className="h-9 text-xs font-bold uppercase px-3 hover:bg-destructive/10 hover:text-destructive" onClick={() => { setRawData([]); setProcessedData([]); setPreviewData([]); setSearchQuery(""); }}>
                           <Eraser className="w-3.5 h-3.5 mr-1" /> Clear
                         </Button>
@@ -667,99 +675,101 @@ export default function Home() {
                         onRowClick={handleRowClick}
                       />
                     </TabsContent>
-                    <TabsContent value="analytics" className="m-0 h-full p-6 overflow-y-auto scrollbar-vertical-custom bg-muted/5 data-[state=active]:flex data-[state=active]:flex-col">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pb-10 max-w-7xl mx-auto w-full">
-                        <Card className="p-6 border-white/5 bg-card shadow-2xl overflow-hidden group">
-                          <h4 className="text-sm font-black uppercase mb-8 flex items-center gap-2.5 tracking-widest text-muted-foreground">
-                            <CheckCircle2 className="w-4.5 h-4.5 text-primary" /> Property Usage Distribution
-                          </h4>
-                          <div className="h-[350px] w-full">
-                            <ChartContainer config={analyticsChartConfig}>
-                              <BarChart 
-                                data={analyticsData.auChart}
-                                margin={{ top: 20, right: 20, left: 10, bottom: 40 }}
-                              >
-                                <defs>
-                                  <filter id="softShadow" height="130%">
-                                    <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
-                                    <feOffset dx="2" dy="2" result="offsetblur"/>
-                                    <feComponentTransfer>
-                                      <feFuncA type="linear" slope="0.3"/>
-                                    </feComponentTransfer>
-                                    <feMerge> 
-                                      <feMergeNode/>
-                                      <feMergeNode in="SourceGraphic"/> 
-                                    </feMerge>
-                                  </filter>
-                                </defs>
-                                <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.05} />
-                                <XAxis 
-                                  dataKey="name" 
-                                  fontSize={11} 
-                                  tickLine={false}
-                                  axisLine={false}
-                                  angle={-45}
-                                  textAnchor="end"
-                                  interval={0}
-                                  tick={{ fill: 'hsl(var(--muted-foreground))', fontWeight: 'bold' }} 
-                                />
-                                <YAxis 
-                                  fontSize={11} 
-                                  tickLine={false}
-                                  axisLine={false}
-                                  tick={{ fill: 'hsl(var(--muted-foreground))' }} 
-                                />
-                                <ChartTooltip content={<ChartTooltipContent />} />
-                                <Bar 
-                                  dataKey="value" 
-                                  radius={[6, 6, 0, 0]} 
-                                  filter="url(#softShadow)"
+                    {userMode === 'advanced' && (
+                      <TabsContent value="analytics" className="m-0 h-full p-6 overflow-y-auto scrollbar-vertical-custom bg-muted/5 data-[state=active]:flex data-[state=active]:flex-col">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pb-10 max-w-7xl mx-auto w-full">
+                          <Card className="p-6 border-white/5 bg-card shadow-2xl overflow-hidden group">
+                            <h4 className="text-sm font-black uppercase mb-8 flex items-center gap-2.5 tracking-widest text-muted-foreground">
+                              <CheckCircle2 className="w-4.5 h-4.5 text-primary" /> Property Usage Distribution
+                            </h4>
+                            <div className="h-[350px] w-full">
+                              <ChartContainer config={analyticsChartConfig}>
+                                <BarChart 
+                                  data={analyticsData.auChart}
+                                  margin={{ top: 20, right: 20, left: 10, bottom: 40 }}
                                 >
-                                  {analyticsData.auChart.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                  ))}
-                                </Bar>
-                              </BarChart>
-                            </ChartContainer>
-                          </div>
-                        </Card>
+                                  <defs>
+                                    <filter id="softShadow" height="130%">
+                                      <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
+                                      <feOffset dx="2" dy="2" result="offsetblur"/>
+                                      <feComponentTransfer>
+                                        <feFuncA type="linear" slope="0.3"/>
+                                      </feComponentTransfer>
+                                      <feMerge> 
+                                        <feMergeNode/>
+                                        <feMergeNode in="SourceGraphic"/> 
+                                      </feMerge>
+                                    </filter>
+                                  </defs>
+                                  <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.05} />
+                                  <XAxis 
+                                    dataKey="name" 
+                                    fontSize={11} 
+                                    tickLine={false}
+                                    axisLine={false}
+                                    angle={-45}
+                                    textAnchor="end"
+                                    interval={0}
+                                    tick={{ fill: 'hsl(var(--muted-foreground))', fontWeight: 'bold' }} 
+                                  />
+                                  <YAxis 
+                                    fontSize={11} 
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tick={{ fill: 'hsl(var(--muted-foreground))' }} 
+                                  />
+                                  <ChartTooltip content={<ChartTooltipContent />} />
+                                  <Bar 
+                                    dataKey="value" 
+                                    radius={[6, 6, 0, 0]} 
+                                    filter="url(#softShadow)"
+                                  >
+                                    {analyticsData.auChart.map((entry, index) => (
+                                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                  </Bar>
+                                </BarChart>
+                              </ChartContainer>
+                            </div>
+                          </Card>
 
-                        <Card 
-                          className="p-6 border-white/5 bg-card shadow-2xl cursor-pointer hover:bg-muted/5 transition-all group relative overflow-hidden" 
-                          onClick={() => setIsMarketDetailOpen(true)}
-                        >
-                          <div className="absolute top-4 right-4 bg-primary/10 p-2.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Maximize2 className="w-5 h-5 text-primary" />
-                          </div>
-                          <h4 className="text-sm font-black uppercase mb-8 flex items-center gap-2.5 tracking-widest text-muted-foreground">
-                            <Database className="w-4.5 h-4.5 text-primary" /> Market Value Breakdown
-                          </h4>
-                          <div className="h-[350px] w-full">
-                            <ChartContainer config={analyticsChartConfig}>
-                              <PieChart>
-                                <Pie
-                                  data={analyticsData.marketChart}
-                                  cx="50%"
-                                  cy="50%"
-                                  innerRadius={80}
-                                  outerRadius={110}
-                                  paddingAngle={8}
-                                  dataKey="value"
-                                  stroke="none"
-                                  label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                                >
-                                  {analyticsData.marketChart.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} filter="url(#softShadow)" />
-                                  ))}
-                                </Pie>
-                                <ChartTooltip content={<ChartTooltipContent />} />
-                                <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ paddingTop: '24px', fontSize: '11px', fontWeight: 'bold' }}/>
-                              </PieChart>
-                            </ChartContainer>
-                          </div>
-                        </Card>
-                      </div>
-                    </TabsContent>
+                          <Card 
+                            className="p-6 border-white/5 bg-card shadow-2xl cursor-pointer hover:bg-muted/5 transition-all group relative overflow-hidden" 
+                            onClick={() => setIsMarketDetailOpen(true)}
+                          >
+                            <div className="absolute top-4 right-4 bg-primary/10 p-2.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Maximize2 className="w-5 h-5 text-primary" />
+                            </div>
+                            <h4 className="text-sm font-black uppercase mb-8 flex items-center gap-2.5 tracking-widest text-muted-foreground">
+                              <Database className="w-4.5 h-4.5 text-primary" /> Market Value Breakdown
+                            </h4>
+                            <div className="h-[350px] w-full">
+                              <ChartContainer config={analyticsChartConfig}>
+                                <PieChart>
+                                  <Pie
+                                    data={analyticsData.marketChart}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={80}
+                                    outerRadius={110}
+                                    paddingAngle={8}
+                                    dataKey="value"
+                                    stroke="none"
+                                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                                  >
+                                    {analyticsData.marketChart.map((entry, index) => (
+                                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} filter="url(#softShadow)" />
+                                    ))}
+                                  </Pie>
+                                  <ChartTooltip content={<ChartTooltipContent />} />
+                                  <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ paddingTop: '24px', fontSize: '11px', fontWeight: 'bold' }}/>
+                                </PieChart>
+                              </ChartContainer>
+                            </div>
+                          </Card>
+                        </div>
+                      </TabsContent>
+                    )}
                   </div>
                 </Card>
 
