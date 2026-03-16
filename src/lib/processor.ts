@@ -330,7 +330,7 @@ export function processRecords(
   }
 
   return {
-    processed: result.filter(r => !r.isDuplicate && !r.isCleanup && r.isValid),
+    processed: result.filter(r => !r.isDuplicate && !r.isCleanup),
     allWithDuplicateMarkers: result,
     duplicatesRemoved: duplicatesCount,
     cleanupCount

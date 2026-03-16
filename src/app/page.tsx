@@ -201,14 +201,15 @@ export default function Home() {
   };
 
   const updateStats = (data: LandRecord[], rawCount: number) => {
-    const valid = data.filter(r => !r.isCleanup && !r.isDuplicate && r.isValid);
-    const errors = data.filter(r => !r.isValid).length;
+    const active = data.filter(r => !r.isCleanup && !r.isDuplicate);
+    const valid = active.filter(r => r.isValid);
+    const errors = active.filter(r => !r.isValid).length;
     setStats({ 
       totalRawRows: rawCount,
       systemCleanup: data.filter(r => r.isCleanup).length,
       totalImported: rawCount, 
       duplicatesRemoved: data.filter(r => r.isDuplicate).length, 
-      finalCount: valid.length,
+      finalCount: active.length,
       totalMarket: valid.reduce((sum, r) => sum + (r.marketValue || 0), 0),
       totalAssessed: valid.reduce((sum, r) => sum + (r.assessedValue || 0), 0),
       totalErrors: errors
@@ -224,7 +225,7 @@ export default function Home() {
     updateStats(allWithDuplicateMarkers, rawCount);
     toast({
       title: "Processing Complete",
-      description: `Cleaned ${processed.length} records. Found ${allWithDuplicateMarkers.filter(r => !r.isValid).length} invalid entries.`,
+      description: `Finalized ${processed.length} records. Found ${allWithDuplicateMarkers.filter(r => !r.isValid && !r.isCleanup && !r.isDuplicate).length} records with errors.`,
     });
     setIsProcessing(false);
   };
@@ -254,9 +255,9 @@ export default function Home() {
     let dataToExport: LandRecord[] = [];
     if (exportType === 'results') {
       const currentList = processedData.length > 0 ? processedData : previewData;
-      dataToExport = currentList.filter(r => !r.isCleanup && !r.isDuplicate && r.isValid);
+      dataToExport = currentList.filter(r => !r.isCleanup && !r.isDuplicate);
     } else {
-      dataToExport = previewData.filter(r => r.isDuplicate || r.isCleanup || !r.isValid);
+      dataToExport = previewData.filter(r => r.isDuplicate || r.isCleanup);
     }
 
     if (dataToExport.length === 0) {
@@ -316,8 +317,8 @@ export default function Home() {
 
   const filteredDisplayData = useMemo(() => {
     const baseData = viewMode === 'archive' 
-      ? previewData.filter(r => r.isDuplicate || r.isCleanup || !r.isValid)
-      : (processedData.length > 0 ? processedData : previewData.filter(r => !r.isDuplicate && !r.isCleanup && r.isValid));
+      ? previewData.filter(r => r.isDuplicate || r.isCleanup)
+      : (processedData.length > 0 ? processedData : previewData.filter(r => !r.isDuplicate && !r.isCleanup));
 
     return baseData.filter(record => {
       const query = searchQuery.toLowerCase();
@@ -333,7 +334,7 @@ export default function Home() {
       if (!matchesSearch) return false;
       if (statusFilter === 'all') return true;
       if (statusFilter === 'valid') return record.isValid && !record.isDuplicate && !record.isCleanup;
-      if (statusFilter === 'invalid') return !record.isValid;
+      if (statusFilter === 'invalid') return !record.isValid && !record.isDuplicate && !record.isCleanup;
       if (statusFilter === 'duplicate') return record.isDuplicate;
       if (statusFilter === 'cleanup') return record.isCleanup;
       return true;
@@ -341,7 +342,7 @@ export default function Home() {
   }, [previewData, processedData, viewMode, searchQuery, searchField, statusFilter, userMode]);
 
   const analyticsData = useMemo(() => {
-    const activeData = processedData.length > 0 ? processedData : previewData.filter(r => !r.isCleanup && !r.isDuplicate && r.isValid);
+    const activeData = processedData.length > 0 ? processedData : previewData.filter(r => !r.isCleanup && !r.isDuplicate);
     const auDistribution: Record<string, number> = {};
     const marketValueSum: Record<string, number> = {};
     activeData.forEach(r => {
@@ -466,7 +467,7 @@ export default function Home() {
                   <div className="p-3 bg-muted/30 border-b flex flex-col xl:flex-row items-center justify-between gap-4 shrink-0">
                     <TabsList className="bg-background border">
                       <TabsTrigger value="results" className="data-[state=active]:bg-primary data-[state=active]:text-white h-9 text-xs font-bold px-4"><TableIcon className="w-3.5 h-3.5 mr-2" /> Results</TabsTrigger>
-                      <TabsTrigger value="archive" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white h-9 text-xs font-bold px-4"><Archive className="w-3.5 h-3.5 mr-2" /> Archive / Errors</TabsTrigger>
+                      <TabsTrigger value="archive" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white h-9 text-xs font-bold px-4"><Archive className="w-3.5 h-3.5 mr-2" /> Archive / Duplicates</TabsTrigger>
                       {userMode === 'advanced' && <TabsTrigger value="analytics" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white h-9 text-xs font-bold px-4"><BarChart3 className="w-3.5 h-3.5 mr-2" /> Analytics</TabsTrigger>}
                     </TabsList>
                     {viewMode !== 'analytics' && (
