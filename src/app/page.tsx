@@ -25,7 +25,8 @@ import {
   FileText,
   Files,
   ArrowRightLeft,
-  Plus
+  Plus,
+  MapPin
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -126,6 +127,7 @@ export default function Home() {
   const [searchField, setSearchField] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sourceFileFilter, setSourceFileFilter] = useState("all");
+  const [barangayFilter, setBarangayFilter] = useState("all");
 
   const [options, setOptions] = useState({
     removeDuplicates: true,
@@ -155,6 +157,13 @@ export default function Home() {
     previewData.forEach(r => { if (r.sourceFile) files.add(r.sourceFile); });
     processedData.forEach(r => { if (r.sourceFile) files.add(r.sourceFile); });
     return Array.from(files);
+  }, [previewData, processedData]);
+
+  const uniqueBarangays = useMemo(() => {
+    const brgys = new Set<string>();
+    previewData.forEach(r => { if (r.barangayName) brgys.add(r.barangayName); });
+    processedData.forEach(r => { if (r.barangayName) brgys.add(r.barangayName); });
+    return Array.from(brgys).sort();
   }, [previewData, processedData]);
 
   useEffect(() => {
@@ -226,12 +235,13 @@ export default function Home() {
     setProcessedData([]);
     setViewMode('results');
     setSourceFileFilter('all');
+    setBarangayFilter('all');
     setIsImportDialogOpen(false);
     
     if (userMode === 'basic') {
       runProcessWithData(newData, newCount, newFileName);
     } else {
-      const { allWithDuplicateMarkers } = processRecords(newData, [], [], taxRates, {
+      const { allWithDuplicateMarkers } = processRecords(newData, [], locationSettings, taxRates, {
         removeDuplicates: false,
         applyCalibration: false,
         systemCleanup: false
@@ -289,7 +299,7 @@ export default function Home() {
     if (userMode === 'basic' || processedData.length > 0) {
       runProcessWithData(newRawData, newRawData.length, importedFileName);
     } else {
-      const { allWithDuplicateMarkers } = processRecords(newRawData, [], [], taxRates, {
+      const { allWithDuplicateMarkers } = processRecords(newRawData, [], locationSettings, taxRates, {
         removeDuplicates: false, applyCalibration: false, systemCleanup: false
       }, importedFileName);
       setPreviewData(allWithDuplicateMarkers);
@@ -363,9 +373,8 @@ export default function Home() {
   };
 
   const handleExportClick = (type: 'results' | 'archive') => {
-    const currentList = type === 'results' 
-      ? (processedData.length > 0 ? processedData : previewData.filter(r => !r.isDuplicate && !r.isCleanup))
-      : previewData.filter(r => r.isDuplicate || r.isCleanup);
+    // respect filters
+    const currentList = filteredDisplayData;
 
     if (currentList.length === 0) {
       toast({ variant: "destructive", title: "Export Failed", description: "No records found to export." });
@@ -386,9 +395,8 @@ export default function Home() {
     setIsExporting(true);
     if (!specificFile) setIsBatchExportDialogOpen(false);
 
-    const currentList = type === 'results' 
-      ? (processedData.length > 0 ? processedData : previewData.filter(r => !r.isDuplicate && !r.isCleanup))
-      : previewData.filter(r => r.isDuplicate || r.isCleanup);
+    // respect filters
+    const currentList = filteredDisplayData;
 
     try {
       if (mode === 'merged') {
@@ -427,6 +435,7 @@ export default function Home() {
 
     return baseData.filter(record => {
       if (sourceFileFilter !== 'all' && record.sourceFile !== sourceFileFilter) return false;
+      if (barangayFilter !== 'all' && record.barangayName !== barangayFilter) return false;
 
       const query = searchQuery.toLowerCase();
       let matchesSearch = true;
@@ -446,13 +455,20 @@ export default function Home() {
       if (statusFilter === 'cleanup') return record.isCleanup;
       return true;
     });
-  }, [previewData, processedData, viewMode, searchQuery, searchField, statusFilter, sourceFileFilter, userMode]);
+  }, [previewData, processedData, viewMode, searchQuery, searchField, statusFilter, sourceFileFilter, barangayFilter, userMode]);
 
   const analyticsData = useMemo(() => {
     const activeData = processedData.length > 0 ? processedData : previewData.filter(r => !r.isCleanup && !r.isDuplicate);
+    // Apply filters to analytics as well
+    const filteredActiveData = activeData.filter(record => {
+      if (sourceFileFilter !== 'all' && record.sourceFile !== sourceFileFilter) return false;
+      if (barangayFilter !== 'all' && record.barangayName !== barangayFilter) return false;
+      return true;
+    });
+
     const auDistribution: Record<string, number> = {};
     const marketValueSum: Record<string, number> = {};
-    activeData.forEach(r => {
+    filteredActiveData.forEach(r => {
       const au = r.au || 'UNKNOWN';
       auDistribution[au] = (auDistribution[au] || 0) + 1;
       marketValueSum[au] = (marketValueSum[au] || 0) + (r.marketValue || 0);
@@ -461,7 +477,7 @@ export default function Home() {
       auChart: Object.entries(auDistribution).map(([name, value]) => ({ name, value })).filter(item => item.value > 0),
       marketChart: Object.entries(marketValueSum).map(([name, value]) => ({ name, value })).filter(item => item.value > 0)
     };
-  }, [processedData, previewData]);
+  }, [processedData, previewData, sourceFileFilter, barangayFilter]);
 
   const clearWorkspace = () => {
     setRawData([]);
@@ -470,6 +486,7 @@ export default function Home() {
     setSearchQuery("");
     setImportedFileName("");
     setSourceFileFilter("all");
+    setBarangayFilter("all");
     setStats({
       totalRawRows: 0, systemCleanup: 0, totalImported: 0, duplicatesRemoved: 0,
       finalCount: 0, totalMarketValue: 0, totalAssessedValue: 0, totalErrors: 0
@@ -608,7 +625,7 @@ export default function Home() {
                       <TabsTrigger value="audit" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white h-9 text-xs font-bold px-4"><ShieldCheck className="w-3.5 h-3.5 mr-2" /> Audit Log</TabsTrigger>
                     </TabsList>
                     {viewMode !== 'analytics' && viewMode !== 'audit' && (
-                      <div className="flex flex-1 items-center gap-2 w-full max-w-3xl">
+                      <div className="flex flex-1 items-center gap-2 w-full max-w-[900px]">
                         <div className="flex items-center gap-2 flex-1">
                           {userMode === 'advanced' && (
                             <Select value={searchField} onValueChange={setSearchField}>
@@ -628,9 +645,20 @@ export default function Home() {
                             <Input placeholder={`Search property records or file names...`} className="pl-9 text-sm h-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                           </div>
                         </div>
+                        {uniqueBarangays.length > 1 && (
+                          <Select value={barangayFilter} onValueChange={setBarangayFilter}>
+                            <SelectTrigger className="w-[180px] h-9 text-xs font-bold uppercase"><MapPin className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="Barangay" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Barangays</SelectItem>
+                              {uniqueBarangays.map(brgy => (
+                                <SelectItem key={brgy} value={brgy}>{brgy}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                         {uniqueSourceFiles.length > 1 && (
                           <Select value={sourceFileFilter} onValueChange={setSourceFileFilter}>
-                            <SelectTrigger className="w-[150px] h-9 text-xs font-bold uppercase"><Files className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="Filter By File" /></SelectTrigger>
+                            <SelectTrigger className="w-[150px] h-9 text-xs font-bold uppercase"><Files className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="File Source" /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="all">All Files</SelectItem>
                               {uniqueSourceFiles.map(file => (
@@ -654,7 +682,6 @@ export default function Home() {
                         <Button variant="ghost" size="sm" className="h-9 text-xs font-bold uppercase px-3 text-primary hover:bg-primary/10" onClick={() => setIsImportDialogOpen(true)}>
                           <Plus className="w-3.5 h-3.5 mr-1" /> Add Data
                         </Button>
-                        <Button variant="ghost" size="sm" className="h-9 text-xs font-bold uppercase px-3" onClick={clearWorkspace}><Eraser className="w-3.5 h-3.5 mr-1" /> Clear</Button>
                       </div>
                     )}
                   </div>
@@ -714,6 +741,7 @@ export default function Home() {
                         <ShieldCheck className="w-4 h-4 mr-2" /> Latest Audit
                       </Button>
                     )}
+                    <Button variant="ghost" size="sm" className="h-10 text-xs font-bold uppercase px-3" onClick={clearWorkspace}><Eraser className="w-3.5 h-3.5 mr-1" /> Clear Session</Button>
                   </div>
                   {userMode === 'advanced' && viewMode !== 'audit' && (
                     <Button size="lg" className="bg-primary hover:bg-green-700 px-12 font-black uppercase tracking-widest text-xs shadow-2xl transition-all active:scale-95 h-10" disabled={isProcessing} onClick={runProcess}>{isProcessing ? "Processing Batch..." : "Run Batch Processor"}</Button>
@@ -764,7 +792,7 @@ export default function Home() {
                   <div className="flex items-center gap-2 font-black uppercase text-xs tracking-widest text-primary">
                     <FileDown className="w-4 h-4" /> Single Master File
                   </div>
-                  <span className="text-[10px] font-bold text-muted-foreground group-hover:text-primary/70">Combine all records into one master spreadsheet</span>
+                  <span className="text-[10px] font-bold text-muted-foreground group-hover:text-primary/70">Combine filtered records into one master spreadsheet</span>
                 </div>
                 <Zap className="w-5 h-5 text-primary opacity-30 group-hover:opacity-100" />
               </Button>
@@ -802,7 +830,7 @@ export default function Home() {
           <div className="bg-card p-12 rounded-3xl shadow-2xl border border-primary/20 flex flex-col items-center scale-110">
             <div className="bg-primary/20 p-6 rounded-full mb-6 animate-bounce"><CheckCircle2 className="w-16 h-16 text-primary" /></div>
             <h3 className="text-3xl font-black text-primary uppercase tracking-tighter">Export Successful</h3>
-            <p className="text-muted-foreground font-bold mt-2">Your land records have been saved locally.</p>
+            <p className="text-muted-foreground font-bold mt-2">Your filtered land records have been saved locally.</p>
           </div>
         </div>
       )}

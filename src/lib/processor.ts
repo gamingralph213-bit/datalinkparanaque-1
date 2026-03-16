@@ -1,4 +1,3 @@
-
 import { BarangayConfig } from './locations';
 
 export interface TaxRateConfig {
@@ -22,6 +21,7 @@ export interface LandRecord {
   acctName: string;
   address: string; // The original address from source
   location: string; // The calibrated field for Barangay, Section
+  barangayName?: string; // Derived barangay name for filtering
   kind: string;
   au: string;
   landArea: number;
@@ -241,6 +241,19 @@ export function processRecords(
     const assessedValue = calculateAssessedValue(marketValue, r.au || '', taxRates);
     const yearlyTax = calculateYearlyTax(assessedValue, r.au || '', taxRates);
 
+    // Derive Barangay Name from PIN
+    let barangayName = "";
+    if (r.pin) {
+      const pinParts = r.pin.split('-');
+      if (pinParts.length >= 4) {
+        const brgyCode = pinParts[2];
+        const brgy = locationSettings.find(b => b.barangayCode === brgyCode);
+        if (brgy) {
+          barangayName = brgy.name;
+        }
+      }
+    }
+
     const record: LandRecord = {
       ...r,
       pin: r.pin?.trim() || '',
@@ -249,6 +262,7 @@ export function processRecords(
       acctName: r.acctName?.trim().toUpperCase() || '',
       address: r.address?.trim().toUpperCase() || '',
       location: r.location?.trim().toUpperCase() || "",
+      barangayName: barangayName,
       kind: r.kind?.trim().toUpperCase() || '',
       au: r.au?.trim().toUpperCase() || '',
       landArea,
@@ -309,6 +323,7 @@ export function processRecords(
         if (brgy || sec) {
           updated.location = `${brgy}${brgy && sec ? ', ' : ''}${sec}`.toUpperCase();
           wasCalibrated = true;
+          updated.barangayName = brgy;
         }
         if (matchingRule.unitValue !== undefined && !isNaN(matchingRule.unitValue) && matchingRule.unitValue > 0) {
           updated.unitValue = Math.round(matchingRule.unitValue);
@@ -324,6 +339,7 @@ export function processRecords(
               const lotCode = pinParts.length > 4 ? pinParts[4] : '';
               const targetBarangay = locationSettings.find(b => b.barangayCode === barangayCode);
               if (targetBarangay) {
+                  updated.barangayName = targetBarangay.name;
                   let sectionSetting = null;
                   if (lotCode) {
                       for (const section of targetBarangay.sections) {
