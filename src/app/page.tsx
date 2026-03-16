@@ -180,6 +180,7 @@ export default function Home() {
       }
     } catch (error) { console.error("Failed to parse localStorage:", error); }
     return () => {
+      window.removePermissionsListener?.();
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
       document.removeEventListener('fullscreenchange', handleFullScreenChange);
@@ -239,10 +240,10 @@ export default function Home() {
       totalImported: rawCount, 
       duplicatesRemoved: data.filter(r => r.isDuplicate).length, 
       finalCount: active.length,
-      totalMarket: valid.reduce((sum, r) => sum + (r.marketValue || 0), 0),
-      totalAssessed: valid.reduce((sum, r) => sum + (r.assessedValue || 0), 0),
+      totalMarketValue: valid.reduce((sum, r) => sum + (r.marketValue || 0), 0),
+      totalAssessedValue: valid.reduce((sum, r) => sum + (r.assessedValue || 0), 0),
       totalErrors: errors
-    });
+    } as any);
   };
 
   const runProcessWithData = async (data: LandRecord[], rawCount: number, fileName: string) => {
@@ -364,9 +365,11 @@ export default function Home() {
     }
   };
 
-  const executeExport = async (type: 'results' | 'archive', mode: 'merged' | 'separate') => {
+  const executeExport = async (type: 'results' | 'archive', mode: 'merged' | 'separate', specificFile?: string) => {
     setIsExporting(true);
-    setIsBatchExportDialogOpen(false);
+    // Only close the dialog if we are doing a merged or bulk separate export
+    // If selecting a single file, we keep it open so the user can download more
+    if (!specificFile) setIsBatchExportDialogOpen(false);
 
     const currentList = type === 'results' 
       ? (processedData.length > 0 ? processedData : previewData.filter(r => !r.isDuplicate && !r.isCleanup))
@@ -375,7 +378,16 @@ export default function Home() {
     try {
       if (mode === 'merged') {
         await performExcelExport(currentList, type);
+      } else if (specificFile) {
+        // Export just one specific file from the batch
+        const sourceData = currentList.filter(r => r.sourceFile === specificFile);
+        if (sourceData.length > 0) {
+          await performExcelExport(sourceData, type, specificFile);
+        } else {
+          toast({ variant: "destructive", title: "Export Failed", description: `No records found for ${specificFile}.` });
+        }
       } else {
+        // Bulk separate export (legacy choice)
         const sources = Array.from(new Set(currentList.map(r => r.sourceFile)));
         for (const source of sources) {
           const sourceData = currentList.filter(r => r.sourceFile === source);
@@ -447,8 +459,8 @@ export default function Home() {
     setSourceFileFilter("all");
     setStats({
       totalRawRows: 0, systemCleanup: 0, totalImported: 0, duplicatesRemoved: 0,
-      finalCount: 0, totalMarket: 0, totalAssessed: 0, totalErrors: 0
-    });
+      finalCount: 0, totalMarketValue: 0, totalAssessedValue: 0, totalErrors: 0
+    } as any);
     toast({ title: "Workspace Cleared", description: "All active data removed. Audit logs preserved." });
   };
 
@@ -565,11 +577,11 @@ export default function Home() {
                     </Card>
                     <Card className="p-4 bg-green-500/5 border-l-4 border-l-green-600 flex flex-col shadow-sm">
                       <div className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5 mb-1.5 tracking-wide"><Database className="w-3 h-3" /> Total Market</div>
-                      <div className={cn("font-black text-green-600 leading-tight truncate", getDynamicFontSize(`₱${stats.totalMarket.toLocaleString()}`))}>₱{stats.totalMarket.toLocaleString()}</div>
+                      <div className={cn("font-black text-green-600 leading-tight truncate", getDynamicFontSize(`₱${(stats as any).totalMarketValue?.toLocaleString()}`))}>₱{(stats as any).totalMarketValue?.toLocaleString()}</div>
                     </Card>
                     <Card className="p-4 bg-blue-500/5 border-l-4 border-l-blue-600 flex flex-col shadow-sm">
                       <div className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5 mb-1.5 tracking-wide"><BarChart3 className="w-3 h-3" /> Total Assessed</div>
-                      <div className={cn("font-black text-blue-600 leading-tight truncate", getDynamicFontSize(`₱${stats.totalAssessed.toLocaleString()}`))}>₱{stats.totalAssessed.toLocaleString()}</div>
+                      <div className={cn("font-black text-blue-600 leading-tight truncate", getDynamicFontSize(`₱${(stats as any).totalAssessedValue?.toLocaleString()}`))}>₱{(stats as any).totalAssessedValue?.toLocaleString()}</div>
                     </Card>
                   </div>
                 )}
@@ -708,44 +720,52 @@ export default function Home() {
               <DialogTitle className="text-xl font-black uppercase tracking-tight">Batch Export Options</DialogTitle>
             </div>
             <DialogDescription className="text-sm font-bold text-muted-foreground leading-relaxed">
-              Detected records from multiple source documents. Please choose your export strategy.
+              Detected records from multiple documents. Please select your export strategy.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="my-6 p-4 bg-muted/20 border rounded-xl space-y-3">
-             <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Files to be processed:</h4>
-             <div className="space-y-2 max-h-[120px] overflow-y-auto scrollbar-vertical-custom">
-                {uniqueSourceFiles.map(file => (
-                  <div key={file} className="flex items-center gap-2 text-[11px] font-bold text-emerald-800 dark:text-emerald-300">
-                    <FileText className="w-3.5 h-3.5 opacity-60" /> {file}
+          <div className="my-6 space-y-6">
+            {/* CONSOLIDATED EXPORT SECTION */}
+            <div className="space-y-3">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Consolidated Export</h4>
+              <Button 
+                variant="outline" 
+                className="w-full h-auto flex items-center justify-between p-4 border-2 border-primary/20 hover:border-primary hover:bg-primary/5 group transition-all"
+                onClick={() => executeExport(currentExportType, 'merged')}
+              >
+                <div className="flex flex-col items-start gap-1">
+                  <div className="flex items-center gap-2 font-black uppercase text-xs tracking-widest text-primary">
+                    <FileDown className="w-4 h-4" /> Single Master File
                   </div>
-                ))}
-             </div>
-          </div>
+                  <span className="text-[10px] font-bold text-muted-foreground group-hover:text-primary/70">Combine all records into one master spreadsheet</span>
+                </div>
+                <Zap className="w-5 h-5 text-primary opacity-30 group-hover:opacity-100" />
+              </Button>
+            </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
-            <Button 
-              variant="outline" 
-              className="h-auto min-h-[120px] flex flex-col items-center justify-center gap-3 p-4 border-2 border-primary/20 hover:border-primary hover:bg-primary/5 group transition-all"
-              onClick={() => executeExport(currentExportType, 'merged')}
-            >
-              <div className="flex items-center gap-2 font-black uppercase text-xs tracking-widest text-primary">
-                <FileDown className="w-4 h-4" /> Single Master File
+            {/* INDIVIDUAL EXPORT SECTION */}
+            <div className="space-y-3">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Export Individual Documents</h4>
+              <div className="p-4 bg-muted/20 border rounded-xl space-y-2 max-h-[200px] overflow-y-auto scrollbar-vertical-custom">
+                {uniqueSourceFiles.map(file => (
+                  <Button
+                    key={file}
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-between h-10 px-3 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 group"
+                    onClick={() => executeExport(currentExportType, 'separate', file)}
+                  >
+                    <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-800 dark:text-emerald-300 truncate max-w-[85%]">
+                      <FileText className="w-3.5 h-3.5 opacity-60" /> {file}
+                    </div>
+                    <Download className="w-3.5 h-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </Button>
+                ))}
               </div>
-              <span className="text-[10px] font-bold text-muted-foreground group-hover:text-primary/70 text-center leading-relaxed">Combine all records into one consolidated spreadsheet</span>
-            </Button>
-            <Button 
-              variant="outline" 
-              className="h-auto min-h-[120px] flex flex-col items-center justify-center gap-3 p-4 border-2 border-blue-600/20 hover:border-blue-600 hover:bg-blue-600/5 group transition-all"
-              onClick={() => executeExport(currentExportType, 'separate')}
-            >
-              <div className="flex items-center gap-2 font-black uppercase text-xs tracking-widest text-blue-600">
-                <ArrowRightLeft className="w-4 h-4" /> Separate Files
-              </div>
-              <span className="text-[10px] font-bold text-muted-foreground group-hover:text-blue-600/70 text-center leading-relaxed">Download individual spreadsheets for each original document</span>
-            </Button>
+            </div>
           </div>
-          <DialogFooter className="mt-4">
+          
+          <DialogFooter className="mt-4 pt-4 border-t">
             <Button variant="ghost" className="w-full font-black uppercase text-[11px] tracking-widest h-11" onClick={() => setIsBatchExportDialogOpen(false)}>Cancel and Review</Button>
           </DialogFooter>
         </DialogContent>
