@@ -149,6 +149,7 @@ export function RecordDetailModal({ record, open, onOpenChange, onSave, onArchiv
   };
 
   const isZeroArea = editedRecord.landArea === 0 && editedRecord.pin && editedRecord.arpNo;
+  const isInArchive = editedRecord.isManualArchive || editedRecord.isCleanup || editedRecord.isDuplicate;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -242,7 +243,7 @@ export function RecordDetailModal({ record, open, onOpenChange, onSave, onArchiv
 
         <div className="pt-6 border-t flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0">
           <div className="flex gap-2 w-full sm:w-auto">
-            {editedRecord.isManualArchive ? (
+            {isInArchive ? (
               <Button 
                 variant="outline" 
                 onClick={() => onUnarchive?.(editedRecord)} 
