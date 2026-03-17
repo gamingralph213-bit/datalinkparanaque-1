@@ -296,7 +296,7 @@ export default function Home() {
         
         if (!silent) {
           setProcessSuccess(true);
-          setTimeout(() => setProcessSuccess(false), 2500);
+          setTimeout(() => setProcessSuccess(false), 1500);
           setIsProcessing(false);
         }
       });
@@ -446,7 +446,7 @@ export default function Home() {
         }
       }
       setExportSuccess(true);
-      setTimeout(() => setExportSuccess(false), 2500);
+      setTimeout(() => setExportSuccess(false), 1500);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Export Failed", description: error.message });
     } finally {
@@ -888,7 +888,7 @@ export default function Home() {
       </Dialog>
 
       {exportSuccess && (
-        <div className="fixed inset-0 z-[100] bg-background/60 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in zoom-in duration-300">
+        <div className="fixed inset-0 z-[100] bg-background/60 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in zoom-in duration-200">
           <div className="bg-card p-12 rounded-3xl shadow-2xl border border-primary/20 flex flex-col items-center scale-110">
             <div className="bg-primary/20 p-6 rounded-full mb-6 animate-bounce"><CheckCircle2 className="w-16 h-16 text-primary" /></div>
             <h3 className="text-3xl font-black text-primary uppercase tracking-tighter">Export Successful</h3>
@@ -898,7 +898,7 @@ export default function Home() {
       )}
 
       {processSuccess && (
-        <div className="fixed inset-0 z-[100] bg-background/60 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in zoom-in duration-300">
+        <div className="fixed inset-0 z-[100] bg-background/60 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in zoom-in duration-200">
           <div className="bg-card p-12 rounded-3xl shadow-2xl border border-primary/20 flex flex-col items-center scale-110">
             <div className="bg-primary/20 p-6 rounded-full mb-6 animate-bounce"><CheckCircle2 className="w-16 h-16 text-primary" /></div>
             <h3 className="text-3xl font-black text-primary uppercase tracking-tighter">Processing Successful</h3>
