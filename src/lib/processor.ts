@@ -31,6 +31,7 @@ export interface LandRecord {
   yearlyTax?: number;
   isDuplicate?: boolean;
   isCleanup?: boolean;
+  isManualArchive?: boolean;
   cleanupReason?: string;
   isValid?: boolean;
   errors?: ValidationError[];
@@ -272,6 +273,7 @@ export function processRecords(
       yearlyTax,
       isDuplicate: false,
       isCleanup,
+      isManualArchive: r.isManualArchive || false,
       cleanupReason
     };
 
@@ -290,7 +292,7 @@ export function processRecords(
   if (options.removeDuplicates) {
     const pinToBestRecord = new Map<string, { index: number, arpVal: number }>();
     result.forEach((record, idx) => {
-      if (record.isCleanup || !record.pin || record.pin === '') return;
+      if (record.isCleanup || record.isManualArchive || !record.pin || record.pin === '') return;
       const currentArpVal = extractArpNumeric(record.arpNo);
       const existing = pinToBestRecord.get(record.pin);
       if (!existing) {
@@ -306,12 +308,12 @@ export function processRecords(
     });
   }
 
-  const duplicatesCount = result.filter(r => r.isDuplicate && !r.isCleanup).length;
-  const cleanupCount = result.filter(r => r.isCleanup).length;
+  const duplicatesCount = result.filter(r => r.isDuplicate && !r.isCleanup && !r.isManualArchive).length;
+  const cleanupCount = result.filter(r => r.isCleanup || r.isManualArchive).length;
 
   if (options.applyCalibration) {
     result = result.map(record => {
-      if (record.isCleanup) return record;
+      if (record.isCleanup || record.isManualArchive) return record;
       let updated = { ...record };
       const matchingRule = rules.find(rule => matchesPinPattern(record.pin, rule.pinPattern));
       
@@ -378,7 +380,7 @@ export function processRecords(
     });
   }
 
-  const finalProcessed = result.filter(r => !r.isDuplicate && !r.isCleanup);
+  const finalProcessed = result.filter(r => !r.isDuplicate && !r.isCleanup && !r.isManualArchive);
   const errorCount = finalProcessed.filter(r => !r.isValid).length;
   const validCount = finalProcessed.filter(r => r.isValid).length;
 

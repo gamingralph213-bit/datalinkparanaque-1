@@ -266,12 +266,12 @@ export default function Home() {
   };
 
   const updateStats = (data: LandRecord[], rawCount: number) => {
-    const active = data.filter(r => !r.isCleanup && !r.isDuplicate);
+    const active = data.filter(r => !r.isCleanup && !r.isDuplicate && !r.isManualArchive);
     const valid = active.filter(r => r.isValid);
     const errors = active.filter(r => !r.isValid).length;
     setStats({ 
       totalRawRows: rawCount,
-      systemCleanup: data.filter(r => r.isCleanup).length,
+      systemCleanup: data.filter(r => r.isCleanup || r.isManualArchive).length,
       totalImported: rawCount, 
       duplicatesRemoved: data.filter(r => r.isDuplicate).length, 
       finalCount: active.length,
@@ -315,6 +315,27 @@ export default function Home() {
     }
     setSelectedRecord(null);
     toast({ title: "Record Saved", description: "The property record has been updated and re-validated." });
+  };
+
+  const handleDeleteRecord = (recordId: string) => {
+    const newRawData = rawData.filter(r => r.id !== recordId);
+    setRawData(newRawData);
+    if (userMode === 'fast' || processedData.length > 0) {
+      runProcessWithData(newRawData, newRawData.length, importedFileName);
+    } else {
+      const { allWithDuplicateMarkers } = processRecords(newRawData, [], locationSettings, taxRates, {
+        removeDuplicates: false, applyCalibration: false, systemCleanup: false
+      }, importedFileName);
+      setPreviewData(allWithDuplicateMarkers);
+      updateStats(allWithDuplicateMarkers, newRawData.length);
+    }
+    setSelectedRecord(null);
+    toast({ variant: "destructive", title: "Record Deleted", description: "The property record has been permanently removed from the batch." });
+  };
+
+  const handleArchiveRecord = (record: LandRecord) => {
+    handleSaveRecord({ ...record, isManualArchive: true });
+    toast({ title: "Record Archived", description: "The record has been moved to the Archive tab." });
   };
 
   const performExcelExport = async (dataToExport: LandRecord[], exportType: 'results' | 'archive', fileNameOverride?: string) => {
@@ -431,8 +452,8 @@ export default function Home() {
 
   const filteredDisplayData = useMemo(() => {
     const baseData = viewMode === 'archive' 
-      ? previewData.filter(r => r.isDuplicate || r.isCleanup)
-      : (processedData.length > 0 ? processedData : previewData.filter(r => !r.isDuplicate && !r.isCleanup));
+      ? previewData.filter(r => r.isDuplicate || r.isCleanup || r.isManualArchive)
+      : (processedData.length > 0 ? processedData : previewData.filter(r => !r.isDuplicate && !r.isCleanup && !r.isManualArchive));
 
     return baseData.filter(record => {
       if (sourceFileFilter !== 'all' && record.sourceFile !== sourceFileFilter) return false;
@@ -450,16 +471,16 @@ export default function Home() {
       }
       if (!matchesSearch) return false;
       if (statusFilter === 'all') return true;
-      if (statusFilter === 'valid') return record.isValid && !record.isDuplicate && !record.isCleanup;
-      if (statusFilter === 'error') return !record.isValid && !record.isDuplicate && !record.isCleanup;
+      if (statusFilter === 'valid') return record.isValid && !record.isDuplicate && !record.isCleanup && !record.isManualArchive;
+      if (statusFilter === 'error') return !record.isValid && !record.isDuplicate && !record.isCleanup && !record.isManualArchive;
       if (statusFilter === 'duplicate') return record.isDuplicate;
-      if (statusFilter === 'cleanup') return record.isCleanup;
+      if (statusFilter === 'cleanup') return record.isCleanup || record.isManualArchive;
       return true;
     });
   }, [previewData, processedData, viewMode, searchQuery, searchField, statusFilter, sourceFileFilter, barangayFilter, userMode]);
 
   const analyticsData = useMemo(() => {
-    const activeData = processedData.length > 0 ? processedData : previewData.filter(r => !r.isCleanup && !r.isDuplicate);
+    const activeData = processedData.length > 0 ? processedData : previewData.filter(r => !r.isCleanup && !r.isDuplicate && !r.isManualArchive);
     const filteredActiveData = activeData.filter(record => {
       if (sourceFileFilter !== 'all' && record.sourceFile !== sourceFileFilter) return false;
       if (barangayFilter !== 'all' && record.barangayName !== barangayFilter) return false;
@@ -530,7 +551,7 @@ export default function Home() {
       icon: Eraser,
       color: "border-l-orange-400",
       textClass: "text-orange-600",
-      definition: "Rows the system automatically identified as non-data noise, such as page headers, empty lines, or decorative total rows found in the spreadsheets."
+      definition: "Rows the system automatically identified as non-data noise, such as page headers, empty lines, or manually archived records."
     },
     {
       label: "Valid Records",
@@ -881,7 +902,7 @@ export default function Home() {
       <SettingsPanel open={isSettingsOpen} onOpenChange={setIsSettingsOpen} locationSettings={locationSettings} onSettingsChange={setLocationSettings} taxRates={taxRates} onTaxRatesChange={setTaxRates} />
       <AboutModal open={isAboutOpen} onOpenChange={setIsAboutOpen} />
       <ProcessingReportModal report={latestReport} open={isReportOpen} onOpenChange={setIsReportOpen} />
-      <RecordDetailModal record={selectedRecord} open={!!selectedRecord} onOpenChange={(isOpen) => !isOpen && setSelectedRecord(null)} onSave={handleSaveRecord} />
+      <RecordDetailModal record={selectedRecord} open={!!selectedRecord} onOpenChange={(isOpen) => !isOpen && setSelectedRecord(null)} onSave={handleSaveRecord} onDelete={handleDeleteRecord} onArchive={handleArchiveRecord} />
       
       <Dialog open={isMarketDetailOpen} onOpenChange={setIsMarketDetailOpen}>
         <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col bg-card/95 backdrop-blur-3xl border-white/10 p-6 shadow-[0_0_50px_rgba(0,0,0,0.5)]">

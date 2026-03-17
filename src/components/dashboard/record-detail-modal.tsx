@@ -12,8 +12,18 @@ import { LandRecord, validateRecord, ValidationError } from '@/lib/processor';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, Save, Edit3 } from 'lucide-react';
+import { AlertTriangle, Save, Edit3, Trash2, Archive } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface EditableItemProps {
   label: string;
@@ -77,10 +87,13 @@ interface RecordDetailModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave?: (updatedRecord: LandRecord) => void;
+  onDelete?: (recordId: string) => void;
+  onArchive?: (record: LandRecord) => void;
 }
 
-export function RecordDetailModal({ record, open, onOpenChange, onSave }: RecordDetailModalProps) {
+export function RecordDetailModal({ record, open, onOpenChange, onSave, onDelete, onArchive }: RecordDetailModalProps) {
   const [editedRecord, setEditedRecord] = useState<LandRecord | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     if (record) {
@@ -135,10 +148,10 @@ export function RecordDetailModal({ record, open, onOpenChange, onSave }: Record
         </Badge>
       );
     }
-    if (editedRecord.isCleanup) {
+    if (editedRecord.isCleanup || editedRecord.isManualArchive) {
       return (
         <Badge variant="outline" className="text-xs h-6 px-3 font-black uppercase tracking-tighter bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800">
-          {editedRecord.cleanupReason || 'CLEANUP'}
+          {editedRecord.isManualArchive ? 'ARCHIVED' : (editedRecord.cleanupReason || 'CLEANUP')}
         </Badge>
       );
     }
@@ -155,107 +168,151 @@ export function RecordDetailModal({ record, open, onOpenChange, onSave }: Record
   const isZeroArea = editedRecord.landArea === 0 && editedRecord.pin && editedRecord.arpNo;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl bg-card/90 backdrop-blur-xl border-white/10 p-8 shadow-2xl flex flex-col gap-6">
-        <DialogHeader className="shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <DialogTitle className="text-2xl font-black bg-gradient-to-r from-blue-600 to-emerald-500 bg-clip-text text-transparent uppercase tracking-tight flex items-center gap-2">
-                <Edit3 className="w-6 h-6 text-primary" /> Property Record Editor
-              </DialogTitle>
-              <DialogDescription className="text-sm font-bold">
-                Correction & Validation for Account: <span className="font-black text-foreground underline decoration-primary/30 underline-offset-4">{record?.acctName}</span>
-              </DialogDescription>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-4xl bg-card/90 backdrop-blur-xl border-white/10 p-8 shadow-2xl flex flex-col gap-6">
+          <DialogHeader className="shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <DialogTitle className="text-2xl font-black bg-gradient-to-r from-blue-600 to-emerald-500 bg-clip-text text-transparent uppercase tracking-tight flex items-center gap-2">
+                  <Edit3 className="w-6 h-6 text-primary" /> Property Record Editor
+                </DialogTitle>
+                <DialogDescription className="text-sm font-bold">
+                  Correction & Validation for Account: <span className="font-black text-foreground underline decoration-primary/30 underline-offset-4">{record?.acctName}</span>
+                </DialogDescription>
+              </div>
+              <div>{getStatusBadge()}</div>
             </div>
-            <div>{getStatusBadge()}</div>
-          </div>
-        </DialogHeader>
+          </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto pr-2 scrollbar-vertical-custom space-y-6">
-            {!editedRecord.isValid && (
-              <div className={cn(
-                "p-4 rounded-xl border flex items-start gap-4",
-                isZeroArea ? "bg-red-500/10 border-red-500/30" : "bg-red-500/10 border-red-500/20"
-              )}>
-                <AlertTriangle className="w-6 h-6 text-red-600 shrink-0" />
-                <div className="space-y-1">
-                  <h5 className="text-sm font-black text-red-700 uppercase">
-                    {isZeroArea ? "Critical: Land Area is Missing (0.00)" : "Data Integrity Issues Detected"}
-                  </h5>
-                  <ul className="list-disc list-inside space-y-1">
-                    {editedRecord.errors?.map((err, i) => (
-                      <li key={i} className="text-xs font-bold text-red-600/80">{err.message}</li>
-                    ))}
-                  </ul>
+          <div className="flex-1 overflow-y-auto pr-2 scrollbar-vertical-custom space-y-6">
+              {!editedRecord.isValid && (
+                <div className={cn(
+                  "p-4 rounded-xl border flex items-start gap-4",
+                  isZeroArea ? "bg-red-500/10 border-red-500/30" : "bg-red-500/10 border-red-500/20"
+                )}>
+                  <AlertTriangle className="w-6 h-6 text-red-600 shrink-0" />
+                  <div className="space-y-1">
+                    <h5 className="text-sm font-black text-red-700 uppercase">
+                      {isZeroArea ? "Critical: Land Area is Missing (0.00)" : "Data Integrity Issues Detected"}
+                    </h5>
+                    <ul className="list-disc list-inside space-y-1">
+                      {editedRecord.errors?.map((err, i) => (
+                        <li key={i} className="text-xs font-bold text-red-600/80">{err.message}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="p-6 rounded-2xl bg-muted/30 border shadow-inner space-y-6">
+                   <h4 className="text-[12px] font-black uppercase text-primary tracking-widest flex items-center gap-2">
+                     <div className="w-1.5 h-3.5 bg-primary rounded-full" /> Primary Identity
+                   </h4>
+                   <div className="grid grid-cols-1 gap-4">
+                      <EditableItem label="Account Name" field="acctName" value={editedRecord.acctName} errors={editedRecord.errors} onChange={handleInputChange} />
+                      <div className="grid grid-cols-2 gap-4">
+                        <EditableItem label="PIN Number" field="pin" value={editedRecord.pin} errors={editedRecord.errors} onChange={handleInputChange} isMono />
+                        <EditableItem label="ARP No#" field="arpNo" value={editedRecord.arpNo} errors={editedRecord.errors} onChange={handleInputChange} isMono />
+                      </div>
+                      <EditableItem label="Address" field="address" value={editedRecord.address} errors={editedRecord.errors} onChange={handleInputChange} />
+                      <div className="grid grid-cols-2 gap-4">
+                        <EditableItem label="Date" field="date" value={editedRecord.date} errors={editedRecord.errors} onChange={handleInputChange} />
+                        <EditableItem label="Update Code" field="update" value={editedRecord.update} errors={editedRecord.errors} onChange={handleInputChange} />
+                      </div>
+                   </div>
+                </div>
+
+                <div className="p-6 rounded-2xl bg-muted/30 border shadow-inner space-y-6">
+                  <h4 className="text-[12px] font-black uppercase text-primary tracking-widest flex items-center gap-2">
+                    <div className="w-1.5 h-3.5 bg-primary rounded-full" /> Financial Data
+                  </h4>
+                  <div className="grid grid-cols-1 gap-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className={cn("rounded-xl transition-all", isZeroArea && "bg-red-500/5 p-2 ring-1 ring-red-500/30")}>
+                          <EditableItem label="Land Area (sqm)" field="landArea" value={editedRecord.landArea} errors={editedRecord.errors} onChange={handleInputChange} isMono type="number" />
+                        </div>
+                        <EditableItem label="Unit Value (₱)" field="unitValue" value={editedRecord.unitValue} errors={editedRecord.errors} onChange={handleInputChange} isMono type="number" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
+                        <StaticItem label="Location" value={editedRecord.location || 'Pending Calibration'} />
+                        <StaticItem label="Actual Use (AU)" value={editedRecord.au || '---'} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
+                        <div className="space-y-1">
+                          <p className="text-[12px] font-black text-muted-foreground uppercase tracking-widest">Market Value</p>
+                          <p className="text-lg font-black text-emerald-600 font-mono">{formatCurrency(editedRecord.marketValue)}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[12px] font-black text-muted-foreground uppercase tracking-widest">Assessed Value</p>
+                          <p className="text-lg font-black text-blue-600 font-mono">{formatCurrency(editedRecord.assessedValue)}</p>
+                        </div>
+                      </div>
+                      <div className="p-4 bg-primary/5 rounded-xl border border-primary/10">
+                        <p className="text-[12px] font-black text-primary uppercase tracking-widest mb-1">Yearly Tax Estimate</p>
+                        <p className="text-2xl font-black font-mono tracking-tighter">{formatCurrency(editedRecord.yearlyTax)}</p>
+                      </div>
+                  </div>
                 </div>
               </div>
-            )}
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="p-6 rounded-2xl bg-muted/30 border shadow-inner space-y-6">
-                 <h4 className="text-[12px] font-black uppercase text-primary tracking-widest flex items-center gap-2">
-                   <div className="w-1.5 h-3.5 bg-primary rounded-full" /> Primary Identity
-                 </h4>
-                 <div className="grid grid-cols-1 gap-4">
-                    <EditableItem label="Account Name" field="acctName" value={editedRecord.acctName} errors={editedRecord.errors} onChange={handleInputChange} />
-                    <div className="grid grid-cols-2 gap-4">
-                      <EditableItem label="PIN Number" field="pin" value={editedRecord.pin} errors={editedRecord.errors} onChange={handleInputChange} isMono />
-                      <EditableItem label="ARP No#" field="arpNo" value={editedRecord.arpNo} errors={editedRecord.errors} onChange={handleInputChange} isMono />
-                    </div>
-                    <EditableItem label="Address" field="address" value={editedRecord.address} errors={editedRecord.errors} onChange={handleInputChange} />
-                    <div className="grid grid-cols-2 gap-4">
-                      <EditableItem label="Date" field="date" value={editedRecord.date} errors={editedRecord.errors} onChange={handleInputChange} />
-                      <EditableItem label="Update Code" field="update" value={editedRecord.update} errors={editedRecord.errors} onChange={handleInputChange} />
-                    </div>
-                 </div>
-              </div>
-
-              <div className="p-6 rounded-2xl bg-muted/30 border shadow-inner space-y-6">
-                <h4 className="text-[12px] font-black uppercase text-primary tracking-widest flex items-center gap-2">
-                  <div className="w-1.5 h-3.5 bg-primary rounded-full" /> Financial Data
-                </h4>
-                <div className="grid grid-cols-1 gap-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className={cn("rounded-xl transition-all", isZeroArea && "bg-red-500/5 p-2 ring-1 ring-red-500/30")}>
-                        <EditableItem label="Land Area (sqm)" field="landArea" value={editedRecord.landArea} errors={editedRecord.errors} onChange={handleInputChange} isMono type="number" />
-                      </div>
-                      <EditableItem label="Unit Value (₱)" field="unitValue" value={editedRecord.unitValue} errors={editedRecord.errors} onChange={handleInputChange} isMono type="number" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
-                      <StaticItem label="Location" value={editedRecord.location || 'Pending Calibration'} />
-                      <StaticItem label="Actual Use (AU)" value={editedRecord.au || '---'} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
-                      <div className="space-y-1">
-                        <p className="text-[12px] font-black text-muted-foreground uppercase tracking-widest">Market Value</p>
-                        <p className="text-lg font-black text-emerald-600 font-mono">{formatCurrency(editedRecord.marketValue)}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-[12px] font-black text-muted-foreground uppercase tracking-widest">Assessed Value</p>
-                        <p className="text-lg font-black text-blue-600 font-mono">{formatCurrency(editedRecord.assessedValue)}</p>
-                      </div>
-                    </div>
-                    <div className="p-4 bg-primary/5 rounded-xl border border-primary/10">
-                      <p className="text-[12px] font-black text-primary uppercase tracking-widest mb-1">Yearly Tax Estimate</p>
-                      <p className="text-2xl font-black font-mono tracking-tighter">{formatCurrency(editedRecord.yearlyTax)}</p>
-                    </div>
-                </div>
-              </div>
+          <div className="pt-6 border-t flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0">
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsDeleteDialogOpen(true)} 
+                className="font-black uppercase text-[10px] h-10 px-4 text-red-600 border-red-200 hover:bg-red-50"
+              >
+                <Trash2 className="w-3.5 h-3.5 mr-2" /> Delete
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => onArchive?.(editedRecord)} 
+                className="font-black uppercase text-[10px] h-10 px-4 text-orange-600 border-orange-200 hover:bg-orange-50"
+                disabled={editedRecord.isManualArchive}
+              >
+                <Archive className="w-3.5 h-3.5 mr-2" /> {editedRecord.isManualArchive ? 'Archived' : 'Archive'}
+              </Button>
             </div>
-        </div>
+            
+            <div className="flex gap-3 w-full sm:w-auto">
+              <Button variant="outline" onClick={() => onOpenChange(false)} className="font-black uppercase text-[11px] h-11 px-6 flex-1 sm:flex-none">Discard</Button>
+              <Button onClick={() => onSave?.(editedRecord)} className="bg-primary hover:bg-emerald-800 font-black uppercase text-[11px] h-11 px-8 shadow-lg gap-2 flex-1 sm:flex-none">
+                <Save className="w-4 h-4" /> Save Changes
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-        <div className="pt-6 border-t flex items-center justify-between gap-4 shrink-0">
-          <div className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">
-            {editedRecord.isValid ? "Record is clean and valid" : "Record contains unresolved errors"}
-          </div>
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={() => onOpenChange(false)} className="font-black uppercase text-[12px] h-11 px-8">Discard</Button>
-            <Button onClick={() => onSave?.(editedRecord)} className="bg-primary hover:bg-emerald-800 font-black uppercase text-[12px] h-11 px-10 shadow-lg gap-2">
-              <Save className="w-4 h-4" /> Save Corrections
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent className="bg-card/95 backdrop-blur-xl border-white/10 shadow-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-black uppercase tracking-tight text-red-600 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" /> Confirm Deletion
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm font-bold text-muted-foreground leading-relaxed">
+              You are about to permanently delete the record for <span className="font-black text-foreground underline decoration-red-500/30 underline-offset-4">{editedRecord.acctName}</span>. 
+              This action cannot be undone and will remove the record from the current batch.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-3">
+            <AlertDialogCancel className="font-black uppercase text-xs h-10 px-6">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                onDelete?.(editedRecord.id!);
+                setIsDeleteDialogOpen(false);
+              }}
+              className="bg-red-600 hover:bg-red-700 font-black uppercase text-xs h-10 px-8"
+            >
+              Confirm Permanent Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
