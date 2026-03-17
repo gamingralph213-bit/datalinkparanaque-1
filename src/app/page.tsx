@@ -307,11 +307,9 @@ export default function Home() {
   };
 
   const handleSaveRecord = useCallback((updatedRecord: LandRecord) => {
-    // 1. Instantly close UI elements
     setSelectedRecord(null);
     setIsProcessing(true);
 
-    // 2. Perform data mutation in transition to keep UI responsive
     startTransition(() => {
       const newRawData = rawData.map(r => r.id === updatedRecord.id ? updatedRecord : r);
       setRawData(newRawData);
@@ -328,32 +326,6 @@ export default function Home() {
           setIsProcessing(false);
         }
         toast({ title: "Record Saved", description: "The property record has been updated and re-validated." });
-      }, 10);
-    });
-  }, [rawData, userMode, processedData.length, importedFileName, locationSettings, taxRates]);
-
-  const handleDeleteRecord = useCallback((recordId: string) => {
-    // 1. Instantly close UI elements
-    setSelectedRecord(null);
-    setIsProcessing(true);
-
-    // 2. Defer heavy logic so the browser doesn't freeze during modal close
-    startTransition(() => {
-      const newRawData = rawData.filter(r => r.id !== recordId);
-      setRawData(newRawData);
-      
-      setTimeout(() => {
-        if (userMode === 'fast' || processedData.length > 0) {
-          runProcessWithData(newRawData, newRawData.length, importedFileName);
-        } else {
-          const { allWithDuplicateMarkers } = processRecords(newRawData, [], locationSettings, taxRates, {
-            removeDuplicates: false, applyCalibration: false, systemCleanup: false
-          }, importedFileName);
-          setPreviewData(allWithDuplicateMarkers);
-          updateStats(allWithDuplicateMarkers, newRawData.length);
-          setIsProcessing(false);
-        }
-        toast({ variant: "destructive", title: "Record Deleted", description: "The property record has been permanently removed from the batch." });
       }, 10);
     });
   }, [rawData, userMode, processedData.length, importedFileName, locationSettings, taxRates]);
@@ -938,7 +910,7 @@ export default function Home() {
       <SettingsPanel open={isSettingsOpen} onOpenChange={setIsSettingsOpen} locationSettings={locationSettings} onSettingsChange={setLocationSettings} taxRates={taxRates} onTaxRatesChange={setTaxRates} />
       <AboutModal open={isAboutOpen} onOpenChange={setIsAboutOpen} />
       <ProcessingReportModal report={latestReport} open={isReportOpen} onOpenChange={setIsReportOpen} />
-      <RecordDetailModal record={selectedRecord} open={!!selectedRecord} onOpenChange={(isOpen) => !isOpen && setSelectedRecord(null)} onSave={handleSaveRecord} onDelete={handleDeleteRecord} onArchive={handleArchiveRecord} />
+      <RecordDetailModal record={selectedRecord} open={!!selectedRecord} onOpenChange={(isOpen) => !isOpen && setSelectedRecord(null)} onSave={handleSaveRecord} onArchive={handleArchiveRecord} />
       
       <Dialog open={isMarketDetailOpen} onOpenChange={setIsMarketDetailOpen}>
         <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col bg-card/95 backdrop-blur-3xl border-white/10 p-6 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
