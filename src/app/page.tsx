@@ -641,7 +641,7 @@ export default function Home() {
               <div className="flex items-center gap-6 cursor-pointer hover:opacity-80 transition-all active:scale-95 group relative" onClick={() => window.location.reload()}>
                 <div className="relative w-40 flex items-center h-full">
                   <div className="absolute left-0 -translate-y-1/2 top-1/2">
-                    <Image src="/LOGO.png" alt="DataLink Logo" width={156} height={156} className="object-contain" />
+                    <Image src="/LOGO.png" alt="DataLink Logo" width={140} height={140} className="object-contain" />
                   </div>
                 </div>
                 <div className="flex flex-col">
@@ -925,7 +925,7 @@ export default function Home() {
         onUnarchive={handleUnarchiveRecord}
       />
       
-      <Dialog open={isMarketDetailOpen} onOpenChange={setIsMarketDetailOpen}>
+      <Dialog theme-color="primary" open={isMarketDetailOpen} onOpenChange={setIsMarketDetailOpen}>
         <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col bg-card/95 backdrop-blur-3xl border-white/10 p-6 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
           <DialogHeader className="mb-4 shrink-0">
             <DialogTitle className="text-xl font-black bg-gradient-to-r from-blue-600 to-emerald-500 bg-clip-text text-transparent uppercase flex items-center gap-2.5 leading-none tracking-tight"><Database className="w-6 h-6 text-primary" /> Market Value Analysis</DialogTitle>
