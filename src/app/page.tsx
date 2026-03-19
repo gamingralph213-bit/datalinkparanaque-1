@@ -28,7 +28,8 @@ import {
   ArrowRightLeft,
   Plus,
   MapPin,
-  HelpCircle
+  HelpCircle,
+  RotateCcw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -639,10 +640,10 @@ export default function Home() {
             <TooltipTrigger asChild>
               <div className="flex items-center gap-6 cursor-pointer hover:opacity-80 transition-all active:scale-95 group" onClick={() => window.location.reload()}>
                 <div className="p-0 overflow-hidden shrink-0">
-                  <Image src="/LOGO.png" alt="DataLink Logo" width={120} height={120} className="object-contain" />
+                  <Image src="/LOGO.png" alt="DataLink Logo" width={78} height={78} className="object-contain" />
                 </div>
                 <div className="flex flex-col">
-                  <h1 className="text-2xl font-black tracking-tighter leading-none flex items-center gap-2">
+                  <h1 className="text-5xl font-black tracking-tighter leading-none flex items-center gap-2">
                     <span className="text-foreground">DataLink</span>
                     <span className="text-primary">Parañaque</span>
                   </h1>
