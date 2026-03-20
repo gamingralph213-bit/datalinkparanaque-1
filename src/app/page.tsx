@@ -638,18 +638,18 @@ export default function Home() {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-all active:scale-95 group relative" onClick={() => window.location.reload()}>
-                <div className="relative w-32 flex items-center h-full">
+              <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-all active:scale-95 group relative" onClick={() => window.location.reload()}>
+                <div className="relative w-24 flex items-center h-full">
                   <div className="absolute left-0 -translate-y-1/2 top-1/2">
-                    <Image src="/LOGO.png" alt="DataLink Logo" width={108} height={108} className="object-contain" />
+                    <Image src="/LOGO.png" alt="DataLink Logo" width={86} height={86} className="object-contain" />
                   </div>
                 </div>
                 <div className="flex flex-col">
-                  <h1 className="text-[40px] font-black tracking-tighter leading-none flex items-center gap-2">
+                  <h1 className="text-[32px] font-black tracking-tighter leading-none flex items-center gap-2">
                     <span className="text-foreground">DataLink</span>
                     <span className="text-primary">Parañaque</span>
                   </h1>
-                  <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-[0.2em] mt-1.5 ml-0.5 opacity-60">Real Property Batch Processor</p>
+                  <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.2em] mt-1 ml-0.5 opacity-60">Real Property Batch Processor</p>
                 </div>
               </div>
             </TooltipTrigger>
