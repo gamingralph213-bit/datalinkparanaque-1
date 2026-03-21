@@ -210,7 +210,6 @@ export function processRecords(
       
       const allValuesEmpty = !r.pin && !r.arpNo && !r.acctName;
       
-      // Zero land area is NOT a reason for cleanup if PIN or ARP exists
       const hasMinimalData = (
         (r.date || r.arpNo || r.pin) &&
         (r.acctName || (r.pin && r.pin !== ""))
@@ -258,7 +257,7 @@ export function processRecords(
       unitValue,
       marketValue,
       assessedValue: calculateAssessedValue(marketValue, r.au || '', taxRates),
-      yearlyTax: calculateYearlyTax(0, r.au || '', taxRates), // Initialized
+      yearlyTax: calculateYearlyTax(0, r.au || '', taxRates),
       isDuplicate: false,
       isCleanup,
       isManualArchive: r.isManualArchive || false,
@@ -291,7 +290,7 @@ export function processRecords(
   const duplicatesCount = result.filter(r => r.isDuplicate && !r.isCleanup && !r.isManualArchive).length;
   const cleanupCount = result.filter(r => r.isCleanup || r.isManualArchive).length;
 
-  // 3rd Pass: Apply Calibration (Applied to all non-cleanup records, including those with zero area)
+  // 3rd Pass: Apply Calibration (Proceed even if area is 0, provided PIN is valid)
   if (options.applyCalibration) {
     result = result.map(record => {
       if (record.isCleanup || record.isManualArchive) return record;
@@ -300,7 +299,7 @@ export function processRecords(
       
       let wasCalibrated = false;
 
-      // PIN-based derivation of Barangay Name
+      // Derivation of Barangay Name based on PIN segment
       if (updated.pin) {
         const pinParts = updated.pin.split('-');
         if (pinParts.length >= 3) {
@@ -312,7 +311,7 @@ export function processRecords(
         }
       }
 
-      // Apply Custom Rules
+      // Apply Custom Calibration Rules
       if (matchingRule) {
         const brgy = (matchingRule.barangay || "").trim();
         const sec = (matchingRule.section || "").trim();
@@ -327,7 +326,7 @@ export function processRecords(
         }
       }
 
-      // Apply Location Settings (Barangay/Section Table)
+      // Apply Global Location Settings (Barangay/Section Mapping)
       if (locationSettings) {
           const pinParts = updated.pin.split('-');
           if (pinParts.length >= 4) {
@@ -366,8 +365,7 @@ export function processRecords(
       
       if (wasCalibrated) calibratedCount++;
 
-      // Recalculate financials based on post-calibrated unit value
-      // Even if landArea is 0, we update marketValue (which stays 0) and the tax calculations
+      // Recalculate based on calibrated values (Area remains 0 if missing, marketValue reflects that)
       if (updated.unitValue && updated.unitValue > 0 && updated.landArea > 0) {
           updated.marketValue = updated.landArea * updated.unitValue;
       }
@@ -378,11 +376,9 @@ export function processRecords(
     });
   }
 
-  // Final Pass: Finalize Validation and Statistics
+  // Final Pass: Validation
   result = result.map(record => {
     const errors = validateRecord(record);
-    
-    // Add ARP duplication error check specifically for records in this batch
     if (record.arpNo && (arpCounts.get(record.arpNo) || 0) > 1) {
       errors.push({ field: 'arpNo', message: 'Duplicate ARP Number detected in source file' });
     }

@@ -120,13 +120,15 @@ const RecordRow = memo(({
     </TableRow>
   );
 }, (prevProps, nextProps) => {
-  // Deep comparison for memoization: Only re-render if key data points change
+  // Deep comparison for memoization: Include location and unitValue to ensure dashboard updates correctly
   return (
     prevProps.row.id === nextProps.row.id &&
     prevProps.row.isValid === nextProps.row.isValid &&
     prevProps.row.isDuplicate === nextProps.row.isDuplicate &&
     prevProps.row.isCleanup === nextProps.row.isCleanup &&
     prevProps.row.isManualArchive === nextProps.row.isManualArchive &&
+    prevProps.row.location === nextProps.row.location &&
+    prevProps.row.unitValue === nextProps.row.unitValue &&
     prevProps.row.marketValue === nextProps.row.marketValue &&
     prevProps.index === nextProps.index
   );
