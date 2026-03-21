@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useTransition, useCallback } from 'react';
@@ -640,8 +641,8 @@ export default function Home() {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex items-center gap-1 cursor-pointer hover:opacity-80 transition-all active:scale-95 group relative" onClick={() => window.location.reload()}>
-                <div className="relative w-20 flex items-center h-full">
+              <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-all active:scale-95 group relative" onClick={() => window.location.reload()}>
+                <div className="relative w-32 flex items-center h-full">
                   <div className="absolute left-0 -translate-y-1/2 top-1/2">
                     <Image src="/LOGO.png" alt="DataLink Logo" width={86} height={86} className="object-contain" />
                   </div>
@@ -929,7 +930,7 @@ export default function Home() {
       <Dialog theme-color="primary" open={isMarketDetailOpen} onOpenChange={setIsMarketDetailOpen}>
         <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col bg-card/95 backdrop-blur-3xl border-white/10 p-6 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
           <DialogHeader className="mb-4 shrink-0">
-            <DialogTitle className="text-xl font-black bg-gradient-to-r from-blue-600 to-emerald-500 bg-clip-text text-transparent uppercase flex items-center gap-2.5 leading-none tracking-tight"><Database className="w-6 h-6 text-primary" /> Market Value Analysis</DialogTitle>
+            <DialogTitle className="text-xl font-black text-foreground uppercase flex items-center gap-2.5 leading-none tracking-tight"><Database className="w-6 h-6 text-primary" /> Market Value Analysis</DialogTitle>
           </DialogHeader>
           <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 min-h-0">
             <div className="lg:col-span-5 bg-muted/5 rounded-2xl border border-white/5 flex items-center justify-center p-4 shadow-inner">

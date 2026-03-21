@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -135,7 +136,7 @@ export function ProcessingReportModal({ report, open, onOpenChange }: Processing
                 <ShieldCheck className="text-primary w-7 h-7" />
               </div>
               <div>
-                <DialogTitle className="text-2xl font-black bg-gradient-to-br from-blue-600 to-emerald-500 bg-clip-text text-transparent uppercase tracking-tight leading-none">
+                <DialogTitle className="text-2xl font-black text-foreground uppercase tracking-tight leading-none">
                   Processing Summary Report
                 </DialogTitle>
                 <DialogDescription className="text-sm font-bold text-muted-foreground mt-1.5 uppercase tracking-widest">

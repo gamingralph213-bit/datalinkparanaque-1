@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -44,7 +45,7 @@ export function AboutModal({ open, onOpenChange }: AboutModalProps) {
               <div className="bg-primary/20 p-3 rounded-2xl shadow-inner border border-primary/20">
                 <Info className="text-primary w-7 h-7" />
               </div>
-              <DialogTitle className="text-3xl font-black bg-gradient-to-br from-blue-600 to-emerald-500 bg-clip-text text-transparent uppercase tracking-tight leading-none">
+              <DialogTitle className="text-3xl font-black text-foreground uppercase tracking-tight leading-none">
                 About DataLink Parañaque
               </DialogTitle>
             </div>
