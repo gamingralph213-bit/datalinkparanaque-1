@@ -97,11 +97,13 @@ export function extractArpNumeric(arp: string): number {
 
 export function matchesPinPattern(pin: string, pattern: string): boolean {
   if (!pin || !pattern) return false;
+  // Normalize by stripping non-essential characters for matching
+  const cleanPin = pin.trim();
   const escapedPattern = pattern
     .replace(/[.+^${}()|[\]\\]/g, '\\$&')
     .replace(/x/g, '.*');
   const regex = new RegExp(`^${escapedPattern}$`, 'i');
-  return regex.test(pin);
+  return regex.test(cleanPin);
 }
 
 export function calculateAssessedValue(marketValue: number, au: string, taxRates: TaxRateMap): number {
@@ -207,6 +209,8 @@ export function processRecords(
       );
       
       const allValuesEmpty = !r.pin && !r.arpNo && !r.acctName;
+      
+      // Zero land area is NOT a reason for cleanup if PIN or ARP exists
       const hasMinimalData = (
         (r.date || r.arpNo || r.pin) &&
         (r.acctName || (r.pin && r.pin !== ""))
@@ -254,7 +258,7 @@ export function processRecords(
       unitValue,
       marketValue,
       assessedValue: calculateAssessedValue(marketValue, r.au || '', taxRates),
-      yearlyTax: calculateYearlyTax(0, r.au || '', taxRates), // Will recalculate later
+      yearlyTax: calculateYearlyTax(0, r.au || '', taxRates), // Initialized
       isDuplicate: false,
       isCleanup,
       isManualArchive: r.isManualArchive || false,
@@ -287,7 +291,7 @@ export function processRecords(
   const duplicatesCount = result.filter(r => r.isDuplicate && !r.isCleanup && !r.isManualArchive).length;
   const cleanupCount = result.filter(r => r.isCleanup || r.isManualArchive).length;
 
-  // 3rd Pass: Apply Calibration (even to error records as long as they aren't cleanup/archived)
+  // 3rd Pass: Apply Calibration (Applied to all non-cleanup records, including those with zero area)
   if (options.applyCalibration) {
     result = result.map(record => {
       if (record.isCleanup || record.isManualArchive) return record;
@@ -299,7 +303,7 @@ export function processRecords(
       // PIN-based derivation of Barangay Name
       if (updated.pin) {
         const pinParts = updated.pin.split('-');
-        if (pinParts.length >= 4) {
+        if (pinParts.length >= 3) {
           const brgyCode = pinParts[2];
           const brgy = locationSettings.find(b => b.barangayCode === brgyCode);
           if (brgy) {
@@ -363,6 +367,7 @@ export function processRecords(
       if (wasCalibrated) calibratedCount++;
 
       // Recalculate financials based on post-calibrated unit value
+      // Even if landArea is 0, we update marketValue (which stays 0) and the tax calculations
       if (updated.unitValue && updated.unitValue > 0 && updated.landArea > 0) {
           updated.marketValue = updated.landArea * updated.unitValue;
       }

@@ -591,7 +591,7 @@ export default function Home() {
       label: "Total Assessed",
       value: `₱${stats.totalAssessedValue?.toLocaleString()}`,
       icon: BarChart3,
-      color: "border-l-blue-600 bg-blue-500/5",
+      color: "border-l-blue-600 bg-green-500/5",
       textClass: "text-blue-600",
       definition: "The sum of all Assessed Values, which represents the taxable portion of the Market Value based on the property's specific Actual Use (AU)."
     }
@@ -638,8 +638,8 @@ export default function Home() {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-all active:scale-95 group relative" onClick={() => window.location.reload()}>
-                <div className="relative w-24 flex items-center h-full">
+              <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-all active:scale-95 group relative" onClick={() => window.location.reload()}>
+                <div className="relative w-32 flex items-center h-full">
                   <div className="absolute left-0 -translate-y-1/2 top-1/2">
                     <Image src="/LOGO.png" alt="DataLink Logo" width={86} height={86} className="object-contain" />
                   </div>
