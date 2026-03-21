@@ -126,7 +126,7 @@ export function calculateYearlyTax(assessedValue: number, au: string, taxRates: 
   return assessedValue * rate;
 }
 
-export function validateRecord(record: LandRecord, allArps: Set<string>): ValidationError[] {
+export function validateRecord(record: LandRecord): ValidationError[] {
   const errors: ValidationError[] = [];
 
   // 1. PIN Validation
@@ -193,6 +193,7 @@ export function processRecords(
 
   let calibratedCount = 0;
 
+  // 1st Pass: Initial Mapping and Cleanup Identification
   let result = records.map(r => {
     let isCleanup = false;
     let cleanupReason = "";
@@ -239,22 +240,6 @@ export function processRecords(
       marketValue = unitValue * landArea;
     }
 
-    const assessedValue = calculateAssessedValue(marketValue, r.au || '', taxRates);
-    const yearlyTax = calculateYearlyTax(assessedValue, r.au || '', taxRates);
-
-    // Derive Barangay Name from PIN
-    let barangayName = "";
-    if (r.pin) {
-      const pinParts = r.pin.split('-');
-      if (pinParts.length >= 4) {
-        const brgyCode = pinParts[2];
-        const brgy = locationSettings.find(b => b.barangayCode === brgyCode);
-        if (brgy) {
-          barangayName = brgy.name;
-        }
-      }
-    }
-
     const record: LandRecord = {
       ...r,
       pin: r.pin?.trim() || '',
@@ -263,32 +248,23 @@ export function processRecords(
       acctName: r.acctName?.trim().toUpperCase() || '',
       address: r.address?.trim().toUpperCase() || '',
       location: r.location?.trim().toUpperCase() || "",
-      barangayName: barangayName,
       kind: r.kind?.trim().toUpperCase() || '',
       au: r.au?.trim().toUpperCase() || '',
       landArea,
       unitValue,
       marketValue,
-      assessedValue,
-      yearlyTax,
+      assessedValue: calculateAssessedValue(marketValue, r.au || '', taxRates),
+      yearlyTax: calculateYearlyTax(0, r.au || '', taxRates), // Will recalculate later
       isDuplicate: false,
       isCleanup,
       isManualArchive: r.isManualArchive || false,
       cleanupReason
     };
 
-    // Run Validation
-    const errors = validateRecord(record, new Set());
-    if (record.arpNo && (arpCounts.get(record.arpNo) || 0) > 1) {
-      errors.push({ field: 'arpNo', message: 'Duplicate ARP Number detected in source file' });
-    }
-
-    record.errors = errors;
-    record.isValid = errors.length === 0;
-
     return record;
   });
 
+  // 2nd Pass: Duplicate Detection
   if (options.removeDuplicates) {
     const pinToBestRecord = new Map<string, { index: number, arpVal: number }>();
     result.forEach((record, idx) => {
@@ -311,6 +287,7 @@ export function processRecords(
   const duplicatesCount = result.filter(r => r.isDuplicate && !r.isCleanup && !r.isManualArchive).length;
   const cleanupCount = result.filter(r => r.isCleanup || r.isManualArchive).length;
 
+  // 3rd Pass: Apply Calibration (even to error records as long as they aren't cleanup/archived)
   if (options.applyCalibration) {
     result = result.map(record => {
       if (record.isCleanup || record.isManualArchive) return record;
@@ -319,13 +296,26 @@ export function processRecords(
       
       let wasCalibrated = false;
 
+      // PIN-based derivation of Barangay Name
+      if (updated.pin) {
+        const pinParts = updated.pin.split('-');
+        if (pinParts.length >= 4) {
+          const brgyCode = pinParts[2];
+          const brgy = locationSettings.find(b => b.barangayCode === brgyCode);
+          if (brgy) {
+            updated.barangayName = brgy.name;
+          }
+        }
+      }
+
+      // Apply Custom Rules
       if (matchingRule) {
         const brgy = (matchingRule.barangay || "").trim();
         const sec = (matchingRule.section || "").trim();
         if (brgy || sec) {
           updated.location = `${brgy}${brgy && sec ? ', ' : ''}${sec}`.toUpperCase();
           wasCalibrated = true;
-          updated.barangayName = brgy;
+          if (brgy) updated.barangayName = brgy;
         }
         if (matchingRule.unitValue !== undefined && !isNaN(matchingRule.unitValue) && matchingRule.unitValue > 0) {
           updated.unitValue = Math.round(matchingRule.unitValue);
@@ -333,6 +323,7 @@ export function processRecords(
         }
       }
 
+      // Apply Location Settings (Barangay/Section Table)
       if (locationSettings) {
           const pinParts = updated.pin.split('-');
           if (pinParts.length >= 4) {
@@ -371,14 +362,32 @@ export function processRecords(
       
       if (wasCalibrated) calibratedCount++;
 
+      // Recalculate financials based on post-calibrated unit value
       if (updated.unitValue && updated.unitValue > 0 && updated.landArea > 0) {
           updated.marketValue = updated.landArea * updated.unitValue;
-          updated.assessedValue = calculateAssessedValue(updated.marketValue, updated.au, taxRates);
       }
+      updated.assessedValue = calculateAssessedValue(updated.marketValue, updated.au, taxRates);
       updated.yearlyTax = calculateYearlyTax(updated.assessedValue, updated.au, taxRates);
+      
       return updated;
     });
   }
+
+  // Final Pass: Finalize Validation and Statistics
+  result = result.map(record => {
+    const errors = validateRecord(record);
+    
+    // Add ARP duplication error check specifically for records in this batch
+    if (record.arpNo && (arpCounts.get(record.arpNo) || 0) > 1) {
+      errors.push({ field: 'arpNo', message: 'Duplicate ARP Number detected in source file' });
+    }
+
+    return {
+      ...record,
+      errors,
+      isValid: errors.length === 0
+    };
+  });
 
   const finalProcessed = result.filter(r => !r.isDuplicate && !r.isCleanup && !r.isManualArchive);
   const errorCount = finalProcessed.filter(r => !r.isValid).length;
