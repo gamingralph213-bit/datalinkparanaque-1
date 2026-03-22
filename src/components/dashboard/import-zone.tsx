@@ -1,13 +1,34 @@
 "use client";
 
 import React, { useState, useRef } from 'react';
-import { Upload, FileSpreadsheet, Info, CheckCircle2, Loader2, X, Files, Trash2, FileText, Plus } from 'lucide-react';
+import { 
+  Upload, 
+  FileSpreadsheet, 
+  Info, 
+  CheckCircle2, 
+  Loader2, 
+  X, 
+  Files, 
+  Trash2, 
+  FileText, 
+  Plus,
+  HelpCircle 
+} from 'lucide-react';
 import * as XLSX from 'xlsx';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { LandRecord } from '@/lib/processor';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription,
+} from '@/components/ui/dialog';
 
 interface ImportZoneProps {
   onDataImported: (data: LandRecord[], fileName: string, rawCount: number) => void;
@@ -173,8 +194,6 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
       const pin = String(norm['pin'] || '').trim();
       const arpNo = String(norm['arp no#'] || norm['arp no'] || norm['current'] || '').trim();
 
-      // Use a stable, truly unique ID instead of relying on array index
-      // This prevents React from re-rendering the whole list when one item is deleted
       const uniqueId = `${fileName}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
       return {
@@ -251,14 +270,52 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
             <p className="text-muted-foreground mb-10 max-w-md text-base font-semibold leading-relaxed">
               Drag and drop one or more Excel files here, or click below to select documents for review.
             </p>
-            <Button 
-              size="lg" 
-              className="px-12 py-7 text-base font-black bg-primary hover:bg-emerald-800 shadow-xl shadow-primary/20 h-auto" 
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isLoading}
-            >
-              <FileSpreadsheet className="mr-3 h-5 w-5" /> Select Files to Import
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Button 
+                size="lg" 
+                className="px-12 py-7 text-base font-black bg-primary hover:bg-emerald-800 shadow-xl shadow-primary/20 h-auto" 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading}
+              >
+                <FileSpreadsheet className="mr-3 h-5 w-5" /> Select Files to Import
+              </Button>
+
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="outline"
+                    size="lg" 
+                    className="px-8 py-7 text-base font-black border-2 border-primary/20 text-primary hover:bg-primary/5 h-auto" 
+                    disabled={isLoading}
+                  >
+                    <HelpCircle className="mr-3 h-5 w-5" /> View Format Guide
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-7xl max-h-[90vh] overflow-auto bg-card/95 backdrop-blur-3xl border-white/10 p-8 shadow-2xl">
+                  <DialogHeader className="mb-6">
+                    <DialogTitle className="text-2xl font-black uppercase text-foreground">Standard Excel Format Guide</DialogTitle>
+                    <DialogDescription className="font-bold text-muted-foreground text-base">
+                      Ensure your spreadsheet columns align with the header layout shown below for optimal processing.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="relative rounded-2xl border border-white/10 overflow-hidden shadow-2xl bg-white">
+                    <Image 
+                      src="/exportformat.png" 
+                      alt="Excel Format Guide" 
+                      width={1600} 
+                      height={800} 
+                      className="w-full h-auto object-contain"
+                      data-ai-hint="spreadsheet template"
+                    />
+                  </div>
+                  <div className="mt-6 flex justify-end">
+                    <Button onClick={() => document.querySelector('[data-state="open"]')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))} className="font-black uppercase text-xs tracking-widest bg-slate-800 hover:bg-slate-900 px-8 h-12">
+                      Got it, thanks
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
           </>
         ) : (
           <div className="w-full space-y-8 animate-in fade-in zoom-in-95 duration-300">
@@ -316,7 +373,7 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
             <h4 className="text-sm font-black uppercase tracking-widest text-emerald-900 dark:text-emerald-400">Data Guidelines</h4>
           </div>
           <p className="text-sm text-muted-foreground font-semibold leading-relaxed">
-            Standard Parañaque Header format expected. Key columns (PIN, ARP NO#, ACCTNAME) will be automatically extracted and validated. You can upload files individually or in batches.
+            Standard Parañaque Header format expected. Key columns (PIN, ARP NO#, ACCTNAME) will be automatically extracted and validated. You can upload files individually or in batches. Click the format guide button above to see a sample layout.
           </p>
         </div>
       </Card>
