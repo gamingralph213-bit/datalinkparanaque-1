@@ -544,12 +544,6 @@ export default function Home() {
   };
 
   const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#f97316'];
-  const getDynamicFontSize = (text: string) => {
-    const length = String(text).length;
-    if (length > 20) return "text-[12px]";
-    if (length > 16) return "text-[14px]";
-    return "text-[17px]";
-  };
   if (!isClient) return null;
 
   const statDefinitions = [
@@ -657,7 +651,7 @@ export default function Home() {
                         <PopoverTrigger asChild>
                           <Card className={cn("p-4 border-l-4 flex flex-col shadow-sm cursor-help transition-all hover:scale-[1.03] active:scale-95 hover:shadow-md", stat.color)}>
                             <div className="text-[11px] font-bold text-muted-foreground uppercase flex items-center gap-1.5 mb-1.5 tracking-wide"><stat.icon className="w-3 h-3" /> {stat.label}</div>
-                            <div className={cn("font-black leading-tight", stat.textClass || "text-foreground", getDynamicFontSize(stat.value))}>{stat.value}</div>
+                            <div className={cn("font-black text-[17px] leading-tight truncate", stat.textClass || "text-foreground")}>{stat.value}</div>
                           </Card>
                         </PopoverTrigger>
                         <PopoverContent className="w-80 p-5 bg-card/95 backdrop-blur-xl border-white/10 shadow-2xl rounded-2xl">
@@ -666,6 +660,7 @@ export default function Home() {
                               <div className={cn("p-1.5 rounded-lg bg-primary/10", stat.textClass)}><stat.icon className="w-4 h-4" /></div>
                               <h4 className="font-black uppercase text-xs tracking-widest">{stat.label}</h4>
                             </div>
+                            <p className="font-black text-2xl text-foreground break-words">{stat.value}</p>
                             <p className="text-sm font-bold text-muted-foreground leading-relaxed">{stat.definition}</p>
                           </div>
                         </PopoverContent>
