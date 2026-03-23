@@ -530,6 +530,7 @@ export default function Home() {
     const auDistribution: Record<string, number> = {};
     const marketValueSum: Record<string, number> = {};
     const updateDistribution: Record<string, number> = {};
+    const barangayDistribution: Record<string, number> = {};
 
     filteredActiveData.forEach(r => {
       const au = r.au || 'UNKNOWN';
@@ -538,12 +539,16 @@ export default function Home() {
       
       const updateCode = (r.update || 'NONE').toUpperCase();
       updateDistribution[updateCode] = (updateDistribution[updateCode] || 0) + 1;
+
+      const brgy = r.barangayName || 'UNMAPPED';
+      barangayDistribution[brgy] = (barangayDistribution[brgy] || 0) + 1;
     });
 
     return { 
       auChart: Object.entries(auDistribution).map(([name, value]) => ({ name, value })).filter(item => item.value > 0),
       marketChart: Object.entries(marketValueSum).map(([name, value]) => ({ name, value })).filter(item => item.value > 0),
-      updateChart: Object.entries(updateDistribution).map(([name, value]) => ({ name, value })).filter(item => item.value > 0)
+      updateChart: Object.entries(updateDistribution).map(([name, value]) => ({ name, value })).filter(item => item.value > 0),
+      barangayChart: Object.entries(barangayDistribution).map(([name, value]) => ({ name, value })).filter(item => item.value > 0)
     };
   }, [processedData, previewData, sourceFileFilter, barangayFilter]);
 
@@ -831,6 +836,21 @@ export default function Home() {
                           </Card>
                           
                           <Card className="p-6 border-white/5 bg-card shadow-2xl overflow-hidden">
+                            <h4 className="text-sm font-black uppercase mb-8 flex items-center gap-2.5 tracking-widest text-muted-foreground"><MapPin className="w-4.5 h-4.5 text-primary" /> Barangay Record Distribution</h4>
+                            <div className="h-[300px] w-full">
+                              <ChartContainer config={analyticsChartConfig}>
+                                <BarChart data={analyticsData.barangayChart} margin={{ top: 20, right: 20, left: 10, bottom: 40 }}>
+                                  <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.05} />
+                                  <XAxis dataKey="name" fontSize={11} tickLine={false} axisLine={false} angle={-45} textAnchor="end" interval={0} tick={{ fill: 'hsl(var(--muted-foreground))', fontWeight: 'bold' }} />
+                                  <YAxis fontSize={11} tickLine={false} axisLine={false} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                                  <ChartTooltip content={<ChartTooltipContent />} />
+                                  <Bar dataKey="value" radius={[6, 6, 0, 0]}>{analyticsData.barangayChart.map((entry, index) => <Cell key={`cell-brgy-${index}`} fill={COLORS[(index + 4) % COLORS.length]} />)}</Bar>
+                                </BarChart>
+                              </ChartContainer>
+                            </div>
+                          </Card>
+
+                          <Card className="p-6 border-white/5 bg-card shadow-2xl overflow-hidden">
                             <h4 className="text-sm font-black uppercase mb-8 flex items-center gap-2.5 tracking-widest text-muted-foreground"><RefreshCw className="w-4.5 h-4.5 text-primary" /> Update Code Distribution</h4>
                             <div className="h-[300px] w-full">
                               <ChartContainer config={analyticsChartConfig}>
@@ -845,13 +865,13 @@ export default function Home() {
                             </div>
                           </Card>
 
-                          <Card className="p-6 border-white/5 bg-card shadow-2xl cursor-pointer hover:bg-muted/5 transition-all group relative overflow-hidden md:col-span-2" onClick={() => setIsMarketDetailOpen(true)}>
+                          <Card className="p-6 border-white/5 bg-card shadow-2xl cursor-pointer hover:bg-muted/5 transition-all group relative overflow-hidden" onClick={() => setIsMarketDetailOpen(true)}>
                             <div className="absolute top-4 right-4 bg-primary/10 p-2.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><Maximize2 className="w-5 h-5 text-primary" /></div>
                             <h4 className="text-sm font-black uppercase mb-8 flex items-center gap-2.5 tracking-widest text-muted-foreground"><Database className="w-4.5 h-4.5 text-primary" /> Market Value Breakdown</h4>
-                            <div className="h-[350px] w-full">
+                            <div className="h-[300px] w-full">
                               <ChartContainer config={marketChartConfig}>
                                 <PieChart>
-                                  <Pie data={analyticsData.marketChart} cx="50%" cy="50%" innerRadius={80} outerRadius={110} paddingAngle={8} dataKey="value" stroke="none" label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}>
+                                  <Pie data={analyticsData.marketChart} cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={8} dataKey="value" stroke="none" label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}>
                                     {analyticsData.marketChart.map((entry, index) => <Cell key={`cell-market-${index}`} fill={COLORS[index % COLORS.length]} />)}
                                   </Pie>
                                   <ChartTooltip content={<ChartTooltipContent />} />
