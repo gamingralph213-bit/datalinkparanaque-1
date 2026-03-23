@@ -391,8 +391,8 @@ export function processRecords(
     if (record.isDuplicate) {
       statusLabel = 'DUPLICATE';
     } else {
-      // Incomplete logic: missing PIN, ACCTNAME, ARP, UPDATE, ADDRESS, KIND, or AU
-      const isIncomplete = !record.pin || !record.acctName || !record.arpNo || !record.update || !record.address || !record.kind || !record.au;
+      // ONLY mark as INCOMPLETE if PIN or ACCTNAME is missing
+      const isIncomplete = !record.pin || !record.acctName;
       
       if (isIncomplete) {
         statusLabel = 'INCOMPLETE';
