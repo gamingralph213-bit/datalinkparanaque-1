@@ -511,13 +511,8 @@ export default function Home() {
       }
       if (!matchesSearch) return false;
       if (statusFilter === 'all') return true;
-      if (statusFilter === 'VALID') return record.statusLabel === 'VALID';
-      if (statusFilter === 'INVALID PIN FORMAT') return record.statusLabel === 'INVALID PIN FORMAT';
-      if (statusFilter === 'AREA ERROR') return record.statusLabel === 'AREA ERROR';
-      if (statusFilter === 'INCOMPLETE') return record.statusLabel === 'INCOMPLETE';
-      if (statusFilter === 'DUPLICATE') return record.statusLabel === 'DUPLICATE';
       
-      return true;
+      return record.statusLabel === statusFilter;
     });
   }, [previewData, processedData, viewMode, searchQuery, searchField, statusFilter, sourceFileFilter, barangayFilter, userMode]);
 

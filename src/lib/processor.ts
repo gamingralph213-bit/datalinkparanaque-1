@@ -12,7 +12,18 @@ export interface ValidationError {
   message: string;
 }
 
-export type RecordStatusType = 'VALID' | 'INVALID PIN FORMAT' | 'INCOMPLETE' | 'AREA ERROR' | 'DUPLICATE' | 'CLEANUP';
+export type RecordStatusType = 
+  | 'VALID' 
+  | 'INVALID PIN FORMAT' 
+  | 'INCOMPLETE' 
+  | 'AREA ERROR' 
+  | 'DUPLICATE' 
+  | 'CLEANUP'
+  | 'NO ARP NO#'
+  | 'NO UPDATE'
+  | 'NO ADDRESS'
+  | 'NO KIND'
+  | 'NO AU';
 
 export interface LandRecord {
   id?: string;
@@ -293,7 +304,7 @@ export function processRecords(
   const duplicatesCount = result.filter(r => r.isDuplicate && !r.isCleanup && !r.isManualArchive).length;
   const cleanupCount = result.filter(r => r.isCleanup || r.isManualArchive).length;
 
-  // 3rd Pass: Apply Calibration (Proceed even if area is 0, provided PIN is valid)
+  // 3rd Pass: Apply Calibration
   if (options.applyCalibration) {
     result = result.map(record => {
       if (record.isCleanup || record.isManualArchive) return record;
@@ -368,7 +379,7 @@ export function processRecords(
       
       if (wasCalibrated) calibratedCount++;
 
-      // Recalculate based on calibrated values (Area remains 0 if missing, marketValue reflects that)
+      // Recalculate based on calibrated values
       if (updated.unitValue && updated.unitValue > 0 && updated.landArea > 0) {
           updated.marketValue = updated.landArea * updated.unitValue;
       }
@@ -390,23 +401,28 @@ export function processRecords(
     
     if (record.isDuplicate) {
       statusLabel = 'DUPLICATE';
+    } else if (!record.pin || !record.acctName) {
+      statusLabel = 'INCOMPLETE';
     } else {
-      // ONLY mark as INCOMPLETE if PIN or ACCTNAME is missing
-      const isIncomplete = !record.pin || !record.acctName;
-      
-      if (isIncomplete) {
-        statusLabel = 'INCOMPLETE';
-      } else {
-        const pinRegex = /^\d{3}-\d{2}-\d{3}-\d{3}-\d{3}-\d{4}$/;
-        if (record.pin && !pinRegex.test(record.pin)) {
-          statusLabel = 'INVALID PIN FORMAT';
-        } else if (record.landArea <= 0) {
-          statusLabel = 'AREA ERROR';
-        }
+      const pinRegex = /^\d{3}-\d{2}-\d{3}-\d{3}-\d{3}-\d{4}$/;
+      if (record.pin && !pinRegex.test(record.pin)) {
+        statusLabel = 'INVALID PIN FORMAT';
+      } else if (record.landArea <= 0) {
+        statusLabel = 'AREA ERROR';
+      } else if (!record.arpNo) {
+        statusLabel = 'NO ARP NO#';
+      } else if (!record.update) {
+        statusLabel = 'NO UPDATE';
+      } else if (!record.address) {
+        statusLabel = 'NO ADDRESS';
+      } else if (!record.kind) {
+        statusLabel = 'NO KIND';
+      } else if (!record.au) {
+        statusLabel = 'NO AU';
       }
     }
 
-    // Cleanup detection (Total rows etc)
+    // Cleanup detection
     if (record.isCleanup && statusLabel === 'VALID') {
       statusLabel = 'CLEANUP';
     }

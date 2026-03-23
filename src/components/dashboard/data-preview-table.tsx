@@ -40,8 +40,6 @@ const RecordRow = memo(({
   index: number; 
   onRowClick: (record: LandRecord) => void 
 }) => {
-  const isZeroArea = row.landArea === 0 && row.pin && row.arpNo;
-  
   const getStatusBadge = () => {
     switch (row.statusLabel) {
       case 'VALID':
@@ -56,6 +54,12 @@ const RecordRow = memo(({
         return <Badge variant="destructive" className="text-[10px] h-5 font-black uppercase tracking-tighter">DUPLICATE</Badge>;
       case 'CLEANUP':
         return <Badge variant="outline" className="text-[10px] h-5 font-black uppercase tracking-tighter bg-orange-100 text-orange-700 border-orange-200">{row.cleanupReason || 'CLEANUP'}</Badge>;
+      case 'NO ARP NO#':
+      case 'NO UPDATE':
+      case 'NO ADDRESS':
+      case 'NO KIND':
+      case 'NO AU':
+        return <Badge variant="destructive" className="text-[10px] h-5 font-black uppercase tracking-tighter bg-amber-600 text-white border-none">{row.statusLabel}</Badge>;
       default:
         return <Badge variant="outline" className="text-[10px] h-5 font-black uppercase tracking-tighter">UNKNOWN</Badge>;
     }
@@ -72,7 +76,7 @@ const RecordRow = memo(({
     >
       <TableCell className="text-center font-mono text-muted-foreground p-3 border-r bg-muted/5">{index + 1}</TableCell>
       <TableCell className="whitespace-nowrap p-3">{row.date || '---'}</TableCell>
-      <TableCell className={cn("font-mono font-bold p-3", row.statusLabel === 'INCOMPLETE' && !row.arpNo ? "text-red-600 underline decoration-wavy" : "text-emerald-800 dark:text-emerald-300")}>
+      <TableCell className={cn("font-mono font-bold p-3", row.statusLabel === 'NO ARP NO#' ? "text-red-600 underline decoration-wavy" : "text-emerald-800 dark:text-emerald-300")}>
         {row.arpNo || '---'}
       </TableCell>
       <TableCell className={cn("font-mono p-3", (row.statusLabel === 'INVALID PIN FORMAT' || (row.statusLabel === 'INCOMPLETE' && !row.pin)) && "text-red-600 font-black")}>
@@ -84,19 +88,19 @@ const RecordRow = memo(({
             {row.update}
           </span>
         ) : (
-          <span className={cn("text-muted-foreground", row.statusLabel === 'INCOMPLETE' && "text-red-500 font-bold")}>---</span>
+          <span className={cn("text-muted-foreground", row.statusLabel === 'NO UPDATE' && "text-red-500 font-bold")}>---</span>
         )}
       </TableCell>
       <TableCell className="max-w-[200px] truncate uppercase font-bold p-3">{row.acctName || '---'}</TableCell>
-      <TableCell className="max-w-[250px] truncate uppercase p-3 text-muted-foreground italic font-medium">
+      <TableCell className={cn("max-w-[250px] truncate uppercase p-3 text-muted-foreground italic font-medium", row.statusLabel === 'NO ADDRESS' && "text-red-500")}>
         {row.address || '---'}
       </TableCell>
       <TableCell className="max-w-[250px] truncate uppercase p-3 font-bold text-emerald-900 dark:text-emerald-200 bg-emerald-50/20 dark:bg-emerald-950/50 border-x border-emerald-100/50 dark:border-emerald-900/50">
         {row.location || '---'}
       </TableCell>
-      <TableCell className="p-3 font-bold">{row.kind || '---'}</TableCell>
+      <TableCell className={cn("p-3 font-bold", row.statusLabel === 'NO KIND' && "text-red-500")}>{row.kind || '---'}</TableCell>
       <TableCell className="p-3">
-        <Badge variant="outline" className="text-[12px] font-black py-0.5 h-5 border-muted-foreground/30">
+        <Badge variant="outline" className={cn("text-[12px] font-black py-0.5 h-5 border-muted-foreground/30", row.statusLabel === 'NO AU' && "border-red-500 text-red-500")}>
           {row.au || '---'}
         </Badge>
       </TableCell>
