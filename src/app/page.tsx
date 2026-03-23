@@ -84,6 +84,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ExportSettingsModal, ExportFinalSettings } from '@/components/dashboard/export-settings-modal';
 
 const LOCAL_STORAGE_KEY = 'paranaque_datalink_v31';
 
@@ -134,13 +135,12 @@ export default function Home() {
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [isExportSettingsOpen, setIsExportSettingsOpen] = useState(false);
   const [processingReports, setProcessingReports] = useState<ProcessingReport[]>([]);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [selectedRecord, setSelectedRecord] = useState<LandRecord | null>(null);
   const [isMarketDetailOpen, setIsMarketDetailOpen] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
-  const [isBatchExportDialogOpen, setIsBatchExportDialogOpen] = useState(false);
-  const [currentExportType, setCurrentExportType] = useState<'results' | 'archive' | 'errors'>('results');
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchField, setSearchField] = useState("all");
@@ -203,10 +203,6 @@ export default function Home() {
         if (parsed.options) setOptions({ ...options, ...parsed.options });
         if (parsed.taxRates) setTaxRates(parsed.taxRates);
         if (parsed.processingReports) setProcessingReports(parsed.processingReports);
-      } else {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ 
-          rules: [], exportColumns: defaultExportColumns, locationSettings: initialLocationSettings, options, taxRates: defaultTaxRates, processingReports: []
-        }));
       }
     } catch (error) { console.error("Failed to parse localStorage:", error); }
     return () => {
@@ -354,129 +350,75 @@ export default function Home() {
     toast({ title: "Record Restored", description: "The record has been moved back to the Results tab." });
   }, [handleSaveRecord]);
 
-  const performExcelExport = async (dataToExport: LandRecord[], exportType: 'results' | 'archive' | 'errors', fileNameOverride?: string) => {
-    if (dataToExport.length === 0) return;
-
-    const totalMarketValue = dataToExport.reduce((sum, r) => sum + (r.marketValue || 0), 0);
-    const totalAssessedValue = dataToExport.reduce((sum, r) => sum + (r.assessedValue || 0), 0);
-    const headerMapping: Record<string, string> = {
-      date: "DATE", arpNo: "ARP NO#", pin: "PIN", update: "UPDATE",
-      acctName: "ACCTNAME", address: "ADDRESS", location: "LOCATION",
-      kind: "KIND", au: "AU", landArea: "LAND AREA", unitValue: "UNIT VALUE",
-      marketValue: "MARKET VALUE", assessedValue: "ASSESSED VALUE", yearlyTax: "YEARLY TAX"
-    };
-
-    const formattedExport = dataToExport.map(record => {
-      const row: any = {};
-      Object.entries(headerMapping).forEach(([key, label]) => {
-        if (exportColumns[label]) row[label] = record[key as keyof LandRecord];
-      });
-      return row;
-    });
+  const handleFinalExport = async (settings: ExportFinalSettings) => {
+    setIsExporting(true);
+    setIsExportSettingsOpen(false);
 
     try {
-      const wb = XLSX.utils.book_new();
-      let title = "DATA LINK PARAÑAQUE - SUMMARY RESULTS";
-      if (exportType === 'archive') title = "DATA LINK PARAÑAQUE - ARCHIVE";
-      if (exportType === 'errors') title = "DATA LINK PARAÑAQUE - DATA INTEGRITY ERRORS / ZERO AREA";
+      const dataToFilter = previewData;
+      const filteredForExport = dataToFilter.filter(r => 
+        settings.barangays.includes(r.barangayName || '') && 
+        settings.statuses.includes(r.statusLabel || 'VALID' as any)
+      );
+
+      if (filteredForExport.length === 0) {
+        toast({ variant: "destructive", title: "Export Failed", description: "No records match your selected export criteria." });
+        setIsExporting(false);
+        return;
+      }
+
+      const totalMarketValue = filteredForExport.reduce((sum, r) => sum + (r.marketValue || 0), 0);
+      const totalAssessedValue = filteredForExport.reduce((sum, r) => sum + (r.assessedValue || 0), 0);
       
-      const activeHeaders = Object.values(headerMapping).filter(h => exportColumns[h]);
+      const headerMapping: Record<string, string> = {
+        date: "DATE", arpNo: "ARP NO#", pin: "PIN", update: "UPDATE",
+        acctName: "ACCTNAME", address: "ADDRESS", location: "LOCATION",
+        kind: "KIND", au: "AU", landArea: "LAND AREA", unitValue: "UNIT VALUE",
+        marketValue: "MARKET VALUE", assessedValue: "ASSESSED VALUE", yearlyTax: "YEARLY TAX"
+      };
+
+      const formattedExport = filteredForExport.map(record => {
+        const row: any = {};
+        Object.entries(headerMapping).forEach(([key, label]) => {
+          if (settings.columns[label]) row[label] = record[key as keyof LandRecord];
+        });
+        return row;
+      });
+
+      const wb = XLSX.utils.book_new();
+      const activeHeaders = Object.values(headerMapping).filter(h => settings.columns[h]);
       
       const sheetData = [
-        [title],
-        ["TOTAL RECORDS:", dataToExport.length.toLocaleString()],
-        ["TOTAL MARKET VALUE:", `₱${totalMarketValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
-        ["TOTAL ASSESSED VALUE:", `₱${totalAssessedValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+        ["DATA LINK PARAÑAQUE - SMART EXPORT"],
+        ["EXPORT DATE:", new Date().toLocaleString()],
+        ["TOTAL RECORDS:", filteredForExport.length.toLocaleString()],
+        ["TOTAL MARKET VALUE:", `₱${totalMarketValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`],
+        ["TOTAL ASSESSED VALUE:", `₱${totalAssessedValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`],
         [],
         activeHeaders
       ];
 
       const ws = XLSX.utils.aoa_to_sheet(sheetData);
       XLSX.utils.sheet_add_json(ws, formattedExport, { origin: "A7", skipHeader: true });
-      
       ws['!cols'] = activeHeaders.map(() => ({ wch: 22 }));
 
-      const sheetName = exportType === 'results' ? "Results" : (exportType === 'archive' ? "Archive" : "Errors");
-      XLSX.utils.book_append_sheet(wb, ws, sheetName);
-      
-      const baseName = (fileNameOverride || importedFileName).replace(/\.[^/.]+$/, "") || "LandRecords";
-      const finalFileName = `${baseName}-${exportType === 'results' ? 'Clean' : (exportType === 'archive' ? 'Archive' : 'Errors')}-${new Date().toISOString().split('T')[0]}.xlsx`;
-      XLSX.writeFile(wb, finalFileName);
-      
+      XLSX.utils.book_append_sheet(wb, ws, "ExportResults");
+      const fileName = `DataLink-Export-${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+
       const exportReport: ProcessingReport = {
         timestamp: new Date().toLocaleString(),
-        fileName: `${finalFileName} (${exportType.toUpperCase()} EXPORT)`,
-        totalImported: dataToExport.length,
+        fileName: `${fileName} (CUSTOM EXPORT)`,
+        totalImported: filteredForExport.length,
         cleanupCount: 0,
         duplicatesDetected: 0,
         calibratedCount: 0,
-        errorCount: dataToExport.filter(r => r.statusLabel !== 'VALID').length,
-        validCount: dataToExport.length,
+        errorCount: filteredForExport.filter(r => !r.isValid).length,
+        validCount: filteredForExport.filter(r => r.isValid).length,
         totalMarketValue: totalMarketValue,
         totalAssessedValue: totalAssessedValue,
       };
       setProcessingReports(prev => [exportReport, ...prev]);
-    } catch (error: any) {
-      console.error("Export error:", error);
-      throw error;
-    }
-  };
-
-  const handleExportClick = (type: 'results' | 'archive' | 'errors') => {
-    let currentList = [];
-    
-    if (type === 'errors') {
-      const baseData = processedData.length > 0 ? processedData : previewData.filter(r => r.statusLabel !== 'DUPLICATE' && r.statusLabel !== 'INCOMPLETE' && r.statusLabel !== 'CLEANUP' && !r.isManualArchive);
-      currentList = baseData.filter(r => r.statusLabel !== 'VALID' || (r.landArea === 0 && r.pin && r.arpNo));
-    } else {
-      currentList = filteredDisplayData;
-    }
-
-    if (currentList.length === 0) {
-      toast({ variant: "destructive", title: "Export Failed", description: "No records found to export for this category." });
-      return;
-    }
-
-    const uniqueSources = Array.from(new Set(currentList.map(r => r.sourceFile).filter(Boolean)));
-    if (uniqueSources.length > 1) {
-      setCurrentExportType(type);
-      setIsBatchExportDialogOpen(true);
-    } else {
-      executeExport(type, 'merged');
-    }
-  };
-
-  const executeExport = async (type: 'results' | 'archive' | 'errors', mode: 'merged' | 'separate', specificFile?: string) => {
-    setIsExporting(true);
-    if (!specificFile) setIsBatchExportDialogOpen(false);
-    
-    let currentList = [];
-    if (type === 'errors') {
-      const baseData = processedData.length > 0 ? processedData : previewData.filter(r => r.statusLabel !== 'DUPLICATE' && r.statusLabel !== 'INCOMPLETE' && r.statusLabel !== 'CLEANUP' && !r.isManualArchive);
-      currentList = baseData.filter(r => r.statusLabel !== 'VALID' || (r.landArea === 0 && r.pin && r.arpNo));
-    } else {
-      currentList = filteredDisplayData;
-    }
-
-    try {
-      if (mode === 'merged') {
-        await performExcelExport(currentList, type);
-      } else if (specificFile) {
-        const sourceData = currentList.filter(r => r.sourceFile === specificFile);
-        if (sourceData.length > 0) {
-          await performExcelExport(sourceData, type, specificFile);
-        } else {
-          toast({ variant: "destructive", title: "Export Failed", description: `No records found for ${specificFile}.` });
-        }
-      } else {
-        const sources = Array.from(new Set(currentList.map(r => r.sourceFile)));
-        for (const source of sources) {
-          const sourceData = currentList.filter(r => r.sourceFile === source);
-          if (sourceData.length > 0) {
-            await performExcelExport(sourceData, type, source || undefined);
-          }
-        }
-      }
       setExportSuccess(true);
       setTimeout(() => setExportSuccess(false), 1500);
     } catch (error: any) {
@@ -516,7 +458,6 @@ export default function Home() {
     });
   }, [previewData, processedData, viewMode, searchQuery, searchField, statusFilter, sourceFileFilter, barangayFilter, userMode]);
 
-  // Determine which status options should be shown in the funneling system based on active data
   const dynamicStatusOptions = useMemo(() => {
     const activeData = viewMode === 'archive' 
       ? previewData.filter(r => r.statusLabel === 'DUPLICATE' || r.statusLabel === 'INCOMPLETE' || r.isManualArchive)
@@ -721,7 +662,7 @@ export default function Home() {
       <div className="flex-1 flex overflow-hidden">
         {userMode === 'full' && (
           <aside className="w-[280px] border-r bg-card/80 backdrop-blur-lg border-white/10 p-6 overflow-y-auto hidden lg:block shadow-[1px_0_5px_rgba(0,0,0,0.02)]">
-            <CalibrationSidebar rules={rules} setRules={setRules} options={options} setOptions={setOptions} exportColumns={exportColumns} setExportColumns={setExportColumns} />
+            <CalibrationSidebar rules={rules} setRules={setRules} options={options} setOptions={setOptions} />
           </aside>
         )}
 
@@ -900,9 +841,7 @@ export default function Home() {
                 </Card>
                 <div className="flex items-center justify-between bg-card p-4 rounded-xl shadow-2xl border border-white/10 shrink-0">
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => handleExportClick('results')} size="sm" className="font-black uppercase text-xs tracking-widest border-primary/30 text-primary hover:bg-primary hover:text-white transition-all h-10 px-6" disabled={isExporting}><FileDown className="w-4 h-4 mr-2" /> {isExporting && currentExportType === 'results' ? "..." : "Export Results"}</Button>
-                    <Button variant="outline" onClick={() => handleExportClick('errors')} size="sm" className="font-black uppercase text-xs tracking-widest border-red-500/30 text-red-600 hover:bg-red-600 hover:text-white transition-all h-10 px-6" disabled={isExporting}><AlertTriangle className="w-4 h-4 mr-2" /> {isExporting && currentExportType === 'errors' ? "..." : "Export Errors/Zero Area"}</Button>
-                    <Button variant="outline" onClick={() => handleExportClick('archive')} size="sm" className="font-black uppercase text-xs tracking-widest border-orange-500/30 text-orange-600 hover:bg-orange-600 hover:text-white transition-all h-10 px-6" disabled={isExporting}><Archive className="w-4 h-4 mr-2" /> {isExporting && currentExportType === 'archive' ? "..." : "Export Archive"}</Button>
+                    <Button variant="outline" onClick={() => setIsExportSettingsOpen(true)} size="sm" className="font-black uppercase text-xs tracking-widest border-primary/30 text-primary hover:bg-primary hover:text-white transition-all h-10 px-6" disabled={isExporting}><FileDown className="w-4 h-4 mr-2" /> {isExporting ? "Generating..." : "Export Results"}</Button>
                     <Button variant="ghost" size="sm" className="h-10 text-xs font-bold uppercase px-3" onClick={clearWorkspace}><Eraser className="w-3.5 h-3.5 mr-1" /> Clear Session</Button>
                   </div>
                   {userMode === 'full' && viewMode !== 'audit' && (
@@ -930,46 +869,14 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isBatchExportDialogOpen} onOpenChange={setIsBatchExportDialogOpen}>
-        <DialogContent className="sm:max-w-xl bg-card/95 backdrop-blur-3xl border-white/10 p-8 shadow-2xl">
-          <DialogHeader>
-            <div className="flex items-center gap-3 mb-2">
-              <Files className="w-6 h-6 text-primary" />
-              <DialogTitle className="text-xl font-black uppercase tracking-tight">Batch Export Options</DialogTitle>
-            </div>
-            <DialogDescription className="text-sm font-bold text-muted-foreground leading-relaxed">
-              Detected records from multiple documents. Please select your export strategy.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="my-6 space-y-6">
-            <div className="space-y-3">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Consolidated Export</h4>
-              <Button variant="outline" className="w-full h-auto flex items-center justify-between p-4 border-2 border-primary/20 hover:border-primary hover:bg-primary/5 group transition-all" onClick={() => executeExport(currentExportType, 'merged')}>
-                <div className="flex flex-col items-start gap-1">
-                  <div className="flex items-center gap-2 font-black uppercase text-xs tracking-widest text-primary"><FileDown className="w-4 h-4" /> Single Master File</div>
-                  <span className="text-[10px] font-bold text-muted-foreground group-hover:text-primary/70">Combine filtered records into one master spreadsheet</span>
-                </div>
-                <Zap className="w-5 h-5 text-primary opacity-30 group-hover:opacity-100" />
-              </Button>
-            </div>
-            <div className="space-y-3">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Export Individual Documents</h4>
-              <div className="p-4 bg-muted/20 border rounded-xl space-y-2 max-h-[200px] overflow-y-auto scrollbar-vertical-custom">
-                {uniqueSourceFiles.map(file => (
-                  <Button key={file} variant="ghost" size="sm" className="w-full justify-between h-10 px-3 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 group" onClick={() => executeExport(currentExportType, 'separate', file)}>
-                    <div className="flex items-center gap-2 text-[11px] font-bold text-emerald-800 dark:text-emerald-300 truncate max-w-[85%]"><FileText className="w-3.5 h-3.5 opacity-60" /> {file}</div>
-                    <Download className="w-3.5 h-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="mt-4 pt-4 border-t">
-            <Button variant="ghost" className="w-full font-black uppercase text-[11px] tracking-widest h-11" onClick={() => setIsBatchExportDialogOpen(false)}>Cancel and Review</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ExportSettingsModal 
+        open={isExportSettingsOpen} 
+        onOpenChange={setIsExportSettingsOpen} 
+        data={previewData} 
+        exportColumns={exportColumns}
+        onColumnToggle={(col) => setExportColumns(prev => ({ ...prev, [col]: !prev[col] }))}
+        onExport={handleFinalExport}
+      />
 
       {exportSuccess && (
         <div className="fixed inset-0 z-[100] bg-background/60 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in zoom-in duration-200">
