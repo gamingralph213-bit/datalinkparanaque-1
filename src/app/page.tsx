@@ -120,7 +120,8 @@ export default function Home() {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
   const [isClient, setIsClient] = useState(false);
-  const [userMode, setUserMode] = useState<'fast' | 'full' | null>(null);
+  // Default to full control mode
+  const [userMode] = useState<'fast' | 'full'>('full');
   const [rawData, setRawData] = useState<LandRecord[]>([]);
   const [previewData, setPreviewData] = useState<LandRecord[]>([]);
   const [processedData, setProcessedData] = useState<LandRecord[]>([]);
@@ -253,23 +254,20 @@ export default function Home() {
     setBarangayFilter('all');
     setIsImportDialogOpen(false);
     
-    if (userMode === 'fast') {
-      runProcessWithData(newData, newCount, newFileName);
-    } else {
-      const { allWithDuplicateMarkers } = processRecords(newData, [], locationSettings, taxRates, {
-        removeDuplicates: false,
-        applyCalibration: false,
-        systemCleanup: false
-      }, newFileName);
-      setPreviewData(allWithDuplicateMarkers);
-      updateStats(allWithDuplicateMarkers, newCount);
-      toast({
-        title: isAppending ? "Data Appended" : "Data Loaded",
-        description: isAppending 
-            ? `${rawCount} more records added to the session.` 
-            : `${rawCount} records from ${fileName} imported successfully.`,
-      });
-    }
+    // Defaulting to processing logic
+    const { allWithDuplicateMarkers } = processRecords(newData, [], locationSettings, taxRates, {
+      removeDuplicates: false,
+      applyCalibration: false,
+      systemCleanup: false
+    }, newFileName);
+    setPreviewData(allWithDuplicateMarkers);
+    updateStats(allWithDuplicateMarkers, newCount);
+    toast({
+      title: isAppending ? "Data Appended" : "Data Loaded",
+      description: isAppending 
+          ? `${rawCount} more records added to the session.` 
+          : `${rawCount} records from ${fileName} imported successfully.`,
+    });
   };
 
   const updateStats = (data: LandRecord[], rawCount: number) => {
@@ -293,7 +291,7 @@ export default function Home() {
     
     setTimeout(() => {
       startTransition(() => {
-        const processOptions = userMode === 'fast' ? { removeDuplicates: true, applyCalibration: true, systemCleanup: true } : options;
+        const processOptions = options;
         const { processed, allWithDuplicateMarkers, report } = processRecords(data, rules, locationSettings, taxRates, processOptions, fileName);
         setProcessedData(processed);
         setPreviewData(allWithDuplicateMarkers);
@@ -323,7 +321,7 @@ export default function Home() {
       setRawData(newRawData);
       
       setTimeout(() => {
-        if (userMode === 'fast' || processedData.length > 0) {
+        if (processedData.length > 0) {
           runProcessWithData(newRawData, newRawData.length, importedFileName, silent);
         } else {
           const { allWithDuplicateMarkers } = processRecords(newRawData, [], locationSettings, taxRates, {
@@ -338,7 +336,7 @@ export default function Home() {
         }
       }, silent ? 0 : 10);
     });
-  }, [rawData, userMode, processedData.length, importedFileName, locationSettings, taxRates]);
+  }, [rawData, processedData.length, importedFileName, locationSettings, taxRates]);
 
   const handleArchiveRecord = useCallback((record: LandRecord) => {
     handleSaveRecord({ ...record, isManualArchive: true }, true);
@@ -444,7 +442,7 @@ export default function Home() {
       const query = searchQuery.toLowerCase();
       let matchesSearch = true;
       if (query) {
-        if (searchField === 'all' || userMode === 'fast') {
+        if (searchField === 'all') {
           matchesSearch = record.acctName?.toLowerCase().includes(query) || record.pin?.toLowerCase().includes(query) || record.arpNo?.toLowerCase().includes(query) || record.location?.toLowerCase().includes(query) || record.au?.toLowerCase().includes(query) || record.sourceFile?.toLowerCase().includes(query);
         } else {
           const value = record[searchField as keyof LandRecord];
@@ -456,7 +454,7 @@ export default function Home() {
       
       return record.statusLabel === statusFilter;
     });
-  }, [previewData, processedData, viewMode, searchQuery, searchField, statusFilter, sourceFileFilter, barangayFilter, userMode]);
+  }, [previewData, processedData, viewMode, searchQuery, searchField, statusFilter, sourceFileFilter, barangayFilter]);
 
   const dynamicStatusOptions = useMemo(() => {
     const activeData = viewMode === 'archive' 
@@ -593,41 +591,6 @@ export default function Home() {
 
   return (
     <div className="h-screen bg-background flex flex-col font-body overflow-hidden" suppressHydrationWarning>
-      <Dialog open={!userMode} onOpenChange={() => {}}>
-        <DialogContent hideClose className="sm:max-w-2xl bg-card/95 backdrop-blur-3xl border-white/10 p-10 shadow-[0_0_100px_rgba(0,0,0,0.2)]">
-          <div className="flex flex-col items-center text-center gap-8">
-             <div className="bg-primary/20 p-5 rounded-3xl shadow-inner border border-primary/20 animate-pulse">
-                <Layers className="text-primary w-12 h-12" />
-             </div>
-             <div className="space-y-3">
-               <DialogTitle className="text-4xl font-bold text-foreground dark:text-white tracking-tighter">Select Workflow Mode</DialogTitle>
-               <DialogDescription className="text-lg font-bold text-muted-foreground">Choose your processing strategy for Parañaque City land records.</DialogDescription>
-             </div>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-                <Card className="p-8 border-2 border-primary bg-primary/5 transition-all cursor-pointer group flex flex-col items-center text-center gap-6 shadow-xl ring-2 ring-primary/20" onClick={() => setUserMode('full')}>
-                  <div className="bg-primary/10 p-5 rounded-2xl group-hover:scale-110 transition-transform relative">
-                    <Cpu className="w-10 h-10 text-primary" />
-                    <Badge className="absolute -top-3 -right-3 bg-primary text-white font-black text-[9px] uppercase tracking-widest px-2 py-1 shadow-lg border-white">RECOMMENDED</Badge>
-                  </div>
-                  <div className="space-y-2">
-                    <h3 className="text-xl font-bold tracking-tight text-foreground dark:text-white">Full Control Mode</h3>
-                    <p className="text-xs font-bold text-muted-foreground leading-relaxed">Recommended for official audits. Manual calibration, deep reviews, and advanced settings.</p>
-                  </div>
-                  <Button className="w-full h-12 font-black uppercase text-xs tracking-widest bg-primary hover:bg-emerald-800 shadow-lg">Start Audit-Ready</Button>
-                </Card>
-                <Card className="p-8 border-2 border-transparent hover:border-slate-400 transition-all cursor-pointer group flex flex-col items-center text-center gap-6 shadow-md opacity-80 hover:opacity-100" onClick={() => setUserMode('fast')}>
-                  <div className="bg-slate-400/10 p-5 rounded-2xl group-hover:scale-110 transition-transform"><Zap className="w-10 h-10 text-slate-500" /></div>
-                  <div className="space-y-2">
-                    <h3 className="text-xl font-bold tracking-tight text-foreground dark:text-white">Fast Mode</h3>
-                    <p className="text-xs font-bold text-muted-foreground leading-relaxed">Instant processing for quick cleanup and bulk exports without manual fine-tuning.</p>
-                  </div>
-                  <Button variant="outline" className="w-full h-12 font-black uppercase text-xs tracking-widest border-slate-300 text-slate-600 hover:bg-slate-100">Quick Start</Button>
-                </Card>
-             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       <header className="bg-card/80 backdrop-blur-lg border-b border-white/10 px-6 py-4 flex items-center justify-between shadow-lg shrink-0 z-50 overflow-visible">
         <TooltipProvider>
           <Tooltip>
@@ -646,7 +609,7 @@ export default function Home() {
                 </div>
               </div>
             </TooltipTrigger>
-            <TooltipContent>Click to refresh and change mode</TooltipContent>
+            <TooltipContent>Click to refresh session</TooltipContent>
           </Tooltip>
         </TooltipProvider>
         
@@ -655,7 +618,7 @@ export default function Home() {
           <Button variant="ghost" size="icon" onClick={toggleFullScreen}>{isFullScreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}</Button>
           <Button variant="ghost" size="icon" onClick={() => setIsAboutOpen(true)}><Info className="w-5 h-5" /></Button>
           <ModeToggle />
-          {userMode === 'full' && <Button variant="ghost" size="icon" onClick={() => setIsSettingsOpen(true)}><Settings className="w-5 h-5" /></Button>}
+          <Button variant="ghost" size="icon" onClick={() => setIsSettingsOpen(true)}><Settings className="w-5 h-5" /></Button>
         </div>
       </header>
 
@@ -695,24 +658,22 @@ export default function Home() {
                     <TabsList className="bg-background border">
                       <TabsTrigger value="results" className="data-[state=active]:bg-primary data-[state=active]:text-white h-9 text-xs font-bold px-4"><TableIcon className="w-3.5 h-3.5 mr-2" /> Results</TabsTrigger>
                       <TabsTrigger value="archive" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white h-9 text-xs font-bold px-4"><Archive className="w-3.5 h-3.5 mr-2" /> Archive</TabsTrigger>
-                      {userMode === 'full' && <TabsTrigger value="analytics" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white h-9 text-xs font-bold px-4"><BarChart3 className="w-3.5 h-3.5 mr-2" /> Analytics</TabsTrigger>}
+                      <TabsTrigger value="analytics" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white h-9 text-xs font-bold px-4"><BarChart3 className="w-3.5 h-3.5 mr-2" /> Analytics</TabsTrigger>
                       <TabsTrigger value="audit" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white h-9 text-xs font-bold px-4"><ShieldCheck className="w-3.5 h-3.5 mr-2" /> Audit Log</TabsTrigger>
                     </TabsList>
                     {viewMode !== 'analytics' && viewMode !== 'audit' && (
                       <div className="flex flex-1 items-center gap-2 w-full max-w-[950px]">
                         <div className="flex items-center gap-2 flex-1">
-                          {userMode === 'full' && (
-                            <Select value={searchField} onValueChange={setSearchField}>
-                              <SelectTrigger className="w-[120px] h-9 text-xs font-bold uppercase"><SelectValue placeholder="In" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="all">All Fields</SelectItem>
-                                <SelectItem value="date">Date</SelectItem>
-                                <SelectItem value="arpNo">ARP No#</SelectItem>
-                                <SelectItem value="pin">PIN</SelectItem>
-                                <SelectItem value="acctName">Account</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          )}
+                          <Select value={searchField} onValueChange={setSearchField}>
+                            <SelectTrigger className="w-[120px] h-9 text-xs font-bold uppercase"><SelectValue placeholder="In" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Fields</SelectItem>
+                              <SelectItem value="date">Date</SelectItem>
+                              <SelectItem value="arpNo">ARP No#</SelectItem>
+                              <SelectItem value="pin">PIN</SelectItem>
+                              <SelectItem value="acctName">Account</SelectItem>
+                            </SelectContent>
+                          </Select>
                           <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                             <Input placeholder={`Search property records...`} className="pl-9 text-sm h-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
@@ -762,72 +723,70 @@ export default function Home() {
                     <TabsContent value="archive" className="m-0 h-full data-[state=active]:flex data-[state=active]:flex-col">
                       <DataPreviewTable data={filteredDisplayData} isProcessed={true} onRowClick={handleRowClick} />
                     </TabsContent>
-                    {userMode === 'full' && (
-                      <TabsContent value="analytics" className="m-0 h-full p-6 overflow-y-auto scrollbar-vertical-custom bg-muted/5 data-[state=active]:flex data-[state=active]:flex-col">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pb-10 max-w-7xl mx-auto w-full">
-                          <Card className="p-6 border-white/5 bg-card shadow-2xl overflow-hidden">
-                            <h4 className="text-sm font-black uppercase mb-8 flex items-center gap-2.5 tracking-widest text-muted-foreground"><CheckCircle2 className="w-4.5 h-4.5 text-primary" /> Property Usage Distribution</h4>
-                            <div className="h-[300px] w-full">
-                              <ChartContainer config={analyticsChartConfig}>
-                                <BarChart data={analyticsData.auChart} margin={{ top: 20, right: 20, left: 10, bottom: 40 }}>
-                                  <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.05} />
-                                  <XAxis dataKey="name" fontSize={11} tickLine={false} axisLine={false} angle={-45} textAnchor="end" interval={0} tick={{ fill: 'hsl(var(--muted-foreground))', fontWeight: 'bold' }} />
-                                  <YAxis fontSize={11} tickLine={false} axisLine={false} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                                  <ChartTooltip content={<ChartTooltipContent />} />
-                                  <Bar dataKey="value" radius={[6, 6, 0, 0]}>{analyticsData.auChart.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}</Bar>
-                                </BarChart>
-                              </ChartContainer>
-                            </div>
-                          </Card>
-                          
-                          <Card className="p-6 border-white/5 bg-card shadow-2xl overflow-hidden">
-                            <h4 className="text-sm font-black uppercase mb-8 flex items-center gap-2.5 tracking-widest text-muted-foreground"><MapPin className="w-4.5 h-4.5 text-primary" /> Barangay Record Distribution</h4>
-                            <div className="h-[300px] w-full">
-                              <ChartContainer config={analyticsChartConfig}>
-                                <BarChart data={analyticsData.barangayChart} margin={{ top: 20, right: 20, left: 10, bottom: 40 }}>
-                                  <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.05} />
-                                  <XAxis dataKey="name" fontSize={11} tickLine={false} axisLine={false} angle={-45} textAnchor="end" interval={0} tick={{ fill: 'hsl(var(--muted-foreground))', fontWeight: 'bold' }} />
-                                  <YAxis fontSize={11} tickLine={false} axisLine={false} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                                  <ChartTooltip content={<ChartTooltipContent />} />
-                                  <Bar dataKey="value" radius={[6, 6, 0, 0]}>{analyticsData.barangayChart.map((entry, index) => <Cell key={`cell-brgy-${index}`} fill={COLORS[(index + 4) % COLORS.length]} />)}</Bar>
-                                </BarChart>
-                              </ChartContainer>
-                            </div>
-                          </Card>
+                    <TabsContent value="analytics" className="m-0 h-full p-6 overflow-y-auto scrollbar-vertical-custom bg-muted/5 data-[state=active]:flex data-[state=active]:flex-col">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pb-10 max-w-7xl mx-auto w-full">
+                        <Card className="p-6 border-white/5 bg-card shadow-2xl overflow-hidden">
+                          <h4 className="text-sm font-black uppercase mb-8 flex items-center gap-2.5 tracking-widest text-muted-foreground"><CheckCircle2 className="w-4.5 h-4.5 text-primary" /> Property Usage Distribution</h4>
+                          <div className="h-[300px] w-full">
+                            <ChartContainer config={analyticsChartConfig}>
+                              <BarChart data={analyticsData.auChart} margin={{ top: 20, right: 20, left: 10, bottom: 40 }}>
+                                <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.05} />
+                                <XAxis dataKey="name" fontSize={11} tickLine={false} axisLine={false} angle={-45} textAnchor="end" interval={0} tick={{ fill: 'hsl(var(--muted-foreground))', fontWeight: 'bold' }} />
+                                <YAxis fontSize={11} tickLine={false} axisLine={false} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                                <ChartTooltip content={<ChartTooltipContent />} />
+                                <Bar dataKey="value" radius={[6, 6, 0, 0]}>{analyticsData.auChart.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}</Bar>
+                              </BarChart>
+                            </ChartContainer>
+                          </div>
+                        </Card>
+                        
+                        <Card className="p-6 border-white/5 bg-card shadow-2xl overflow-hidden">
+                          <h4 className="text-sm font-black uppercase mb-8 flex items-center gap-2.5 tracking-widest text-muted-foreground"><MapPin className="w-4.5 h-4.5 text-primary" /> Barangay Record Distribution</h4>
+                          <div className="h-[300px] w-full">
+                            <ChartContainer config={analyticsChartConfig}>
+                              <BarChart data={analyticsData.barangayChart} margin={{ top: 20, right: 20, left: 10, bottom: 40 }}>
+                                <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.05} />
+                                <XAxis dataKey="name" fontSize={11} tickLine={false} axisLine={false} angle={-45} textAnchor="end" interval={0} tick={{ fill: 'hsl(var(--muted-foreground))', fontWeight: 'bold' }} />
+                                <YAxis fontSize={11} tickLine={false} axisLine={false} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                                <ChartTooltip content={<ChartTooltipContent />} />
+                                <Bar dataKey="value" radius={[6, 6, 0, 0]}>{analyticsData.barangayChart.map((entry, index) => <Cell key={`cell-brgy-${index}`} fill={COLORS[(index + 4) % COLORS.length]} />)}</Bar>
+                              </BarChart>
+                            </ChartContainer>
+                          </div>
+                        </Card>
 
-                          <Card className="p-6 border-white/5 bg-card shadow-2xl overflow-hidden">
-                            <h4 className="text-sm font-black uppercase mb-8 flex items-center gap-2.5 tracking-widest text-muted-foreground"><RefreshCw className="w-4.5 h-4.5 text-primary" /> Update Code Distribution</h4>
-                            <div className="h-[300px] w-full">
-                              <ChartContainer config={analyticsChartConfig}>
-                                <BarChart data={analyticsData.updateChart} margin={{ top: 20, right: 20, left: 10, bottom: 40 }}>
-                                  <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.05} />
-                                  <XAxis dataKey="name" fontSize={11} tickLine={false} axisLine={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontWeight: 'bold' }} />
-                                  <YAxis fontSize={11} tickLine={false} axisLine={false} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-                                  <ChartTooltip content={<ChartTooltipContent />} />
-                                  <Bar dataKey="value" radius={[6, 6, 0, 0]}>{analyticsData.updateChart.map((entry, index) => <Cell key={`cell-upd-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />)}</Bar>
-                                </BarChart>
-                              </ChartContainer>
-                            </div>
-                          </Card>
+                        <Card className="p-6 border-white/5 bg-card shadow-2xl overflow-hidden">
+                          <h4 className="text-sm font-black uppercase mb-8 flex items-center gap-2.5 tracking-widest text-muted-foreground"><RefreshCw className="w-4.5 h-4.5 text-primary" /> Update Code Distribution</h4>
+                          <div className="h-[300px] w-full">
+                            <ChartContainer config={analyticsChartConfig}>
+                              <BarChart data={analyticsData.updateChart} margin={{ top: 20, right: 20, left: 10, bottom: 40 }}>
+                                <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.05} />
+                                <XAxis dataKey="name" fontSize={11} tickLine={false} axisLine={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontWeight: 'bold' }} />
+                                <YAxis fontSize={11} tickLine={false} axisLine={false} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                                <ChartTooltip content={<ChartTooltipContent />} />
+                                <Bar dataKey="value" radius={[6, 6, 0, 0]}>{analyticsData.updateChart.map((entry, index) => <Cell key={`cell-upd-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />)}</Bar>
+                              </BarChart>
+                            </ChartContainer>
+                          </div>
+                        </Card>
 
-                          <Card className="p-6 border-white/5 bg-card shadow-2xl cursor-pointer hover:bg-muted/5 transition-all group relative overflow-hidden" onClick={() => setIsMarketDetailOpen(true)}>
-                            <div className="absolute top-4 right-4 bg-primary/10 p-2.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><Maximize2 className="w-5 h-5 text-primary" /></div>
-                            <h4 className="text-sm font-black uppercase mb-8 flex items-center gap-2.5 tracking-widest text-muted-foreground"><Database className="w-4.5 h-4.5 text-primary" /> Market Value Breakdown</h4>
-                            <div className="h-[300px] w-full">
-                              <ChartContainer config={marketChartConfig}>
-                                <PieChart>
-                                  <Pie data={analyticsData.marketChart} cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={8} dataKey="value" stroke="none" label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}>
-                                    {analyticsData.marketChart.map((entry, index) => <Cell key={`cell-market-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                                  </Pie>
-                                  <ChartTooltip content={<ChartTooltipContent />} />
-                                  <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ paddingTop: '24px', fontSize: '11px', fontWeight: 'bold' }}/>
-                                </PieChart>
-                              </ChartContainer>
-                            </div>
-                          </Card>
-                        </div>
-                      </TabsContent>
-                    )}
+                        <Card className="p-6 border-white/5 bg-card shadow-2xl cursor-pointer hover:bg-muted/5 transition-all group relative overflow-hidden" onClick={() => setIsMarketDetailOpen(true)}>
+                          <div className="absolute top-4 right-4 bg-primary/10 p-2.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><Maximize2 className="w-5 h-5 text-primary" /></div>
+                          <h4 className="text-sm font-black uppercase mb-8 flex items-center gap-2.5 tracking-widest text-muted-foreground"><Database className="w-4.5 h-4.5 text-primary" /> Market Value Breakdown</h4>
+                          <div className="h-[300px] w-full">
+                            <ChartContainer config={marketChartConfig}>
+                              <PieChart>
+                                <Pie data={analyticsData.marketChart} cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={8} dataKey="value" stroke="none" label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}>
+                                  {analyticsData.marketChart.map((entry, index) => <Cell key={`cell-market-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                                </Pie>
+                                <ChartTooltip content={<ChartTooltipContent />} />
+                                <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ paddingTop: '24px', fontSize: '11px', fontWeight: 'bold' }}/>
+                              </PieChart>
+                            </ChartContainer>
+                          </div>
+                        </Card>
+                      </div>
+                    </TabsContent>
                     <TabsContent value="audit" className="m-0 h-full data-[state=active]:flex data-[state=active]:flex-col">
                       <AuditLogTab reports={processingReports} onClearHistory={clearAuditHistory} />
                     </TabsContent>
@@ -838,7 +797,7 @@ export default function Home() {
                     <Button variant="outline" onClick={() => setIsExportSettingsOpen(true)} size="sm" className="font-black uppercase text-xs tracking-widest border-primary/30 text-primary hover:bg-primary hover:text-white transition-all h-10 px-6" disabled={isExporting}><FileDown className="w-4 h-4 mr-2" /> {isExporting ? "Generating..." : "Export Results"}</Button>
                     <Button variant="ghost" size="sm" className="h-10 text-xs font-bold uppercase px-3" onClick={clearWorkspace}><Eraser className="w-3.5 h-3.5 mr-1" /> Clear Session</Button>
                   </div>
-                  {userMode === 'full' && viewMode !== 'audit' && (
+                  {viewMode !== 'audit' && (
                     <Button size="lg" className="bg-primary hover:bg-green-700 px-12 font-black uppercase tracking-widest text-xs shadow-2xl transition-all active:scale-95 h-10" disabled={isProcessing} onClick={() => setIsRunProcessorDialogOpen(true)}>{isProcessing ? "Processing Batch..." : "Run Batch Processor"}</Button>
                   )}
                   {viewMode === 'audit' && (
