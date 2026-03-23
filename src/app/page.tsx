@@ -874,6 +874,7 @@ export default function Home() {
         data={previewData} 
         exportColumns={exportColumns}
         onColumnToggle={(col) => setExportColumns(prev => ({ ...prev, [col]: !prev[col] }))}
+        onBulkColumnChange={(cols) => setExportColumns(cols)}
         onExport={handleFinalExport}
       />
 

@@ -32,6 +32,7 @@ interface ExportSettingsModalProps {
   data: LandRecord[];
   exportColumns: Record<string, boolean>;
   onColumnToggle: (col: string) => void;
+  onBulkColumnChange?: (cols: Record<string, boolean>) => void;
   onExport: (settings: ExportFinalSettings) => void;
 }
 
@@ -41,18 +42,24 @@ export interface ExportFinalSettings {
   statuses: RecordStatusType[];
 }
 
+const columnLabels = [
+  "DATE", "ARP NO#", "PIN", "UPDATE", "ACCTNAME", "ADDRESS", 
+  "LOCATION", "KIND", "AU", "LAND AREA", "UNIT VALUE", 
+  "MARKET VALUE", "ASSESSED VALUE", "YEARLY TAX"
+];
+
 export function ExportSettingsModal({
   open,
   onOpenChange,
   data,
   exportColumns,
   onColumnToggle,
+  onBulkColumnChange,
   onExport
 }: ExportSettingsModalProps) {
   const [selectedBarangays, setSelectedBarangays] = React.useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = React.useState<RecordStatusType[]>([]);
 
-  // Determine available options from data
   const availableBarangays = useMemo(() => {
     const set = new Set<string>();
     data.forEach(r => { 
@@ -70,7 +77,6 @@ export function ExportSettingsModal({
   const approvedStatuses = availableStatuses.filter(s => s !== 'DUPLICATE' && s !== 'INCOMPLETE');
   const archiveStatuses = availableStatuses.filter(s => s === 'DUPLICATE' || s === 'INCOMPLETE');
 
-  // Initialize selections when modal opens
   React.useEffect(() => {
     if (open) {
       setSelectedBarangays(availableBarangays);
@@ -93,6 +99,43 @@ export function ExportSettingsModal({
   const selectAllBarangays = () => setSelectedBarangays(availableBarangays);
   const deselectAllBarangays = () => setSelectedBarangays([]);
 
+  const selectAllColumns = () => {
+    if (onBulkColumnChange) {
+      const newCols = { ...exportColumns };
+      columnLabels.forEach(col => newCols[col] = true);
+      onBulkColumnChange(newCols);
+    }
+  };
+  const deselectAllColumns = () => {
+    if (onBulkColumnChange) {
+      const newCols = { ...exportColumns };
+      columnLabels.forEach(col => newCols[col] = false);
+      onBulkColumnChange(newCols);
+    }
+  };
+
+  const selectAllApproved = () => {
+    setSelectedStatuses(prev => {
+      const set = new Set(prev);
+      approvedStatuses.forEach(s => set.add(s));
+      return Array.from(set);
+    });
+  };
+  const clearAllApproved = () => {
+    setSelectedStatuses(prev => prev.filter(s => !approvedStatuses.includes(s)));
+  };
+
+  const selectAllArchive = () => {
+    setSelectedStatuses(prev => {
+      const set = new Set(prev);
+      archiveStatuses.forEach(s => set.add(s));
+      return Array.from(set);
+    });
+  };
+  const clearAllArchive = () => {
+    setSelectedStatuses(prev => prev.filter(s => !archiveStatuses.includes(s)));
+  };
+
   const handleExport = () => {
     onExport({
       columns: exportColumns,
@@ -100,12 +143,6 @@ export function ExportSettingsModal({
       statuses: selectedStatuses
     });
   };
-
-  const columnLabels = [
-    "DATE", "ARP NO#", "PIN", "UPDATE", "ACCTNAME", "ADDRESS", 
-    "LOCATION", "KIND", "AU", "LAND AREA", "UNIT VALUE", 
-    "MARKET VALUE", "ASSESSED VALUE", "YEARLY TAX"
-  ];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -130,11 +167,16 @@ export function ExportSettingsModal({
 
         <div className="flex-1 overflow-hidden flex">
           <div className="flex-1 overflow-y-auto p-8 space-y-10 scrollbar-vertical-custom">
-            {/* SECTION 1: COLUMNS */}
             <section className="space-y-4">
-              <h3 className="text-xs font-black uppercase text-primary tracking-[0.2em] flex items-center gap-2">
-                <CheckSquare className="w-4 h-4" /> 1. Select Export Columns
-              </h3>
+              <div className="flex items-center justify-between px-1">
+                <h3 className="text-xs font-black uppercase text-primary tracking-[0.2em] flex items-center gap-2">
+                  <CheckSquare className="w-4 h-4" /> 1. Select Export Columns
+                </h3>
+                <div className="flex gap-4">
+                  <button onClick={selectAllColumns} className="text-[10px] font-black uppercase text-muted-foreground hover:text-primary tracking-tighter">Select All</button>
+                  <button onClick={deselectAllColumns} className="text-[10px] font-black uppercase text-muted-foreground hover:text-red-600 tracking-tighter">Clear All</button>
+                </div>
+              </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 bg-muted/20 p-5 rounded-2xl border border-white/5">
                 {columnLabels.map(col => (
                   <div key={col} className="flex items-center gap-2.5 group">
@@ -152,7 +194,6 @@ export function ExportSettingsModal({
               </div>
             </section>
 
-            {/* SECTION 2: BARANGAYS */}
             <section className="space-y-4">
               <div className="flex items-center justify-between px-1">
                 <h3 className="text-xs font-black uppercase text-primary tracking-[0.2em] flex items-center gap-2">
@@ -182,7 +223,6 @@ export function ExportSettingsModal({
               </div>
             </section>
 
-            {/* SECTION 3: DATA TYPES */}
             <section className="space-y-6">
               <h3 className="text-xs font-black uppercase text-primary tracking-[0.2em] flex items-center gap-2">
                 <Filter className="w-4 h-4" /> 3. Select Data Types
@@ -190,9 +230,15 @@ export function ExportSettingsModal({
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
-                  <h4 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2 mb-4">
-                    <ChevronRight className="w-3 h-3 text-primary" /> Approved Results
-                  </h4>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                      <ChevronRight className="w-3 h-3 text-primary" /> Approved Results
+                    </h4>
+                    <div className="flex gap-3">
+                      <button onClick={selectAllApproved} className="text-[9px] font-black uppercase text-muted-foreground hover:text-primary">All</button>
+                      <button onClick={clearAllApproved} className="text-[9px] font-black uppercase text-muted-foreground hover:text-red-600">Clear</button>
+                    </div>
+                  </div>
                   <div className="space-y-2 bg-muted/10 p-4 rounded-xl border border-white/5">
                     {approvedStatuses.map(status => (
                       <div key={status} className="flex items-center gap-3">
@@ -212,9 +258,15 @@ export function ExportSettingsModal({
                 </div>
 
                 <div className="space-y-3">
-                  <h4 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2 mb-4">
-                    <Archive className="w-3 h-3 text-orange-500" /> Archive Data
-                  </h4>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                      <Archive className="w-3 h-3 text-orange-500" /> Archive Data
+                    </h4>
+                    <div className="flex gap-3">
+                      <button onClick={selectAllArchive} className="text-[9px] font-black uppercase text-muted-foreground hover:text-primary">All</button>
+                      <button onClick={clearAllArchive} className="text-[9px] font-black uppercase text-muted-foreground hover:text-red-600">Clear</button>
+                    </div>
+                  </div>
                   <div className="space-y-2 bg-orange-50/10 p-4 rounded-xl border border-orange-500/10">
                     {archiveStatuses.map(status => (
                       <div key={status} className="flex items-center gap-3">
