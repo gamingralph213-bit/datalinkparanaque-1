@@ -34,7 +34,9 @@ import {
   RefreshCw,
   Lightbulb,
   TrendingUp,
-  PieChart as PieChartIcon
+  PieChart as PieChartIcon,
+  Loader2,
+  Check
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -120,15 +122,19 @@ const marketChartConfig = {
   },
 } satisfies ChartConfig;
 
+type ProcessingStep = 'idle' | 'cleanup' | 'dedupe' | 'calibrate' | 'complete';
+
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export default function Home() {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
   const [isClient, setIsClient] = useState(false);
-  const [userMode] = useState<'fast' | 'full'>('full');
   const [rawData, setRawData] = useState<LandRecord[]>([]);
   const [previewData, setPreviewData] = useState<LandRecord[]>([]);
   const [processedData, setProcessedData] = useState<LandRecord[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStep, setProcessingStep] = useState<ProcessingStep>('idle');
   const [isExporting, setIsExporting] = useState(false);
   const [exportSuccess, setExportSuccess] = useState(false);
   const [processSuccess, setProcessSuccess] = useState(false);
@@ -145,15 +151,14 @@ export default function Home() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [selectedRecord, setSelectedRecord] = useState<LandRecord | null>(null);
   
-  // Analytics Expansion & Insight State
-  const [explainType, setExplainType] = useState<string | null>(null);
-  const [expandedChart, setExpandedChart] = useState<'usage' | 'barangay' | 'update' | 'market' | null>(null);
-
   const [searchQuery, setSearchQuery] = useState("");
   const [searchField, setSearchField] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sourceFileFilter, setSourceFileFilter] = useState("all");
   const [barangayFilter, setBarangayFilter] = useState("all");
+
+  const [explainType, setExplainType] = useState<string | null>(null);
+  const [expandedChart, setExpandedChart] = useState<'usage' | 'barangay' | 'update' | 'market' | null>(null);
 
   const [options, setOptions] = useState({
     removeDuplicates: true,
@@ -292,24 +297,38 @@ export default function Home() {
   };
 
   const runProcessWithData = async (data: LandRecord[], rawCount: number, fileName: string, silent = false) => {
-    if (!silent) setIsProcessing(true);
+    if (!silent) {
+      setIsProcessing(true);
+      setProcessingStep('cleanup');
+    }
     
-    setTimeout(() => {
-      startTransition(() => {
-        const processOptions = options;
-        const { processed, allWithDuplicateMarkers, report } = processRecords(data, rules, locationSettings, taxRates, processOptions, fileName);
-        setProcessedData(processed);
-        setPreviewData(allWithDuplicateMarkers);
-        setProcessingReports(prev => [report, ...prev]);
-        updateStats(allWithDuplicateMarkers, rawCount);
-        
-        if (!silent) {
+    // Multi-step progress simulation
+    if (!silent) {
+      await delay(1200);
+      setProcessingStep('dedupe');
+      await delay(1000);
+      setProcessingStep('calibrate');
+      await delay(800);
+    }
+
+    startTransition(() => {
+      const processOptions = options;
+      const { processed, allWithDuplicateMarkers, report } = processRecords(data, rules, locationSettings, taxRates, processOptions, fileName);
+      setProcessedData(processed);
+      setPreviewData(allWithDuplicateMarkers);
+      setProcessingReports(prev => [report, ...prev]);
+      updateStats(allWithDuplicateMarkers, rawCount);
+      
+      if (!silent) {
+        setProcessingStep('complete');
+        setTimeout(() => {
           setProcessSuccess(true);
           setTimeout(() => setProcessSuccess(false), 1500);
           setIsProcessing(false);
-        }
-      });
-    }, silent ? 0 : 10);
+          setProcessingStep('idle');
+        }, 600);
+      }
+    });
   };
 
   const runProcess = async () => {
@@ -528,7 +547,6 @@ export default function Home() {
     };
   }, [processedData, previewData, sourceFileFilter, barangayFilter]);
 
-  // Enhanced Detailed Insights Engine
   const getInsightText = (type: string) => {
     const data = analyticsData;
     if (data.totalRecords === 0) return "Insufficient data currently active. Please adjust your filters or run the processor to generate detailed diagnostics.";
@@ -979,6 +997,79 @@ export default function Home() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Processing Status Overlay */}
+      {isProcessing && processingStep !== 'idle' && (
+        <div className="fixed inset-0 z-[100] bg-background/80 backdrop-blur-xl flex flex-col items-center justify-center animate-in fade-in duration-300">
+          <Card className="w-full max-w-md p-10 bg-card border-white/10 shadow-2xl flex flex-col items-center scale-105">
+            <div className="relative mb-8">
+              <Loader2 className="w-16 h-16 text-primary animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Cpu className="w-6 h-6 text-primary/40" />
+              </div>
+            </div>
+            
+            <h3 className="text-2xl font-black text-foreground uppercase tracking-tight mb-8">Engine Initializing...</h3>
+            
+            <div className="w-full space-y-4">
+              <div className="flex items-center justify-between p-4 rounded-xl bg-muted/20 border border-white/5">
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "w-6 h-6 rounded-full flex items-center justify-center transition-all",
+                    processingStep === 'cleanup' ? "bg-primary/20 text-primary animate-pulse" : 
+                    (processingStep !== 'idle' && processingStep !== 'cleanup' ? "bg-primary text-white" : "bg-muted text-muted-foreground")
+                  )}>
+                    {processingStep !== 'idle' && processingStep !== 'cleanup' ? <Check className="w-3.5 h-3.5" /> : <Eraser className="w-3.5 h-3.5" />}
+                  </div>
+                  <span className={cn("text-xs font-black uppercase tracking-widest", processingStep === 'cleanup' ? "text-primary" : "text-muted-foreground")}>
+                    1. System Cleanup
+                  </span>
+                </div>
+                {processingStep === 'cleanup' && <span className="text-[10px] font-bold text-primary animate-pulse uppercase">⏳ Running</span>}
+                {processingStep !== 'idle' && processingStep !== 'cleanup' && <span className="text-[10px] font-bold text-primary uppercase">✔ Done</span>}
+              </div>
+
+              <div className="flex items-center justify-between p-4 rounded-xl bg-muted/20 border border-white/5">
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "w-6 h-6 rounded-full flex items-center justify-center transition-all",
+                    processingStep === 'dedupe' ? "bg-primary/20 text-primary animate-pulse" : 
+                    (processingStep === 'calibrate' || processingStep === 'complete' ? "bg-primary text-white" : "bg-muted text-muted-foreground")
+                  )}>
+                    {processingStep === 'calibrate' || processingStep === 'complete' ? <Check className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+                  </div>
+                  <span className={cn("text-xs font-black uppercase tracking-widest", processingStep === 'dedupe' ? "text-primary" : "text-muted-foreground")}>
+                    2. Deduplication
+                  </span>
+                </div>
+                {processingStep === 'dedupe' && <span className="text-[10px] font-bold text-primary animate-pulse uppercase">⏳ Running</span>}
+                {(processingStep === 'calibrate' || processingStep === 'complete') && <span className="text-[10px] font-bold text-primary uppercase">✔ Done</span>}
+              </div>
+
+              <div className="flex items-center justify-between p-4 rounded-xl bg-muted/20 border border-white/5">
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "w-6 h-6 rounded-full flex items-center justify-center transition-all",
+                    processingStep === 'calibrate' ? "bg-primary/20 text-primary animate-pulse" : 
+                    (processingStep === 'complete' ? "bg-primary text-white" : "bg-muted text-muted-foreground")
+                  )}>
+                    {processingStep === 'complete' ? <Check className="w-3.5 h-3.5" /> : <Zap className="w-3.5 h-3.5" />}
+                  </div>
+                  <span className={cn("text-xs font-black uppercase tracking-widest", processingStep === 'calibrate' ? "text-primary" : "text-muted-foreground")}>
+                    3. Calibration
+                  </span>
+                </div>
+                {processingStep === 'calibrate' && <span className="text-[10px] font-bold text-primary animate-pulse uppercase">⏳ Running</span>}
+                {processingStep === 'complete' && <span className="text-[10px] font-bold text-primary uppercase">✔ Done</span>}
+              </div>
+            </div>
+
+            <p className="mt-8 text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em] animate-pulse">
+              Validating Parañaque Land Records
+            </p>
+          </Card>
+        </div>
+      )}
 
       {/* Enhanced Analytics Explanation Dialog */}
       <Dialog open={!!explainType} onOpenChange={(open) => !open && setExplainType(null)}>
