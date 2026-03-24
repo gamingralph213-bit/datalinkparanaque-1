@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo, useTransition, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useTransition, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import { 
   FileDown, 
@@ -96,12 +96,14 @@ import { ExportSettingsModal, ExportFinalSettings } from '@/components/dashboard
  * A component that animates a numeric value counting from its previous state to the new state.
  */
 const AnimatedNumber = ({ value, prefix = "", decimals = 0 }: { value: number, prefix?: string, decimals?: number }) => {
-  const [displayValue, setDisplayValue] = useState(value);
+  const [displayValue, setDisplayValue] = useState(0);
+  const prevValueRef = useRef(0);
 
   useEffect(() => {
     const startTime = performance.now();
-    const startValue = displayValue;
-    const duration = 1000;
+    const startValue = prevValueRef.current;
+    const endValue = value;
+    const duration = 1500; // 1.5 seconds for visible impact
 
     const animate = (currentTime: number) => {
       const elapsed = currentTime - startTime;
@@ -109,12 +111,14 @@ const AnimatedNumber = ({ value, prefix = "", decimals = 0 }: { value: number, p
       
       // Easing function: easeOutExpo
       const eased = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
-      const current = startValue + (value - startValue) * eased;
+      const current = startValue + (endValue - startValue) * eased;
       
       setDisplayValue(current);
 
       if (progress < 1) {
         requestAnimationFrame(animate);
+      } else {
+        prevValueRef.current = endValue;
       }
     };
 
@@ -691,7 +695,7 @@ export default function Home() {
     },
     {
       label: "Total Market",
-      value: <AnimatedNumber value={stats.totalMarketValue || 0} prefix="₱" />,
+      value: <AnimatedNumber value={stats.totalMarketValue || 0} prefix="₱" decimals={2} />,
       icon: Database,
       color: "border-l-green-600 bg-green-500/5",
       textClass: "text-green-600",
@@ -699,7 +703,7 @@ export default function Home() {
     },
     {
       label: "Total Assessed",
-      value: <AnimatedNumber value={stats.totalAssessedValue || 0} prefix="₱" />,
+      value: <AnimatedNumber value={stats.totalAssessedValue || 0} prefix="₱" decimals={2} />,
       icon: BarChart3,
       color: "border-l-blue-600 bg-green-500/5",
       textClass: "text-blue-600",
@@ -1010,7 +1014,7 @@ export default function Home() {
                     <Button variant="outline" onClick={() => setIsExportSettingsOpen(true)} size="sm" className="font-black uppercase text-xs tracking-widest border-primary/30 text-primary hover:bg-primary hover:text-white transition-all h-10 px-6" disabled={isExporting}><FileDown className="w-4 h-4 mr-2" /> {isExporting ? "Generating..." : "Export Data"}</Button>
                     <Button variant="ghost" size="sm" className="h-10 text-xs font-bold uppercase px-3" onClick={clearWorkspace}><Eraser className="w-3.5 h-3.5 mr-1" /> Clear Session</Button>
                   </div>
-                  {viewMode !== 'audit' && (
+                  {viewMode !== 'analytics' && viewMode !== 'audit' && (
                     <Button size="lg" className="bg-primary hover:bg-green-700 px-12 font-black uppercase tracking-widest text-xs shadow-2xl transition-all active:scale-95 h-10" disabled={isProcessing} onClick={() => setIsRunProcessorDialogOpen(true)}>{isProcessing ? "Processing Batch..." : "Run Batch Processor"}</Button>
                   )}
                   {viewMode === 'audit' && (
@@ -1285,9 +1289,9 @@ export default function Home() {
                   const dataList = (expandedChart === 'market' ? analyticsData.marketChart : 
                     expandedChart === 'usage' ? analyticsData.auChart : 
                     expandedChart === 'barangay' ? analyticsData.barangayChart : 
-                    analyticsData.updateChart);
+                    expandedChart === 'update' ? analyticsData.updateChart : []);
                   const total = dataList.reduce((sum, curr) => sum + curr.value, 0);
-                  const percentage = ((item.value / total) * 100).toFixed(1);
+                  const percentage = ((item.value / (total || 1)) * 100).toFixed(1);
                   return (
                     <div key={item.name} className="flex flex-col gap-2 p-4 rounded-xl bg-muted/20 border border-white/5 hover:bg-muted/40 transition-all shadow-sm">
                       <div className="flex items-center justify-between">
