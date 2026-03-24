@@ -290,6 +290,28 @@ export default function Home() {
         e.preventDefault();
         setIsImportDialogOpen(true);
       }
+
+      // Tab Switching: Cycle through dashboard views (Results -> Archive -> Analytics -> Audit)
+      if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const activeElem = document.activeElement;
+        const isTyping = activeElem instanceof HTMLInputElement || 
+                         activeElem instanceof HTMLTextAreaElement || 
+                         activeElem?.getAttribute('contenteditable') === 'true';
+        
+        if (!isTyping) {
+          e.preventDefault();
+          const modes: Array<'results' | 'archive' | 'analytics' | 'audit'> = ['results', 'archive', 'analytics', 'audit'];
+          setViewMode(prev => {
+            const currentIndex = modes.indexOf(prev as any);
+            const nextIndex = e.shiftKey 
+              ? (currentIndex - 1 + modes.length) % modes.length 
+              : (currentIndex + 1) % modes.length;
+            
+            setStatusFilter('all');
+            return modes[nextIndex];
+          });
+        }
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
