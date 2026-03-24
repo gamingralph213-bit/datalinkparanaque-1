@@ -271,22 +271,22 @@ export default function Home() {
         }
       }
 
-      // Settings: Ctrl + S
-      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 's') {
+      // Settings: Ctrl + Alt + S
+      if ((e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === 's') {
         e.preventDefault();
         setIsSettingsOpen(true);
       }
 
-      // Clear Session: Ctrl + C (only if not copying text)
-      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'c') {
+      // Clear Session: Ctrl + Alt + C (only if not copying text)
+      if ((e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === 'c') {
         if (window.getSelection()?.toString() === '') {
           e.preventDefault();
           clearWorkspace();
         }
       }
 
-      // Add File: Ctrl + A
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+      // Add File: Ctrl + Alt + A
+      if ((e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === 'a') {
         e.preventDefault();
         setIsImportDialogOpen(true);
       }
@@ -794,7 +794,7 @@ export default function Home() {
                   <Settings className="w-5 h-5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Shortcut: Ctrl + S</TooltipContent>
+              <TooltipContent>Shortcut: Ctrl + Alt + S</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
@@ -899,7 +899,7 @@ export default function Home() {
                                 <Plus className="w-3.5 h-3.5 mr-1" /> Add Data
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent>Shortcut: Ctrl + A</TooltipContent>
+                            <TooltipContent>Shortcut: Ctrl + Alt + A</TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
                       </div>
@@ -990,7 +990,7 @@ export default function Home() {
                           </div>
                         </Card>
 
-                        {/* Update Code Chart */}
+                        {/* Update Code Distribution Chart */}
                         <Card className="p-6 border-white/5 bg-card shadow-2xl overflow-hidden flex flex-col group">
                           <div className="flex items-center justify-between mb-8">
                             <h4 className="text-sm font-black uppercase flex items-center gap-2.5 tracking-widest text-muted-foreground">
@@ -1087,7 +1087,7 @@ export default function Home() {
                         <TooltipTrigger asChild>
                           <Button variant="ghost" size="sm" className="h-10 text-xs font-bold uppercase px-3" onClick={clearWorkspace}><Eraser className="w-3.5 h-3.5 mr-1" /> Clear Session</Button>
                         </TooltipTrigger>
-                        <TooltipContent>Shortcut: Ctrl + C</TooltipContent>
+                        <TooltipContent>Shortcut: Ctrl + Alt + C</TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   </div>
