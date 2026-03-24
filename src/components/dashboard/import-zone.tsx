@@ -224,8 +224,15 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
     });
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && stagedFiles.length > 0 && !isLoading) {
+      e.preventDefault();
+      handleStartImport();
+    }
+  };
+
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-8">
+    <div className="w-full max-w-4xl mx-auto space-y-8" onKeyDown={handleKeyDown}>
       <Card 
         className={cn(
           "relative border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center text-center group outline-none overflow-hidden",

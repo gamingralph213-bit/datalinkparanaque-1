@@ -237,6 +237,21 @@ export default function Home() {
     return Array.from(brgySet).sort();
   }, [previewData]);
 
+  const clearWorkspace = () => {
+    setRawData([]);
+    setProcessedData([]);
+    setPreviewData([]);
+    setSearchQuery("");
+    setImportedFileName("");
+    setSourceFileFilter("all");
+    setBarangayFilter("all");
+    setStats({
+      totalRawRows: 0, systemCleanup: 0, totalImported: 0, duplicatesRemoved: 0,
+      finalCount: 0, totalMarketValue: 0, totalAssessedValue: 0, totalErrors: 0
+    } as any);
+    toast({ title: "Workspace Cleared", description: "All active data removed. Audit logs preserved." });
+  };
+
   // Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -256,16 +271,24 @@ export default function Home() {
         }
       }
 
-      // Settings: Ctrl + Alt + S
-      if ((e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === 's') {
+      // Settings: Ctrl + S
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 's') {
         e.preventDefault();
         setIsSettingsOpen(true);
       }
 
-      // Clear Session: Ctrl + Alt + C
-      if ((e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === 'c') {
+      // Clear Session: Ctrl + C (only if not copying text)
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'c') {
+        if (window.getSelection()?.toString() === '') {
+          e.preventDefault();
+          clearWorkspace();
+        }
+      }
+
+      // Add File: Ctrl + A
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
         e.preventDefault();
-        clearWorkspace();
+        setIsImportDialogOpen(true);
       }
     };
 
@@ -669,21 +692,6 @@ export default function Home() {
     }
   };
 
-  const clearWorkspace = () => {
-    setRawData([]);
-    setProcessedData([]);
-    setPreviewData([]);
-    setSearchQuery("");
-    setImportedFileName("");
-    setSourceFileFilter("all");
-    setBarangayFilter("all");
-    setStats({
-      totalRawRows: 0, systemCleanup: 0, totalImported: 0, duplicatesRemoved: 0,
-      finalCount: 0, totalMarketValue: 0, totalAssessedValue: 0, totalErrors: 0
-    } as any);
-    toast({ title: "Workspace Cleared", description: "All active data removed. Audit logs preserved." });
-  };
-
   const clearAuditHistory = () => {
     setProcessingReports([]);
     toast({ title: "History Purged", description: "Audit logs cleared permanently." });
@@ -786,7 +794,7 @@ export default function Home() {
                   <Settings className="w-5 h-5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Shortcut: Ctrl + Alt + S</TooltipContent>
+              <TooltipContent>Shortcut: Ctrl + S</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
@@ -884,9 +892,16 @@ export default function Home() {
                             ))}
                           </SelectContent>
                         </Select>
-                        <Button variant="ghost" size="sm" className="h-9 text-xs font-bold uppercase px-3 text-primary hover:bg-primary/10" onClick={() => setIsImportDialogOpen(true)}>
-                          <Plus className="w-3.5 h-3.5 mr-1" /> Add Data
-                        </Button>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-9 text-xs font-bold uppercase px-3 text-primary hover:bg-primary/10" onClick={() => setIsImportDialogOpen(true)}>
+                                <Plus className="w-3.5 h-3.5 mr-1" /> Add Data
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Shortcut: Ctrl + A</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </div>
                     )}
                   </div>
@@ -1004,7 +1019,7 @@ export default function Home() {
                             <ChartContainer config={analyticsChartConfig}>
                               <BarChart data={analyticsData.updateChart} margin={{ top: 20, right: 20, left: 10, bottom: 40 }}>
                                 <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.05} />
-                                <XAxis dataKey="name" fontSize={11} tickLine={false} axisLine={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontWeight: 'bold' }} />
+                                <XAxis dataKey="name" fontSize={11} tickLine={false} axisLine={false} angle={-45} textAnchor="end" interval={0} tick={{ fill: 'hsl(var(--muted-foreground))', fontWeight: 'bold' }} />
                                 <YAxis fontSize={11} tickLine={false} axisLine={false} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
                                 <ChartTooltip content={<ChartTooltipContent />} />
                                 <Bar dataKey="value" radius={[6, 6, 0, 0]}>{analyticsData.updateChart.map((entry, index) => <Cell key={`cell-upd-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />)}</Bar>
@@ -1072,7 +1087,7 @@ export default function Home() {
                         <TooltipTrigger asChild>
                           <Button variant="ghost" size="sm" className="h-10 text-xs font-bold uppercase px-3" onClick={clearWorkspace}><Eraser className="w-3.5 h-3.5 mr-1" /> Clear Session</Button>
                         </TooltipTrigger>
-                        <TooltipContent>Shortcut: Ctrl + Alt + C</TooltipContent>
+                        <TooltipContent>Shortcut: Ctrl + C</TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   </div>
