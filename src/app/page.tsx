@@ -358,16 +358,19 @@ export default function Home() {
       setProcessedData(processed);
       setPreviewData(allWithDuplicateMarkers);
       setProcessingReports(prev => [report, ...prev]);
-      updateStats(allWithDuplicateMarkers, rawCount);
       
       if (!silent) {
         setProcessingStep('complete');
         setTimeout(() => {
           setProcessSuccess(true);
+          // Update stats only after overlay logic is near completion to trigger visible animation
+          updateStats(allWithDuplicateMarkers, rawCount);
           setTimeout(() => setProcessSuccess(false), 1500);
           setIsProcessing(false);
           setProcessingStep('idle');
         }, 600);
+      } else {
+        updateStats(allWithDuplicateMarkers, rawCount);
       }
     });
   };
@@ -1285,11 +1288,7 @@ export default function Home() {
                 {(expandedChart === 'market' ? analyticsData.marketChart : 
                   expandedChart === 'usage' ? analyticsData.auChart : 
                   expandedChart === 'barangay' ? analyticsData.barangayChart : 
-                  analyticsData.updateChart).sort((a,b) => b.value - a.value).map((item, index) => {
-                  const dataList = (expandedChart === 'market' ? analyticsData.marketChart : 
-                    expandedChart === 'usage' ? analyticsData.auChart : 
-                    expandedChart === 'barangay' ? analyticsData.barangayChart : 
-                    expandedChart === 'update' ? analyticsData.updateChart : []);
+                  expandedChart === 'update' ? analyticsData.updateChart : []).map((item, index, dataList) => {
                   const total = dataList.reduce((sum, curr) => sum + curr.value, 0);
                   const percentage = ((item.value / (total || 1)) * 100).toFixed(1);
                   return (
