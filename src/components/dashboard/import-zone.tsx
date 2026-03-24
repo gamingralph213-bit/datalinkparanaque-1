@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Upload, 
   FileSpreadsheet, 
@@ -45,6 +45,18 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
   const [stagedFiles, setStagedFiles] = useState<File[]>([]);
   const [isZoomed, setIsZoomed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // Automatically focus the card when files are staged so Enter key works immediately
+  useEffect(() => {
+    if (stagedFiles.length > 0) {
+      // Small timeout to ensure the DOM has updated and the container is focusable
+      const timer = setTimeout(() => {
+        cardRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [stagedFiles.length]);
 
   const processFile = async (file: File): Promise<{ data: LandRecord[], count: number }> => {
     return new Promise((resolve, reject) => {
@@ -234,6 +246,7 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
   return (
     <div className="w-full max-w-4xl mx-auto space-y-8" onKeyDown={handleKeyDown}>
       <Card 
+        ref={cardRef}
         className={cn(
           "relative border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center text-center group outline-none overflow-hidden",
           isDragging ? "border-primary bg-primary/5 scale-[0.99]" : "border-muted-foreground/20 hover:border-primary/50",
