@@ -91,6 +91,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ExportSettingsModal, ExportFinalSettings } from '@/components/dashboard/export-settings-modal';
+import { useNotification } from '@/contexts/NotificationContext';
 
 /**
  * A component that animates a numeric value counting from its previous state to the new state.
@@ -169,6 +170,7 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export default function Home() {
   const { toast } = useToast();
+  const { showSuccessModal, showSuccessToast } = useNotification();
   const [isPending, startTransition] = useTransition();
   const [isClient, setIsClient] = useState(false);
   const [rawData, setRawData] = useState<LandRecord[]>([]);
@@ -177,8 +179,6 @@ export default function Home() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState<ProcessingStep>('idle');
   const [isExporting, setIsExporting] = useState(false);
-  const [exportSuccess, setExportSuccess] = useState(false);
-  const [processSuccess, setProcessSuccess] = useState(false);
   const [importedFileName, setImportedFileName] = useState<string>("");
   const [rules, setRules] = useState<CalibrationRule[]>([]);
   const [viewMode, setViewMode] = useState<'results' | 'archive' | 'analytics' | 'audit'>('results');
@@ -441,21 +441,20 @@ export default function Home() {
       setProcessingReports(prev => [report, ...prev]);
       
       if (!silent) {
-        setProcessingStep('complete');
-        setTimeout(() => {
-          setProcessSuccess(true);
-          setIsProcessing(false);
-          setProcessingStep('idle');
-          
-          // Trigger animations after success overlay is visible, with a delay so it counts up after overlay clearing
+          setProcessingStep('complete');
           setTimeout(() => {
-            setProcessSuccess(false);
-            // Added 200ms padding after confirmation banner disappears before starting the counting animation
+            setIsProcessing(false);
+            setProcessingStep('idle');
+            showSuccessModal({
+                title: "Processing Completed",
+                message: `${report.validCount} records have been validated and calibrated. You may now export the results.`,
+                onDownload: () => setIsExportSettingsOpen(true),
+                onViewFile: () => setViewMode('results'),
+            });
             setTimeout(() => {
-              updateStats(allWithDuplicateMarkers, rawCount);
-            }, 200);
-          }, 1500);
-        }, 600);
+                updateStats(allWithDuplicateMarkers, rawCount);
+            }, 400); 
+        }, 800);
       } else {
         updateStats(allWithDuplicateMarkers, rawCount);
       }
@@ -608,8 +607,7 @@ export default function Home() {
         totalAssessedValue: totalAssessedValue,
       };
       setProcessingReports(prev => [exportReport, ...prev]);
-      setExportSuccess(true);
-      setTimeout(() => setExportSuccess(false), 1500);
+      showSuccessToast(`Exported ${filteredForExport.length} records successfully.`);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Export Failed", description: error.message });
     } finally {
@@ -1228,7 +1226,7 @@ export default function Home() {
       )}
 
       {/* Exporting Status Overlay */}
-      {isExporting && !exportSuccess && (
+      {isExporting && (
         <div className="fixed inset-0 z-[100] bg-background/80 backdrop-blur-xl flex flex-col items-center justify-center animate-in fade-in duration-300">
           <Card className="w-full max-w-md p-10 bg-card border-white/10 shadow-2xl flex flex-col items-center scale-105">
             <div className="relative mb-8">
@@ -1340,26 +1338,6 @@ export default function Home() {
         onExport={handleFinalExport}
       />
 
-      {exportSuccess && (
-        <div className="fixed inset-0 z-[100] bg-background/60 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in zoom-in duration-200">
-          <div className="bg-card p-12 rounded-3xl shadow-2xl border border-primary/20 flex flex-col items-center scale-110">
-            <div className="bg-primary/20 p-6 rounded-full mb-6 animate-bounce"><CheckCircle2 className="w-16 h-16 text-primary" /></div>
-            <h3 className="text-3xl font-black text-primary uppercase tracking-tighter">Export Successful</h3>
-            <p className="text-muted-foreground font-bold mt-2">Your filtered land records have been saved locally.</p>
-          </div>
-        </div>
-      )}
-
-      {processSuccess && (
-        <div className="fixed inset-0 z-[100] bg-background/60 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in zoom-in duration-200">
-          <div className="bg-card p-12 rounded-3xl shadow-2xl border border-primary/20 flex flex-col items-center scale-110">
-            <div className="bg-primary/20 p-6 rounded-full mb-6 animate-bounce"><CheckCircle2 className="w-16 h-16 text-primary" /></div>
-            <h3 className="text-3xl font-black text-primary uppercase tracking-tighter">Processing Successful</h3>
-            <p className="text-muted-foreground font-bold mt-2">All records have been cleaned and calibrated.</p>
-          </div>
-        </div>
-      )}
-
       <SettingsPanel open={isSettingsOpen} onOpenChange={setIsSettingsOpen} locationSettings={locationSettings} onSettingsChange={setLocationSettings} taxRates={taxRates} onTaxRatesChange={setTaxRates} />
       <AboutModal open={isAboutOpen} onOpenChange={setIsAboutOpen} />
       <ProcessingReportModal report={latestReport} open={isReportOpen} onOpenChange={setIsReportOpen} />
@@ -1426,9 +1404,9 @@ export default function Home() {
               </div>
               <div className="flex-1 overflow-y-auto pr-3 scrollbar-vertical-custom space-y-3">
                 {(expandedChart === 'market' ? analyticsData.marketChart : 
-                  expandedChart === 'usage' ? analyticsData.auChart : 
-                  expandedChart === 'barangay' ? analyticsData.barangayChart : 
-                  expandedChart === 'update' ? analyticsData.updateChart : []).map((item, index, dataList) => {
+                  (expandedChart === 'usage' ? analyticsData.auChart : 
+                  (expandedChart === 'barangay' ? analyticsData.barangayChart : 
+                  analyticsData.updateChart))).map((item, index, dataList) => {
                   const total = dataList.reduce((sum, curr) => sum + curr.value, 0);
                   const percentage = ((item.value / (total || 1)) * 100).toFixed(1);
                   return (

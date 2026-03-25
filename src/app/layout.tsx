@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "@/components/theme-provider";
+import { NotificationProvider } from '@/contexts/NotificationContext';
 
 export const viewport: Viewport = {
   themeColor: '#22c55e',
@@ -47,8 +48,10 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
-          <Toaster />
+          <NotificationProvider>
+            {children}
+            <Toaster />
+          </NotificationProvider>
         </ThemeProvider>
       </body>
     </html>
