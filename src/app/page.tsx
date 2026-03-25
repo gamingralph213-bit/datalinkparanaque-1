@@ -233,7 +233,8 @@ export default function Home() {
 
   const uniqueBarangays = useMemo(() => {
     const brgySet = new Set<string>();
-    previewData.forEach(r => { brgySet.add(r.barangayName || 'UNMAPPED'); });
+    const dataSet = processedData.length > 0 ? processedData : previewData;
+    dataSet.forEach(r => { brgySet.add(r.barangayName || 'UNMAPPED'); });
 
     if (processedData.length > 0) {
       brgySet.delete('UNMAPPED');
@@ -454,7 +455,7 @@ export default function Home() {
                 title: "Processing Completed",
                 message: `${report.validCount} records have been validated and calibrated. You may now export the results.`,
                 onDownload: () => setIsExportSettingsOpen(true),
-                onViewFile: () => setViewMode('results'),
+                onViewResult: () => setViewMode('results'),
             });
             setTimeout(() => {
                 updateStats(allWithDuplicateMarkers, rawCount);

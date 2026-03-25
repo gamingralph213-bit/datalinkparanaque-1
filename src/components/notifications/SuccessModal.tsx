@@ -19,7 +19,7 @@ interface SuccessModalProps {
   title?: string;
   message?: string;
   onDownload?: () => void;
-  onViewFile?: () => void;
+  onViewResult?: () => void;
 }
 
 export function SuccessModal({
@@ -28,7 +28,7 @@ export function SuccessModal({
   title = "Processing Completed Successfully",
   message = "Your file has been processed and verified. You may now download the result or continue working.",
   onDownload,
-  onViewFile,
+  onViewResult,
 }: SuccessModalProps) {
   const timestamp = format(new Date(), 'p'); // e.g., 2:45 PM
 
@@ -37,9 +37,9 @@ export function SuccessModal({
     onDownload?.();
   };
 
-  const handleViewFile = () => {
+  const handleViewResult = () => {
     onOpenChange(false);
-    onViewFile?.();
+    onViewResult?.();
   };
 
   return (
@@ -66,9 +66,9 @@ export function SuccessModal({
               <Download className="w-4 h-4 mr-2" />
               Download Result
             </Button>
-            <Button className="font-bold h-11 bg-primary hover:bg-primary/90" onClick={handleViewFile}>
+            <Button className="font-bold h-11 bg-primary hover:bg-primary/90" onClick={handleViewResult}>
               <FileCheck2 className="w-4 h-4 mr-2" />
-              View File
+              View Result
             </Button>
           </DialogFooter>
         </div>

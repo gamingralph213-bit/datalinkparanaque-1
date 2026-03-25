@@ -14,7 +14,7 @@ interface SuccessModalOptions {
   title?: string;
   message?: string;
   onDownload?: () => void;
-  onViewFile?: () => void;
+  onViewResult?: () => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
