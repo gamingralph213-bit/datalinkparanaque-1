@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo } from 'react';
@@ -321,7 +320,9 @@ export function ExportSettingsModal({
                       />
                       <label htmlFor={`exp-stat-${status}`} className="text-sm font-black uppercase cursor-pointer flex items-center justify-between w-full">
                         <span>{status}</span>
-                        <Badge variant="secondary" className="h-5 px-2 text-xs bg-emerald-100 text-emerald-800 border-emerald-200">{data.filter(r => r.statusLabel === status).length}</Badge>
+                        <Badge variant="secondary" className="h-5 px-2 text-xs bg-emerald-100 text-emerald-800 border-emerald-200">
+                          {data.filter(r => r.statusLabel === status && selectedBarangays.includes(r.barangayName || 'UNMAPPED')).length}
+                        </Badge>
                       </label>
                     </div>
                   ))}
@@ -358,7 +359,9 @@ export function ExportSettingsModal({
                       />
                       <label htmlFor={`exp-stat-${status}`} className="text-sm font-black uppercase cursor-pointer flex items-center justify-between w-full">
                         <span>{status}</span>
-                        <Badge variant="destructive" className="h-5 px-2 text-xs">{data.filter(r => r.statusLabel === status).length}</Badge>
+                        <Badge variant="destructive" className="h-5 px-2 text-xs">
+                          {data.filter(r => r.statusLabel === status && selectedBarangays.includes(r.barangayName || 'UNMAPPED')).length}
+                        </Badge>
                       </label>
                     </div>
                   ))}
