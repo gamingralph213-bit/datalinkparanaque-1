@@ -69,11 +69,13 @@ export function ExportSettingsModal({
   const availableBarangays = useMemo(() => {
     const set = new Set<string>();
     data.forEach(r => { 
-      set.add(r.barangayName || 'UNMAPPED'); 
+      const brgyName = r.barangayName || 'UNMAPPED';
+      // Remove UNMAPPED from selection if data is already processed
+      if (isProcessed && brgyName === 'UNMAPPED') return;
+      set.add(brgyName); 
     });
-    // We keep UNMAPPED if it exists because INCOMPLETE/CLEANUP records often live there
     return Array.from(set).sort();
-  }, [data]);
+  }, [data, isProcessed]);
 
   const availableStatuses = useMemo(() => {
     const set = new Set<RecordStatusType>();
@@ -107,14 +109,14 @@ export function ExportSettingsModal({
 
   React.useEffect(() => {
     if (open) {
-      // Default to all barangays and columns checked
+      // Default to all available barangays and columns checked
       setSelectedBarangays(availableBarangays);
       if (onBulkColumnChange) {
         const allCols = { ...exportColumns };
         columnLabels.forEach(col => allCols[col] = true);
         onBulkColumnChange(allCols);
       }
-      // Default to no statuses checked
+      // Default to no statuses checked to force user selection
       setSelectedStatuses([]);
     }
   }, [open, availableBarangays]);
