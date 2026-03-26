@@ -71,13 +71,9 @@ export function ExportSettingsModal({
     data.forEach(r => { 
       set.add(r.barangayName || 'UNMAPPED'); 
     });
-
-    if (isProcessed) {
-      set.delete('UNMAPPED');
-    }
-    
+    // We keep UNMAPPED if it exists because INCOMPLETE/CLEANUP records often live there
     return Array.from(set).sort();
-  }, [data, isProcessed]);
+  }, [data]);
 
   const availableStatuses = useMemo(() => {
     const set = new Set<RecordStatusType>();
@@ -85,8 +81,29 @@ export function ExportSettingsModal({
     return Array.from(set).sort();
   }, [data]);
 
-  const approvedStatuses = availableStatuses.filter(s => s !== 'DUPLICATE' && s !== 'INCOMPLETE' && s !== 'CLEANUP');
-  const archiveStatuses = availableStatuses.filter(s => s === 'DUPLICATE' || s === 'INCOMPLETE' || s === 'CLEANUP');
+  const approvedStatuses = useMemo(() => 
+    availableStatuses.filter(s => s !== 'DUPLICATE' && s !== 'INCOMPLETE' && s !== 'CLEANUP'),
+    [availableStatuses]
+  );
+  
+  const archiveStatuses = useMemo(() => 
+    availableStatuses.filter(s => s === 'DUPLICATE' || s === 'INCOMPLETE' || s === 'CLEANUP'),
+    [availableStatuses]
+  );
+
+  const approvedGroupCount = useMemo(() => {
+    return data.filter(r => 
+      approvedStatuses.includes(r.statusLabel as any) && 
+      selectedBarangays.includes(r.barangayName || 'UNMAPPED')
+    ).length;
+  }, [data, approvedStatuses, selectedBarangays]);
+
+  const archiveGroupCount = useMemo(() => {
+    return data.filter(r => 
+      archiveStatuses.includes(r.statusLabel as any) && 
+      selectedBarangays.includes(r.barangayName || 'UNMAPPED')
+    ).length;
+  }, [data, archiveStatuses, selectedBarangays]);
 
   React.useEffect(() => {
     if (open) {
@@ -295,6 +312,9 @@ export function ExportSettingsModal({
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="font-bold text-muted-foreground flex items-center gap-2">
                     <FileCheck2 className="w-4 h-4 text-emerald-500" /> Approved Results
+                    <Badge variant="outline" className="ml-2 font-black text-emerald-600 bg-emerald-50 border-emerald-200">
+                      {approvedGroupCount.toLocaleString()} Total
+                    </Badge>
                     <Popover>
                       <PopoverTrigger asChild>
                         <button className="text-muted-foreground hover:text-foreground outline-none"><HelpCircle className="w-3.5 h-3.5" /></button>
@@ -334,6 +354,9 @@ export function ExportSettingsModal({
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="font-bold text-muted-foreground flex items-center gap-2">
                     <Trash2 className="w-4 h-4 text-orange-500" /> Archive Data
+                    <Badge variant="outline" className="ml-2 font-black text-orange-600 bg-orange-50 border-orange-200">
+                      {archiveGroupCount.toLocaleString()} Total
+                    </Badge>
                     <Popover>
                       <PopoverTrigger asChild>
                         <button className="text-muted-foreground hover:text-foreground outline-none"><HelpCircle className="w-3.5 h-3.5" /></button>
