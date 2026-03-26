@@ -125,7 +125,7 @@ const AnimatedNumber = ({ value, prefix = "", decimals = 0 }: { value: number, p
     };
 
     const animationId = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationId);
+    return () => cancelAnimationFrame(animate);
   }, [value]);
 
   return (
@@ -234,19 +234,12 @@ export default function Home() {
 
   const uniqueBarangays = useMemo(() => {
     const brgySet = new Set<string>();
-    const isActuallyProcessed = processedData.length > 0;
-    
-    const dataSet = isActuallyProcessed ? processedData : previewData;
-    dataSet.forEach(r => { 
+    // Use previewData (superset) to ensure all possible barangays are available in filters
+    previewData.forEach(r => { 
       brgySet.add(r.barangayName || 'UNMAPPED'); 
     });
-
-    if (isActuallyProcessed) {
-      brgySet.delete('UNMAPPED');
-    }
-
     return Array.from(brgySet).sort();
-  }, [previewData, processedData]);
+  }, [previewData]);
 
   const clearWorkspace = () => {
     setRawData([]);
@@ -515,7 +508,7 @@ export default function Home() {
   
   const dynamicStatusOptions = useMemo(() => {
     const activeData = viewMode === 'archive' 
-      ? previewData.filter(r => r.statusLabel === 'DUPLICATE' || r.statusLabel === 'INCOMPLETE' || r.isManualArchive)
+      ? previewData.filter(r => r.statusLabel === 'DUPLICATE' || r.statusLabel === 'INCOMPLETE' || r.statusLabel === 'CLEANUP' || r.isManualArchive)
       : (processedData.length > 0 ? processedData : previewData.filter(r => r.statusLabel !== 'DUPLICATE' && r.statusLabel !== 'INCOMPLETE' && r.statusLabel !== 'CLEANUP' && !r.isManualArchive));
     
     const available = new Set<string>();
@@ -655,7 +648,7 @@ export default function Home() {
 
   const filteredDisplayData = useMemo(() => {
     const baseData = viewMode === 'archive' 
-      ? previewData.filter(r => r.statusLabel === 'DUPLICATE' || r.statusLabel === 'INCOMPLETE' || r.isManualArchive)
+      ? previewData.filter(r => r.statusLabel === 'DUPLICATE' || r.statusLabel === 'INCOMPLETE' || r.statusLabel === 'CLEANUP' || r.isManualArchive)
       : (processedData.length > 0 ? processedData : previewData.filter(r => r.statusLabel !== 'DUPLICATE' && r.statusLabel !== 'INCOMPLETE' && r.statusLabel !== 'CLEANUP' && !r.isManualArchive));
 
     return baseData.filter(record => {
