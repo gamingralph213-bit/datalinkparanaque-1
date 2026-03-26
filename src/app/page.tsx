@@ -541,8 +541,31 @@ export default function Home() {
         return;
       }
 
-      const totalMarketValue = filteredForExport.reduce((sum, r) => sum + (r.marketValue || 0), 0);
-      const totalAssessedValue = filteredForExport.reduce((sum, r) => sum + (r.assessedValue || 0), 0);
+      // Sort records in ascending order based on parsed PIN hierarchy
+      const sortedForExport = [...filteredForExport].sort((a, b) => {
+        const partsA = (a.pin || '').split('-');
+        const partsB = (b.pin || '').split('-');
+        
+        // PIN format: (City Index)-(District Code)-(Barangay Code)-(Section Code)-(Lot Number)-(Suffix)
+        for (let i = 0; i < 6; i++) {
+          const segmentA = partsA[i] || '';
+          const segmentB = partsB[i] || '';
+          
+          const numA = parseInt(segmentA, 10);
+          const numB = parseInt(segmentB, 10);
+          
+          if (!isNaN(numA) && !isNaN(numB)) {
+            if (numA !== numB) return numA - numB;
+          } else {
+            // Fallback to string comparison for non-numeric segments if any
+            if (segmentA !== segmentB) return segmentA.localeCompare(segmentB);
+          }
+        }
+        return 0;
+      });
+
+      const totalMarketValue = sortedForExport.reduce((sum, r) => sum + (r.marketValue || 0), 0);
+      const totalAssessedValue = sortedForExport.reduce((sum, r) => sum + (r.assessedValue || 0), 0);
       
       const headerMapping: Record<string, string> = {
         date: "DATE", arpNo: "ARP NO#", pin: "PIN", update: "UPDATE",
@@ -551,7 +574,7 @@ export default function Home() {
         marketValue: "MARKET VALUE", assessedValue: "ASSESSED VALUE", yearlyTax: "YEARLY TAX"
       };
 
-      const formattedExport = filteredForExport.map(record => {
+      const formattedExport = sortedForExport.map(record => {
         const row: any = {};
         Object.entries(headerMapping).forEach(([key, label]) => {
           if (settings.columns[label]) row[label] = record[key as keyof LandRecord];
@@ -565,7 +588,7 @@ export default function Home() {
       const sheetData = [
         ["DATA LINK PARAÑAQUE - SMART EXPORT"],
         ["EXPORT DATE:", new Date().toLocaleString()],
-        ["TOTAL RECORDS:", filteredForExport.length.toLocaleString()],
+        ["TOTAL RECORDS:", sortedForExport.length.toLocaleString()],
         ["TOTAL MARKET VALUE:", `₱${totalMarketValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`],
         ["TOTAL ASSESSED VALUE:", `₱${totalAssessedValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`],
         [],
@@ -603,17 +626,17 @@ export default function Home() {
       const exportReport: ProcessingReport = {
         timestamp: new Date().toLocaleString(),
         fileName: `${fileName} (CUSTOM EXPORT)`,
-        totalImported: filteredForExport.length,
+        totalImported: sortedForExport.length,
         cleanupCount: 0,
         duplicatesDetected: 0,
         calibratedCount: 0,
-        errorCount: filteredForExport.filter(r => !r.isValid).length,
-        validCount: filteredForExport.filter(r => r.isValid).length,
+        errorCount: sortedForExport.filter(r => !r.isValid).length,
+        validCount: sortedForExport.filter(r => r.isValid).length,
         totalMarketValue: totalMarketValue,
         totalAssessedValue: totalAssessedValue,
       };
       setProcessingReports(prev => [exportReport, ...prev]);
-      showSuccessToast(`Exported ${filteredForExport.length} records successfully.`);
+      showSuccessToast(`Exported ${sortedForExport.length} records successfully.`);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Export Failed", description: error.message });
     } finally {
