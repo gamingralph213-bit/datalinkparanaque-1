@@ -15,7 +15,8 @@ import {
   Plus,
   HelpCircle,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Check
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Image from 'next/image';
@@ -33,7 +34,6 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Progress } from '@/components/ui/progress';
 
 interface ImportZoneProps {
   onDataImported: (data: LandRecord[], fileName: string, rawCount: number) => void;
@@ -46,9 +46,8 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
   const [stagedFiles, setStagedFiles] = useState<File[]>([]);
   const [isZoomed, setIsZoomed] = useState(false);
   
-  // Progress states
-  const [processingProgress, setProcessingProgress] = useState(0);
-  const [currentFile, setCurrentFile] = useState("");
+  // Progress tracking states
+  const [fileStatuses, setFileStatuses] = useState<Record<number, 'pending' | 'processing' | 'done'>>({});
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -56,7 +55,6 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
   // Automatically focus the card when files are staged so Enter key works immediately
   useEffect(() => {
     if (stagedFiles.length > 0) {
-      // Small timeout to ensure the DOM has updated and the container is focusable
       const timer = setTimeout(() => {
         cardRef.current?.focus();
       }, 50);
@@ -94,7 +92,13 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
   const handleStartImport = async () => {
     if (stagedFiles.length === 0) return;
     setIsLoading(true);
-    setProcessingProgress(0);
+    
+    // Initialize file processing statuses
+    const initialStatuses: Record<number, 'pending' | 'processing' | 'done'> = {};
+    stagedFiles.forEach((_, idx) => {
+      initialStatuses[idx] = 'pending';
+    });
+    setFileStatuses(initialStatuses);
 
     const allRecords: LandRecord[] = [];
     let totalRawCount = 0;
@@ -102,22 +106,20 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
 
     try {
       for (let i = 0; i < stagedFiles.length; i++) {
+        // Mark current file as processing
+        setFileStatuses(prev => ({ ...prev, [i]: 'processing' }));
         const file = stagedFiles[i];
-        setCurrentFile(file.name);
-        
-        // Progress update before individual file processing
-        setProcessingProgress(Math.round((i / stagedFiles.length) * 100));
         
         const result = await processFile(file);
         allRecords.push(...result.data);
         totalRawCount += result.count;
         fileNames.push(file.name);
         
-        // Short artificial delay to make the progress readable for the user
-        await new Promise(resolve => setTimeout(resolve, 400));
+        // Artificial delay for visual feedback of the progress list
+        await new Promise(resolve => setTimeout(resolve, 600));
         
-        // Progress update after processing this file
-        setProcessingProgress(Math.round(((i + 1) / stagedFiles.length) * 100));
+        // Mark file as complete
+        setFileStatuses(prev => ({ ...prev, [i]: 'done' }));
       }
 
       const summaryFileName = fileNames.length > 1 
@@ -131,22 +133,20 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
           description: "No property records found in the selected files."
         });
         setIsLoading(false);
-        setProcessingProgress(0);
+        setFileStatuses({});
         return;
       }
 
-      // Final short transition delay
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Final short pause to let the user see all files marked as done
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       onDataImported(allRecords, summaryFileName, totalRawCount);
       setIsLoading(false);
-      setStagedFiles([]); // Clear after successful import
-      setProcessingProgress(0);
-      setCurrentFile("");
+      setStagedFiles([]); 
+      setFileStatuses({});
     } catch (error) {
       setIsLoading(false);
-      setProcessingProgress(0);
-      setCurrentFile("");
+      setFileStatuses({});
       toast({
         variant: "destructive",
         title: "Import Error",
@@ -185,14 +185,11 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
     if (!text) return;
 
     setIsLoading(true);
-    setCurrentFile("Pasted Data");
-    setProcessingProgress(50);
 
     setTimeout(() => {
       const rows = text.split(/\r?\n/).filter(line => line.trim());
       if (rows.length === 0) {
         setIsLoading(false);
-        setProcessingProgress(0);
         return;
       }
 
@@ -206,13 +203,10 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         return obj;
       });
 
-      setProcessingProgress(100);
       setTimeout(() => {
         onDataImported(mapRawToRecords(records, "Clipboard-Data"), "Clipboard-Data", records.length);
         setIsLoading(false);
-        setProcessingProgress(0);
-        setCurrentFile("");
-      }, 300);
+      }, 500);
     }, 500);
   };
 
@@ -301,32 +295,62 @@ export function ImportZone({ onDataImported }: ImportZoneProps) {
         tabIndex={0}
       >
         {isLoading && (
-          <div className="absolute inset-0 z-50 bg-background/90 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in duration-300">
-            <div className="w-full max-w-sm flex flex-col items-center">
-              <div className="relative mb-8">
-                <Loader2 className="w-16 h-16 text-primary animate-spin" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-[10px] font-black text-primary">{processingProgress}%</span>
-                </div>
-              </div>
-              
-              <h3 className="text-2xl font-black text-emerald-900 dark:text-emerald-400 uppercase tracking-tight mb-2">Processing Data...</h3>
-              
-              <div className="w-full bg-muted/30 p-6 rounded-2xl border border-white/5 space-y-4">
-                <div className="flex justify-between items-end">
-                  <div className="text-left">
-                    <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-1">Currently Processing</p>
-                    <p className="text-sm font-bold truncate max-w-[200px] text-foreground">{currentFile || 'Reading files...'}</p>
+          <div className="absolute inset-0 z-50 bg-background/95 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in duration-300">
+            <div className="w-full max-w-md flex flex-col items-center p-6">
+              {stagedFiles.length > 0 ? (
+                <>
+                  <div className="bg-primary/10 p-4 rounded-full mb-6">
+                    <Loader2 className="w-10 h-10 text-primary animate-spin" />
                   </div>
-                  <p className="text-xl font-black text-primary tabular-nums">{processingProgress}%</p>
+                  
+                  <h3 className="text-2xl font-black text-emerald-900 dark:text-emerald-400 uppercase tracking-tight mb-6 text-center">Analyzing Documents...</h3>
+                  
+                  <div className="w-full bg-card/50 border rounded-2xl overflow-hidden flex flex-col shadow-xl">
+                    <div className="bg-muted/50 p-3 border-b flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Queue Processing</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-primary">
+                        {Object.values(fileStatuses).filter(s => s === 'done').length} / {stagedFiles.length} Completed
+                      </span>
+                    </div>
+                    <div className="max-h-[300px] overflow-y-auto p-4 space-y-3 scrollbar-vertical-custom">
+                      {stagedFiles.map((file, idx) => (
+                        <div key={idx} className={cn(
+                          "flex items-center justify-between p-3 rounded-xl border transition-all duration-300",
+                          fileStatuses[idx] === 'done' ? "bg-primary/5 border-primary/20" : 
+                          (fileStatuses[idx] === 'processing' ? "bg-muted border-primary/40 animate-pulse" : "bg-muted/30 border-transparent opacity-50")
+                        )}>
+                          <div className="flex items-center gap-3 truncate">
+                            <FileText className={cn("w-4 h-4 shrink-0", fileStatuses[idx] === 'done' ? "text-primary" : "text-muted-foreground")} />
+                            <span className="text-xs font-bold truncate max-w-[200px]">{file.name}</span>
+                          </div>
+                          <div className="shrink-0 ml-4">
+                            {fileStatuses[idx] === 'done' ? (
+                              <div className="bg-primary rounded-full p-0.5 animate-in zoom-in duration-300">
+                                <Check className="w-3 h-3 text-white" />
+                              </div>
+                            ) : (
+                              fileStatuses[idx] === 'processing' ? (
+                                <Loader2 className="w-3 h-3 text-primary animate-spin" />
+                              ) : (
+                                <div className="w-3 h-3 rounded-full border border-muted-foreground/30" />
+                              )
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center">
+                  <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
+                  <h3 className="text-xl font-black uppercase tracking-tight text-center">Processing Clipboard Data...</h3>
                 </div>
-                
-                <Progress value={processingProgress} className="h-2 bg-muted border-none" />
-                
-                <p className="text-[10px] font-bold text-muted-foreground uppercase text-center tracking-widest">
-                  {stagedFiles.length > 0 ? `FILE ${Math.min(Math.floor((processingProgress / 100) * stagedFiles.length) + 1, stagedFiles.length)} OF ${stagedFiles.length}` : 'INITIALIZING...'}
-                </p>
-              </div>
+              )}
+              
+              <p className="mt-10 text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] animate-pulse">
+                DO NOT REFRESH SESSION
+              </p>
             </div>
           </div>
         )}
