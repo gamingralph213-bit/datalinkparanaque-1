@@ -1,5 +1,1 @@
-import { config } from 'dotenv';
-config();
-
-import '@/ai/flows/suggest-calibration-rules-flow.ts';
-import '@/ai/flows/standardize-location-data-flow.ts';
+// AI modules disabled for offline local operation.
