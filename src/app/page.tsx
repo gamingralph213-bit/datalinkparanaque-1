@@ -918,7 +918,7 @@ export default function Home() {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex items-center gap-[5px] cursor-pointer hover:opacity-80 transition-all active:scale-95 group relative" onClick={() => window.location.reload()}>
+              <div className="flex items-center gap-[5px] cursor-pointer hover:opacity-80 transition-all active:scale-95 group relative" onClick={() => setIsAboutOpen(true)}>
                 <div className="relative w-[86px] flex items-center h-full">
                   <div className="absolute left-0 -translate-y-1/2 top-1/2">
                     <Image src="/LOGO.png" alt="DataLink Logo" width={86} height={86} className="object-contain" />
@@ -932,14 +932,13 @@ export default function Home() {
                 </div>
               </div>
             </TooltipTrigger>
-            <TooltipContent>Click to refresh session</TooltipContent>
+            <TooltipContent>About DataLink Parañaque</TooltipContent>
           </Tooltip>
         </TooltipProvider>
         
         <div className="flex items-center gap-1.5">
           {deferredPrompt && <Button variant="ghost" size="icon" onClick={handleInstallClick}><Download className="w-5 h-5" /></Button>}
           <Button variant="ghost" size="icon" onClick={toggleFullScreen}>{isFullScreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}</Button>
-          <Button variant="ghost" size="icon" onClick={() => setIsAboutOpen(true)}><Info className="w-5 h-5" /></Button>
           <ModeToggle />
           <TooltipProvider>
             <Tooltip>
