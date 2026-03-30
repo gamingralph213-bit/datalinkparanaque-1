@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -21,6 +20,7 @@ import {
   Info
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
