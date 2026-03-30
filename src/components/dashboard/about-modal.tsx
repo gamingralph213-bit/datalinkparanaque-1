@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -36,6 +36,12 @@ interface AboutModalProps {
 }
 
 export function AboutModal({ open, onOpenChange }: AboutModalProps) {
+  const featuresRef = useRef<HTMLElement>(null);
+
+  const scrollToFeatures = () => {
+    featuresRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent hideClose className="sm:max-w-[900px] max-h-[90vh] overflow-hidden flex flex-col bg-white dark:bg-zinc-950 border-none p-0 shadow-2xl rounded-2xl transition-colors duration-300">
@@ -75,6 +81,7 @@ export function AboutModal({ open, onOpenChange }: AboutModalProps) {
               </Button>
               <Button 
                 variant="outline"
+                onClick={scrollToFeatures}
                 className="h-12 px-8 rounded-xl font-bold border-slate-200 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-900 transition-all hover:scale-[1.02]"
               >
                 Explore Features
@@ -96,7 +103,7 @@ export function AboutModal({ open, onOpenChange }: AboutModalProps) {
             </div>
           </section>
 
-          <section className="px-12 py-20 bg-white dark:bg-zinc-950">
+          <section ref={featuresRef} className="px-12 py-20 bg-white dark:bg-zinc-950">
             <div className="text-center mb-16 space-y-4">
               <h2 className="text-sm font-black uppercase tracking-[0.3em] text-primary">Core Engine</h2>
               <h3 className="text-3xl font-black text-slate-900 dark:text-zinc-100 tracking-tight">Advanced Feature Suite</h3>
@@ -181,34 +188,6 @@ export function AboutModal({ open, onOpenChange }: AboutModalProps) {
                   </div>
                 </div>
               ))}
-            </div>
-          </section>
-
-          <section className="px-12 py-20 bg-white dark:bg-zinc-950">
-            <div className="max-w-xl mx-auto p-10 rounded-3xl bg-slate-900 dark:bg-zinc-900 text-white shadow-2xl relative overflow-hidden text-center">
-              <div className="relative z-10 space-y-8">
-                <div className="space-y-2">
-                  <h3 className="text-sm font-black uppercase tracking-[0.3em] text-primary">Enterprise Access</h3>
-                  <h4 className="text-3xl font-black tracking-tight">Custom Government Deployment</h4>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  {[
-                    { label: "Storage", val: "Offline-First" },
-                    { label: "Runs", val: "Unlimited" },
-                    { label: "Audit", val: "Persistent" },
-                    { label: "Format", val: "Smart Export" }
-                  ].map((item, i) => (
-                    <div key={i} className="p-4 rounded-2xl bg-white/5 dark:bg-zinc-800/50 border border-white/10 dark:border-zinc-700">
-                      <div className="text-[10px] font-black uppercase text-slate-500 dark:text-zinc-500 mb-1">{item.label}</div>
-                      <div className="text-sm font-bold text-white dark:text-zinc-100">{item.val}</div>
-                    </div>
-                  ))}
-                </div>
-                <Button className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-xs">
-                  Request Internal Access
-                </Button>
-              </div>
-              <div className="absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 w-64 h-64 rounded-full bg-primary/10 blur-3xl" />
             </div>
           </section>
 
