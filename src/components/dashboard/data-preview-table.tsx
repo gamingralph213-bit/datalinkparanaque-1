@@ -144,8 +144,10 @@ export function DataPreviewTable({ data, isProcessed = false, onRowClick }: Data
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isBulkLoading, setIsBulkLoading] = useState(false);
 
+  const BATCH_SIZE = 350;
+
   const handleLoadMore = () => {
-    setDisplayLimit(prev => prev + 350);
+    setDisplayLimit(prev => prev + BATCH_SIZE);
   };
 
   const handleLoadAllClick = () => {
@@ -172,6 +174,7 @@ export function DataPreviewTable({ data, isProcessed = false, onRowClick }: Data
 
   const visibleData = data.slice(0, displayLimit);
   const hasMore = data.length > displayLimit;
+  const nextBatchSize = Math.min(BATCH_SIZE, data.length - displayLimit);
 
   return (
     <div className="relative flex-1 flex flex-col min-h-0 bg-card overflow-hidden" suppressHydrationWarning>
@@ -233,7 +236,7 @@ export function DataPreviewTable({ data, isProcessed = false, onRowClick }: Data
               onClick={handleLoadMore}
               className="text-xs font-black uppercase tracking-widest bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-800 h-9 shadow-md px-6"
             >
-              <Plus className="w-4 h-4 mr-2" /> Load More ({data.length - displayLimit} records)
+              <Plus className="w-4 h-4 mr-2" /> Load More ({nextBatchSize} records)
             </Button>
             <Button 
               variant="ghost" 
