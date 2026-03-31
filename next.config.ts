@@ -1,8 +1,7 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  /* Configured for standalone local operation */
-  output: 'export',
+  /* Configured for standard deployment on Vercel */
   typescript: {
     ignoreBuildErrors: true,
   },

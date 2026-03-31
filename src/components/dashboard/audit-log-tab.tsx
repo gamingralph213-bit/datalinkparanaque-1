@@ -1,7 +1,6 @@
-
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ProcessingReport, LandRecord } from '@/lib/processor';
 import { Card } from '@/components/ui/card';
 import { 
@@ -56,7 +55,6 @@ function AuditLogEntry({ report, onDeleteReport }: AuditLogEntryProps) {
   const [showIndividualRecovery, setShowIndividualRecovery] = useState(false);
   const [loadingType, setLoadingType] = useState<string | null>(null);
 
-  const reportId = report.id || `legacy-${Math.random().toString(36).substr(2, 5)}`;
   const hasRecoverableData = report.records && report.records.length > 0;
   const displayId = report.id?.includes('-') ? report.id.split('-')[1].toUpperCase() : 'LEGACY';
   const hasErrors = report.errorCount > 0;
@@ -275,7 +273,7 @@ function AuditLogEntry({ report, onDeleteReport }: AuditLogEntryProps) {
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    onClick={(e) => { e.stopPropagation(); onDeleteReport?.(reportId); }}
+                    onClick={(e) => { e.stopPropagation(); onDeleteReport?.(report.id); }}
                     className="h-10 w-10 text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
                   >
                     <Trash2 className="w-4.5 h-4.5" />
@@ -468,7 +466,7 @@ export function AuditLogTab({ reports, onClearHistory, onDeleteReport }: AuditLo
         <div className="grid grid-cols-1 gap-4">
           {reports.map((report) => (
             <AuditLogEntry 
-              key={report.id || Math.random().toString()} 
+              key={report.id} 
               report={report} 
               onDeleteReport={onDeleteReport} 
             />

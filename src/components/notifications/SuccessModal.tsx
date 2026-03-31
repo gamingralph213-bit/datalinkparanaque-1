@@ -1,7 +1,6 @@
-
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -33,7 +32,14 @@ export function SuccessModal({
   onDownload,
   onViewResult,
 }: SuccessModalProps & SuccessModalOptions) {
-  const timestamp = format(new Date(), 'p');
+  const [timestamp, setTimestamp] = useState<string>('');
+
+  useEffect(() => {
+    // Only set the timestamp on the client to avoid hydration mismatch
+    if (open) {
+      setTimestamp(format(new Date(), 'p'));
+    }
+  }, [open]);
 
   const handleDownload = () => {
     onOpenChange(false);
@@ -95,7 +101,7 @@ export function SuccessModal({
           </div>
 
           <div className="text-[9px] font-bold text-muted-foreground/40 uppercase tracking-[0.2em] mt-8 pt-4 border-t w-full">
-            Analysis sequence finalized at {timestamp}
+            Analysis sequence finalized at {timestamp || '...'}
           </div>
         </div>
         
