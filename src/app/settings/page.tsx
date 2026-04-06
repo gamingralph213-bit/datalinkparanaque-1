@@ -1,18 +1,11 @@
-"use client";
+
+'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter,
-} from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Barangay, BarangayConfig, allBarangays, SectionConfig } from '@/lib/locations';
+import { Barangay, BarangayConfig, allBarangays, SectionConfig, initialLocationSettings } from '@/lib/locations';
 import { TaxRateMap } from '@/lib/processor';
 import {
   Select,
@@ -21,19 +14,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Percent, MapPin, Database, ChevronUp, ChevronDown } from 'lucide-react';
+import { Search, Percent, MapPin, ArrowLeft, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Card } from '@/components/ui/card';
+import { ModeToggle } from '@/components/mode-toggle';
 
-interface SettingsPanelProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  locationSettings: BarangayConfig[];
-  onSettingsChange: (newSettings: BarangayConfig[]) => void;
-  taxRates: TaxRateMap;
-  onTaxRatesChange: (newRates: TaxRateMap) => void;
-}
+const LOCAL_STORAGE_KEY = 'paranaque_datalink_v31';
+
+const defaultTaxRates: TaxRateMap = {
+    "RESI": { assessmentLevel: 0.20, taxRate: 0.02 },
+    "COMM": { assessmentLevel: 0.50, taxRate: 0.03 },
+    "INDU": { assessmentLevel: 0.50, taxRate: 0.03 },
+    "AGRI": { assessmentLevel: 0.20, taxRate: 0.025 },
+    "GOV": { assessmentLevel: 0.15, taxRate: 0.00 },
+    "SPEC": { assessmentLevel: 0.15, taxRate: 0.025 },
+    "SPC1": { assessmentLevel: 0.15, taxRate: 0.025 },
+    "SPC2": { assessmentLevel: 0.15, taxRate: 0.025 },
+    "SPC3": { assessmentLevel: 0.15, taxRate: 0.025 },
+    "SPC4": { assessmentLevel: 0.15, taxRate: 0.025 },
+    "SPC5": { assessmentLevel: 0.15, taxRate: 0.025 },
+};
 
 type EditableSectionConfig = SectionConfig & { originalIndex: number };
 
@@ -53,15 +54,11 @@ const buildSectionKey = (base: string, filter: string): string => {
     return `${base.trim()}-${cleanFilter}`;
 };
 
-export function SettingsPanel({
-  open,
-  onOpenChange,
-  locationSettings,
-  onSettingsChange,
-  taxRates,
-  onTaxRatesChange,
-}: SettingsPanelProps) {
+export default function SettingsPage() {
   const { toast } = useToast();
+  const [isClient, setIsClient] = useState(false);
+  const [locationSettings, setLocationSettings] = useState<BarangayConfig[]>(initialLocationSettings);
+  const [taxRates, setTaxRates] = useState<TaxRateMap>(defaultTaxRates);
   const [selectedBarangay, setSelectedBarangay] = useState<Barangay | undefined>(allBarangays[0]);
   const [currentSections, setCurrentSections] = useState<EditableSectionConfig[]>([]);
   const [currentTaxRates, setCurrentTaxRates] = useState<TaxRateMap>({});
@@ -71,7 +68,21 @@ export function SettingsPanel({
   const ratesRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (open) {
+    setIsClient(true);
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.locationSettings) setLocationSettings(parsed.locationSettings);
+        if (parsed.taxRates) setTaxRates(parsed.taxRates);
+      }
+    } catch (error) {
+        console.error("Failed to load settings from localStorage:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isClient) {
       if (selectedBarangay) {
         const barangayData = locationSettings.find(b => b.barangayCode === selectedBarangay.barangayCode);
         const sectionsWithIds = (barangayData?.sections || []).map((section, index) => ({
@@ -82,25 +93,39 @@ export function SettingsPanel({
       }
       setCurrentTaxRates({ ...taxRates });
     }
-  }, [open, selectedBarangay, locationSettings, taxRates]);
+  }, [isClient, selectedBarangay, locationSettings, taxRates]);
 
   const handleSaveChanges = () => {
     const sectionsToSave = currentSections.map(({ originalIndex, ...rest }) => rest);
-    const newSettings = locationSettings.map(b => {
+    const newLocationSettings = locationSettings.map(b => {
       if (selectedBarangay && b.barangayCode === selectedBarangay.barangayCode) {
         return { ...b, sections: sectionsToSave };
       }
       return b;
     });
 
-    onSettingsChange(newSettings);
-    onTaxRatesChange(currentTaxRates);
+    try {
+        const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+        const parsed = saved ? JSON.parse(saved) : {};
+        const payload = JSON.stringify({
+            ...parsed,
+            locationSettings: newLocationSettings,
+            taxRates: currentTaxRates
+        });
+        localStorage.setItem(LOCAL_STORAGE_KEY, payload);
 
-    toast({
-      title: "Settings Saved",
-      description: "Calibration rules and tax rates have been updated successfully.",
-    });
-    onOpenChange(false);
+        toast({
+          title: "Settings Saved",
+          description: "Calibration rules and tax rates have been updated successfully.",
+        });
+        window.location.href = '/';
+    } catch(e) {
+        toast({
+            variant: 'destructive',
+            title: "Error Saving Settings",
+            description: "Could not save settings to local storage.",
+        });
+    }
   };
 
   const handleLocationUpdate = (
@@ -146,73 +171,43 @@ export function SettingsPanel({
     }));
   };
 
-  const scrollToSection = (ref: React.RefObject<HTMLDivElement>) => {
-    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
   const filteredSections = currentSections.filter(
     (s) =>
       s.section.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.location.toLowerCase().includes(searchTerm.toLowerCase())
   );
+  
+  if (!isClient) return null; // Or a loading spinner
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[1000px] sm:max-w-[1000px] flex flex-col bg-card/95 backdrop-blur-xl border-white/10 p-0">
-        <div className="p-8 pb-4 shrink-0">
-          <SheetHeader>
-            <SheetTitle className="text-3xl font-black text-gradient uppercase">Global Calibration Panel</SheetTitle>
-            <SheetDescription className="font-bold text-base mt-2">
-              Manage your land data processing rules and financial tax rates in one view.
-            </SheetDescription>
-          </SheetHeader>
-        </div>
+    <div className="h-screen bg-background flex flex-col font-body overflow-hidden">
+        <header className="bg-card/80 backdrop-blur-lg border-b border-white/10 px-6 py-4 flex items-center justify-between shadow-lg shrink-0 z-50">
+            <div className="flex items-center gap-4">
+                <a href="/">
+                    <Button variant="outline" size="icon" className="h-10 w-10">
+                        <ArrowLeft className="w-5 h-5" />
+                    </Button>
+                </a>
+                <div>
+                    <h1 className="text-xl font-black tracking-tight text-foreground">Global Calibration Panel</h1>
+                    <p className="text-sm text-muted-foreground font-bold">Manage processing rules and financial tax rates.</p>
+                </div>
+            </div>
+            <div className="flex items-center gap-2">
+                <ModeToggle />
+            </div>
+        </header>
 
-        <div className="flex-1 flex overflow-hidden">
-          {/* LEFT NAV BAR */}
-          <div className="w-16 shrink-0 flex flex-col items-center py-8 gap-8 border-r border-white/5 bg-muted/10">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-12 w-12 rounded-full hover:bg-primary/20 hover:text-primary transition-all shadow-sm"
-                    onClick={() => scrollToSection(locationRef)}
-                  >
-                    <MapPin className="w-6 h-6" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right">Location Mappings</TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-12 w-12 rounded-full hover:bg-primary/20 hover:text-primary transition-all shadow-sm"
-                    onClick={() => scrollToSection(ratesRef)}
-                  >
-                    <Percent className="w-6 h-6" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right">Tax Rates</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-
-          {/* MAIN SCROLLABLE CONTENT */}
-          <div className="flex-1 overflow-y-auto scrollbar-vertical-custom px-8 space-y-12 py-8">
+        <main className="flex-1 flex flex-col p-8 overflow-y-auto scrollbar-vertical-custom gap-12">
             {/* SECTION 1: LOCATION CALIBRATION */}
-            <div className="space-y-6" ref={locationRef}>
-              <div className="flex items-center gap-3 px-1">
+            <section className="space-y-6" ref={locationRef}>
+              <div className="flex items-center gap-3">
                 <MapPin className="w-5 h-5 text-primary" />
                 <h3 className="text-base font-black uppercase tracking-wider">Location Mappings</h3>
               </div>
               
-              <div className="flex flex-col gap-6 px-1">
-                  <div className="grid grid-cols-5 items-center gap-6">
+              <Card className="p-6 bg-muted/20 border-white/5 shadow-inner">
+                  <div className="grid grid-cols-5 items-center gap-6 mb-6">
                       <Label htmlFor="barangay-select" className="text-right col-span-1 text-sm font-black uppercase tracking-tight">
                           Barangay
                       </Label>
@@ -241,9 +236,9 @@ export function SettingsPanel({
                           className="pl-11 h-11 text-sm font-medium"
                       />
                   </div>
-              </div>
+              </Card>
 
-              <div className="border rounded-xl overflow-hidden bg-muted/20 min-h-[450px] flex flex-col shadow-inner">
+              <div className="border rounded-xl overflow-hidden bg-muted/20 flex flex-col shadow-inner">
                 <div className="bg-muted/80 backdrop-blur-sm p-5 border-b shrink-0">
                     <div className="grid grid-cols-12 gap-5 items-center">
                         <div className="col-span-2 text-xs font-black uppercase text-muted-foreground tracking-wide">Section</div>
@@ -288,24 +283,22 @@ export function SettingsPanel({
                   })}
                 </div>
               </div>
-            </div>
+            </section>
 
             <Separator className="opacity-30" />
 
             {/* SECTION 2: RATES CALIBRATION */}
-            <div className="space-y-6 pb-10" ref={ratesRef}>
-              <div className="flex items-center gap-3 px-1">
+            <section className="space-y-6 pb-10" ref={ratesRef}>
+              <div className="flex items-center gap-3">
                 <Percent className="w-5 h-5 text-primary" />
                 <h3 className="text-base font-black uppercase tracking-wider">Tax & Assessment Calibration</h3>
               </div>
 
-              <div className="px-1">
-                <div className="bg-primary/5 p-5 rounded-2xl border border-primary/20">
+              <Card className="p-6 bg-primary/5 border border-primary/20">
                   <p className="text-sm font-bold leading-relaxed text-muted-foreground">
                     <span className="font-black text-primary uppercase mr-2">Financial Settings:</span> These rates determine how Assessed Value and Yearly Tax are calculated based on <span className="font-black text-foreground underline decoration-primary/30 underline-offset-4">Actual Use (AU)</span>.
                   </p>
-                </div>
-              </div>
+              </Card>
               
               <div className="border rounded-xl overflow-hidden bg-muted/20 flex flex-col shadow-inner">
                 <div className="bg-muted/80 backdrop-blur-sm p-5 border-b shrink-0">
@@ -344,17 +337,17 @@ export function SettingsPanel({
                   ))}
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-
-        <SheetFooter className="p-8 border-t shrink-0 bg-card/50 backdrop-blur-sm gap-4">
-          <Button variant="outline" className="font-black uppercase text-xs h-12 px-8" onClick={() => onOpenChange(false)}>Discard Changes</Button>
-          <Button className="font-black uppercase text-xs h-12 px-12 bg-primary hover:bg-emerald-800 shadow-lg" onClick={handleSaveChanges}>
-            Update Global Settings
-          </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+            </section>
+        </main>
+        <footer className="p-6 border-t bg-card/80 backdrop-blur-sm flex justify-end shrink-0 gap-4">
+            <a href="/">
+                <Button variant="outline" className="font-black uppercase text-xs h-12 px-8">Discard Changes</Button>
+            </a>
+            <Button className="font-black uppercase text-xs h-12 px-12 bg-primary hover:bg-emerald-800 shadow-lg" onClick={handleSaveChanges}>
+                <Save className="w-4 h-4 mr-2" />
+                Update Global Settings
+            </Button>
+        </footer>
+    </div>
   );
 }

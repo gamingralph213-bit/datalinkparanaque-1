@@ -49,7 +49,6 @@ import { DataPreviewTable } from '@/components/dashboard/data-preview-table';
 import { LandRecord, CalibrationRule, processRecords, TaxRateMap, ProcessingReport, RecordStatusType } from '@/lib/processor';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import * as XLSX from 'xlsx';
-import { SettingsPanel } from '@/components/dashboard/settings-panel';
 import { BarangayConfig, initialLocationSettings } from '@/lib/locations';
 import { ModeToggle } from '@/components/mode-toggle';
 import { RecordDetailModal } from '@/components/dashboard/record-detail-modal';
@@ -125,7 +124,7 @@ const AnimatedNumber = ({ value, prefix = "", decimals = 0 }: { value: number, p
     };
 
     const animationId = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationId);
   }, [value]);
 
   return (
@@ -183,7 +182,6 @@ export default function Home() {
   const [importedFileName, setImportedFileName] = useState<string>("");
   const [rules, setRules] = useState<CalibrationRule[]>([]);
   const [viewMode, setViewMode] = useState<'results' | 'archive' | 'analytics' | 'audit'>('results');
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
@@ -290,7 +288,7 @@ export default function Home() {
 
       if ((e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === 's') {
         e.preventDefault();
-        setIsSettingsOpen(true);
+        window.location.href = '/settings';
       }
 
       if ((e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === 'c') {
@@ -943,9 +941,11 @@ export default function Home() {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => setIsSettingsOpen(true)}>
-                  <Settings className="w-5 h-5" />
-                </Button>
+                <a href="/settings">
+                  <Button variant="ghost" size="icon">
+                    <Settings className="w-5 h-5" />
+                  </Button>
+                </a>
               </TooltipTrigger>
               <TooltipContent>Shortcut: Ctrl + Alt + S</TooltipContent>
             </Tooltip>
@@ -1455,7 +1455,6 @@ export default function Home() {
         onExport={handleFinalExport}
       />
 
-      <SettingsPanel open={isSettingsOpen} onOpenChange={setIsSettingsOpen} locationSettings={locationSettings} onSettingsChange={setLocationSettings} taxRates={taxRates} onTaxRatesChange={setTaxRates} />
       <AboutModal open={isAboutOpen} onOpenChange={setIsAboutOpen} />
       <ProcessingReportModal report={latestReport} open={isReportOpen} onOpenChange={setIsReportOpen} />
       <RecordDetailModal 
