@@ -28,7 +28,9 @@ import {
   ShieldOff,
   Cpu,
   ShieldCheck,
-  Files
+  Files,
+  Plus,
+  BarChart3
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -720,7 +722,15 @@ export default function Home() {
 
       {/* --- DIALOGS & OVERLAYS --- */}
       <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 border-none shadow-none bg-transparent"><div className="bg-background rounded-3xl p-8 border shadow-2xl h-full overflow-y-auto"><ImportZone onDataImported={handleDataImported} mode={importMode} /></div></DialogContent>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 border-none shadow-none bg-transparent">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Data Import Staging Zone</DialogTitle>
+            <DialogDescription>Stage and review property records for batch processing.</DialogDescription>
+          </DialogHeader>
+          <div className="bg-background rounded-3xl p-8 border shadow-2xl h-full overflow-y-auto">
+            <ImportZone onDataImported={handleDataImported} mode={importMode} />
+          </div>
+        </DialogContent>
       </Dialog>
 
       {isProcessing && processingStep !== 'idle' && (
