@@ -429,31 +429,16 @@ export default function Home() {
   };
 
   const handleDataImported = (imported: LandRecord[], fileName: string, rawCount: number) => {
+    // 1. Maintain the cumulative set of Exempt PINs
+    const updatedExemptPins = new Set(exemptPins);
     if (importMode === 'exempt') {
-      const newExemptPins = new Set(exemptPins);
       imported.forEach(r => {
-        if (r.pin) newExemptPins.add(r.pin.trim());
+        if (r.pin) updatedExemptPins.add(r.pin.trim());
       });
-      setExemptPins(newExemptPins);
-      setIsImportDialogOpen(false);
-      
-      // If we have raw data, we need to refresh it to apply new exempt labels
-      if (rawData.length > 0) {
-        const { allWithDuplicateMarkers } = processRecords(rawData, [], locationSettings, taxRates, {
-          removeDuplicates: false,
-          applyCalibration: false,
-          systemCleanup: false
-        }, importedFileName, newExemptPins);
-        setPreviewData(allWithDuplicateMarkers);
-      }
-      
-      toast({
-        title: "Exempt Reference Loaded",
-        description: `${imported.length} unique exempt PINs added to memory index.`,
-      });
-      return;
+      setExemptPins(updatedExemptPins);
     }
 
+    // 2. Append all records to the workspace (both Raw and Exempt are now included)
     const isAppending = rawData.length > 0;
     const newData = isAppending ? [...rawData, ...imported] : imported;
     const newCount = isAppending ? stats.totalRawRows + rawCount : rawCount;
@@ -469,23 +454,27 @@ export default function Home() {
 
     setRawData(newData);
     setImportedFileName(newFileName);
-    setProcessedData([]);
+    setProcessedData([]); // Reset results to force a re-run of the process engine
     setViewMode('results');
     setSourceFileFilter('all');
     setBarangayFilter('all');
     setIsImportDialogOpen(false);
     
+    // 3. Update the preview immediately with the new combined set
+    // processRecords will automatically tag 'E' based on updatedExemptPins
     const { allWithDuplicateMarkers } = processRecords(newData, [], locationSettings, taxRates, {
-      removeDuplicates: false,
+      removeDuplicates: false, // Tag duplicates for preview but don't hide them yet
       applyCalibration: false,
       systemCleanup: false
-    }, newFileName, exemptPins);
+    }, newFileName, updatedExemptPins);
+
     setPreviewData(allWithDuplicateMarkers);
     updateStats(allWithDuplicateMarkers, newCount);
+
     toast({
-      title: isAppending ? "Data Appended" : "Data Loaded",
-      description: isAppending 
-          ? `${rawCount} more records added to the session.` 
+      title: importMode === 'exempt' ? "Exempt Data Integrated" : (isAppending ? "Data Appended" : "Data Loaded"),
+      description: importMode === 'exempt' 
+          ? `${imported.length} records integrated and indexed as Exempt reference.` 
           : `${rawCount} records from ${fileName} imported successfully.`,
     });
   };
@@ -1069,7 +1058,7 @@ export default function Home() {
                          </div>
                          <h3 className="text-2xl font-black uppercase tracking-tight mb-2">Exempt Reference</h3>
                          <p className="text-sm font-bold text-muted-foreground leading-relaxed">
-                           Load a list of exempt PINs. Any matching PIN in the raw data will be automatically tagged as Exempt.
+                           Load a list of exempt items. These will be added to the session and correctly tagged as Exempt (E).
                          </p>
                          <Button className="mt-8 font-black uppercase text-xs tracking-widest px-8 h-12 bg-blue-600 group-hover:bg-blue-700 border-none">Open Reference Zone</Button>
                       </Card>
