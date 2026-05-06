@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useTransition, useCallback } from 'react';
@@ -151,7 +150,7 @@ export default function Home() {
   });
   
   const defaultExportColumns = {
-    "DATE": true, "ARP NO#": true, "PIN": true, "UPDATE": true, "TAXABILITY": true,
+    "DATE": true, "ARP NO#": true, "PIN": true, "NEW ARP NO#": true, "UPDATE": true, "TAXABILITY": true,
     "ACCTNAME": true, "ADDRESS": true, "LOCATION": true, "KIND": true,
     "AU": true, "LAND AREA": true, "UNIT VALUE": true, "MARKET VALUE": true,
     "ASSESSED VALUE": true, "YEARLY TAX": true,
@@ -533,7 +532,7 @@ export default function Home() {
       const totalMarketValue = sortedForExport.reduce((sum, r) => sum + (r.marketValue || 0), 0);
       const totalAssessedValue = sortedForExport.reduce((sum, r) => sum + (r.assessedValue || 0), 0);
       const totalYearlyTax = sortedForExport.reduce((sum, r) => sum + (r.yearlyTax || 0), 0);
-      const headerMapping: Record<string, string> = { date: "DATE", arpNo: "ARP NO#", pin: "PIN", update: "UPDATE", taxability: "TAXABILITY", acctName: "ACCTNAME", address: "ADDRESS", location: "LOCATION", kind: "KIND", au: "AU", landArea: "LAND AREA", unitValue: "UNIT VALUE", marketValue: "MARKET VALUE", assessedValue: "ASSESSED VALUE", yearlyTax: "YEARLY TAX" };
+      const headerMapping: Record<string, string> = { date: "DATE", arpNo: "ARP NO#", pin: "PIN", newArpNo: "NEW ARP NO#", update: "UPDATE", taxability: "TAXABILITY", acctName: "ACCTNAME", address: "ADDRESS", location: "LOCATION", kind: "KIND", au: "AU", landArea: "LAND AREA", unitValue: "UNIT VALUE", marketValue: "MARKET VALUE", assessedValue: "ASSESSED VALUE", yearlyTax: "YEARLY TAX" };
       const formattedExport = sortedForExport.map(record => {
         const row: any = {};
         Object.entries(headerMapping).forEach(([key, label]) => { if (settings.columns[label]) row[label] = record[key as keyof LandRecord]; });

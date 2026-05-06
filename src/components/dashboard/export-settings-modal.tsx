@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo } from 'react';
@@ -53,7 +52,7 @@ export interface ExportFinalSettings {
 }
 
 const columnLabels = [
-  "DATE", "ARP NO#", "PIN", "UPDATE", "TAXABILITY", "ACCTNAME", "ADDRESS", 
+  "DATE", "ARP NO#", "PIN", "NEW ARP NO#", "UPDATE", "TAXABILITY", "ACCTNAME", "ADDRESS", 
   "LOCATION", "KIND", "AU", "LAND AREA", "UNIT VALUE", 
   "MARKET VALUE", "ASSESSED VALUE", "YEARLY TAX"
 ];

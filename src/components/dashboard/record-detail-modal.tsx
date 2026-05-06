@@ -233,6 +233,9 @@ export function RecordDetailModal({ record, comparisonRecord, open, onOpenChange
                       <EditableItem label="PIN Number" field="pin" value={editedRecord.pin} errors={editedRecord.errors} onChange={handleInputChange} isMono />
                       <EditableItem label="ARP No#" field="arpNo" value={editedRecord.arpNo} errors={editedRecord.errors} onChange={handleInputChange} isMono />
                     </div>
+                    {editedRecord.newArpNo && editedRecord.newArpNo !== '---' && (
+                      <StaticItem label="Generated New ARP No#" value={editedRecord.newArpNo} isMono />
+                    )}
                     <EditableItem label="Address" field="address" value={editedRecord.address} errors={editedRecord.errors} onChange={handleInputChange} />
                     <div className="grid grid-cols-2 gap-4">
                       <EditableItem label="Date" field="date" value={editedRecord.date} errors={editedRecord.errors} onChange={handleInputChange} />

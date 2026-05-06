@@ -29,6 +29,7 @@ export interface LandRecord {
   id?: string;
   date: string;
   arpNo: string;
+  newArpNo?: string;
   pin: string;
   update?: string;
   taxability?: 'T' | 'E'; // T for Taxable, E for Exempt
@@ -462,6 +463,25 @@ export function processRecords(
       isValid: statusLabel === 'VALID',
       statusLabel
     };
+  });
+
+  // Assign NEW ARP NO# for BF Homes specifically
+  let bfHomesSequence = 1;
+  // Sort the references in the result array by PIN to assign sequence correctly
+  const sortedForArp = [...result].sort((a, b) => (a.pin || '').localeCompare(b.pin || ''));
+  
+  sortedForArp.forEach(record => {
+    const pinParts = (record.pin || '').split('-');
+    const barangayCode = pinParts.length >= 3 ? pinParts[2] : '';
+    
+    // Only assign to active (non-archived) records for BF Homes
+    if (barangayCode === '001' && !record.isDuplicate && !record.isCleanup && !record.isManualArchive) {
+      const seqStr = String(bfHomesSequence).padStart(5, '0');
+      record.newArpNo = `F-001-${record.pin}-${seqStr}`;
+      bfHomesSequence++;
+    } else {
+      record.newArpNo = '---';
+    }
   });
 
   const finalProcessed = result.filter(r => r.statusLabel !== 'DUPLICATE' && r.statusLabel !== 'INCOMPLETE' && r.statusLabel !== 'CLEANUP');

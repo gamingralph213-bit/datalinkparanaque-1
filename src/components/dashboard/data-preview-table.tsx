@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, memo } from 'react';
@@ -98,6 +97,9 @@ const RecordRow = memo(({
       <TableCell className={cn("font-mono p-3", (row.statusLabel === 'INVALID PIN FORMAT' || (row.statusLabel === 'INCOMPLETE' && !row.pin)) && "text-red-600 font-black")}>
         {row.pin || '---'}
       </TableCell>
+      <TableCell className="p-3 font-mono font-bold text-blue-600 dark:text-blue-400">
+        {row.newArpNo || '---'}
+      </TableCell>
       <TableCell className="p-3 text-center">
         {row.update ? (
           <span className="bg-muted px-2.5 py-1 rounded font-black text-emerald-900 dark:text-emerald-200 border border-muted-foreground/20 text-[11px]">
@@ -158,6 +160,7 @@ const RecordRow = memo(({
     prevProps.row.unitValue === nextProps.row.unitValue &&
     prevProps.row.marketValue === nextProps.row.marketValue &&
     prevProps.row.isComparisonInjected === nextProps.row.isComparisonInjected &&
+    prevProps.row.newArpNo === nextProps.row.newArpNo &&
     prevProps.index === nextProps.index
   );
 });
@@ -231,7 +234,7 @@ export function DataPreviewTable({ data, isProcessed = false, onRowClick }: Data
 
       <div className="flex-1 overflow-auto border-t scrollbar-custom">
         <Table 
-          className="text-[13px] min-w-[3200px] select-none border-separate border-spacing-0"
+          className="text-[13px] min-w-[3400px] select-none border-separate border-spacing-0"
           wrapperClassName="overflow-visible" 
         >
           <TableHeader className="bg-card sticky top-0 z-20 shadow-sm">
@@ -240,6 +243,7 @@ export function DataPreviewTable({ data, isProcessed = false, onRowClick }: Data
               <TableHead className="min-w-[110px] font-black uppercase bg-card">Date</TableHead>
               <TableHead className="min-w-[130px] font-black uppercase bg-card">ARP No#</TableHead>
               <TableHead className="min-w-[200px] font-black uppercase bg-card">PIN</TableHead>
+              <TableHead className="min-w-[240px] font-black uppercase bg-card">New ARP No#</TableHead>
               <TableHead className="min-w-[80px] font-black uppercase text-center bg-card">Update</TableHead>
               <TableHead className="min-w-[100px] font-black uppercase text-center bg-card">Taxability</TableHead>
               <TableHead className="min-w-[200px] font-black uppercase bg-card">AcctName</TableHead>
