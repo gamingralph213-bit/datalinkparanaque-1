@@ -477,7 +477,7 @@ export function processRecords(
     // Only assign to active (non-archived) records for BF Homes
     if (barangayCode === '001' && !record.isDuplicate && !record.isCleanup && !record.isManualArchive) {
       const seqStr = String(bfHomesSequence).padStart(5, '0');
-      record.newArpNo = `F-001-${record.pin}-${seqStr}`;
+      record.newArpNo = `F-001-${seqStr}`;
       bfHomesSequence++;
     } else {
       record.newArpNo = '---';
