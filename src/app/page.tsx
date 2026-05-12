@@ -807,7 +807,10 @@ export default function Home() {
                     </Card>
                   )}
 
-                  <div className="w-full flex items-center justify-between bg-card p-3 rounded-xl shadow-2xl border border-white/10 shrink-0">
+                  <div className={cn(
+                    "w-full flex items-center bg-card p-3 rounded-xl shadow-2xl border border-white/10 shrink-0 transition-all duration-500",
+                    showDetailedResults ? "justify-between" : "justify-center gap-6"
+                  )}>
                     <div className="flex gap-4">
                       <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="outline" onClick={() => setIsExportSettingsOpen(true)} size="sm" className="font-black uppercase text-[11px] tracking-widest border-primary/30 text-primary hover:bg-slate-200 transition-all h-10 px-6" disabled={isExporting}><FileDown className="w-4 h-4 mr-2" /> {isExporting ? "Generating..." : "Export Data"}</Button></TooltipTrigger><TooltipContent>Shortcut: Ctrl + E</TooltipContent></Tooltip></TooltipProvider>
                       <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="sm" className="h-10 text-[11px] font-bold uppercase px-4 hover:bg-slate-200" onClick={clearWorkspace}><Eraser className="w-3.5 h-3.5 mr-1" /> Clear Session</Button></TooltipTrigger><TooltipContent>Shortcut: Ctrl + Alt + C</TooltipContent></Tooltip></TooltipProvider>
