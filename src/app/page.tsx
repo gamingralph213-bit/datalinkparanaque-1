@@ -681,8 +681,8 @@ export default function Home() {
           </Tooltip>
         </TooltipProvider>
         <div className="flex items-center gap-1.5">
-          {deferredPrompt && <Button variant="ghost" size="icon" onClick={handleInstallClick} className="hover:bg-slate-100 hover:text-primary"><Download className="w-5 h-5" /></Button>}
-          <Button variant="ghost" size="icon" onClick={toggleFullScreen} className="hover:bg-slate-100 hover:text-primary">{isFullScreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}</Button>
+          {deferredPrompt && <Button variant="ghost" size="icon" onClick={handleInstallClick} className="hover:bg-muted hover:text-primary"><Download className="w-5 h-5" /></Button>}
+          <Button variant="ghost" size="icon" onClick={toggleFullScreen} className="hover:bg-muted hover:text-primary">{isFullScreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}</Button>
           <ModeToggle />
           <TooltipProvider>
             <Tooltip>
@@ -691,7 +691,7 @@ export default function Home() {
                   variant="ghost" 
                   size="icon" 
                   onClick={() => setIsSettingsOpen(true)}
-                  className={cn("transition-all hover:bg-slate-100 hover:text-primary", isSettingsOpen && "bg-primary text-white hover:bg-emerald-700 hover:text-white")}
+                  className={cn("transition-all hover:bg-muted hover:text-primary", isSettingsOpen && "bg-primary text-white hover:bg-emerald-700 hover:text-white")}
                 >
                   <Settings className="w-5 h-5" />
                 </Button>
@@ -783,7 +783,7 @@ export default function Home() {
                               <SelectContent><SelectItem value="all">All</SelectItem>{dynamicStatusOptions.sort().map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}</SelectContent>
                             </Select>
                             <div className="flex gap-1">
-                               <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="sm" className="h-9 w-9 p-0 text-primary hover:bg-slate-100 hover:text-primary" onClick={() => { setImportMode('raw'); setIsImportDialogOpen(true); }}><Plus className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent>Import Raw Records (Ctrl + Alt + A)</TooltipContent></Tooltip></TooltipProvider>
+                               <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="sm" className="h-9 w-9 p-0 text-primary hover:bg-muted hover:text-primary" onClick={() => { setImportMode('raw'); setIsImportDialogOpen(true); }}><Plus className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent>Import Raw Records (Ctrl + Alt + A)</TooltipContent></Tooltip></TooltipProvider>
                             </div>
                           </div>
                         )}
@@ -812,10 +812,10 @@ export default function Home() {
                     showDetailedResults ? "gap-12" : "gap-6"
                   )}>
                     <div className="flex gap-4">
-                      <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="outline" onClick={() => setIsExportSettingsOpen(true)} size="sm" className="font-black uppercase text-[11px] tracking-widest border-primary/30 text-primary hover:bg-slate-100 hover:text-primary transition-all h-10 px-6" disabled={isExporting}><FileDown className="w-4 h-4 mr-2" /> {isExporting ? "Generating..." : "Export Data"}</Button></TooltipTrigger><TooltipContent>Shortcut: Ctrl + E</TooltipContent></Tooltip></TooltipProvider>
-                      <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="sm" className="h-10 text-[11px] font-bold uppercase px-4 hover:bg-slate-100 hover:text-foreground" onClick={clearWorkspace}><Eraser className="w-3.5 h-3.5 mr-1" /> Clear Session</Button></TooltipTrigger><TooltipContent>Shortcut: Ctrl + Alt + C</TooltipContent></Tooltip></TooltipProvider>
+                      <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="outline" onClick={() => setIsExportSettingsOpen(true)} size="sm" className="font-black uppercase text-[11px] tracking-widest border-primary/30 text-primary hover:bg-primary/10 hover:text-primary transition-all h-10 px-6" disabled={isExporting}><FileDown className="w-4 h-4 mr-2" /> {isExporting ? "Generating..." : "Export Data"}</Button></TooltipTrigger><TooltipContent>Shortcut: Ctrl + E</TooltipContent></Tooltip></TooltipProvider>
+                      <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="sm" className="h-10 text-[11px] font-bold uppercase px-4 hover:bg-muted hover:text-foreground" onClick={clearWorkspace}><Eraser className="w-3.5 h-3.5 mr-1" /> Clear Session</Button></TooltipTrigger><TooltipContent>Shortcut: Ctrl + Alt + C</TooltipContent></Tooltip></TooltipProvider>
                       {viewMode !== 'audit' && (
-                        <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => { setImportMode('exempt'); setIsImportDialogOpen(true); }} className="h-10 px-6 font-black uppercase text-[10px] tracking-widest text-blue-600 border-blue-500/30 hover:bg-slate-100 hover:text-blue-600 transition-all"><ShieldOff className="w-3.5 h-3.5 mr-2" /> Load Exempt Reference</Button></TooltipTrigger><TooltipContent>Load data to be treated as Tax Exempt</TooltipContent></Tooltip></TooltipProvider>
+                        <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => { setImportMode('exempt'); setIsImportDialogOpen(true); }} className="h-10 px-6 font-black uppercase text-[10px] tracking-widest text-blue-600 border-blue-500/30 hover:bg-blue-600/10 hover:text-blue-600 transition-all"><ShieldOff className="w-3.5 h-3.5 mr-2" /> Load Exempt Reference</Button></TooltipTrigger><TooltipContent>Load data to be treated as Tax Exempt</TooltipContent></Tooltip></TooltipProvider>
                       )}
                     </div>
                     <div className="flex gap-4">
@@ -888,7 +888,7 @@ export default function Home() {
       </Dialog>
 
       <Dialog open={isRunProcessorDialogOpen} onOpenChange={setIsRunProcessorDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-xl border-white/10 shadow-2xl p-6" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setIsRunProcessorDialogOpen(false); runProcess(); } }}><DialogHeader><DialogTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2"><Cpu className="w-5 h-5 text-primary" /> Processor Configuration</DialogTitle><DialogDescription className="text-sm font-bold text-muted-foreground">Review engine settings before starting the batch run.</DialogDescription></DialogHeader><div className="py-4"><CalibrationSidebar rules={rules} setRules={setRules} options={options} setOptions={setOptions} /></div><DialogFooter className="gap-4"><Button variant="ghost" onClick={() => setIsRunProcessorDialogOpen(false)} className="font-black uppercase text-xs h-10 hover:bg-slate-100 hover:text-foreground">Cancel</Button><Button onClick={() => { setIsRunProcessorDialogOpen(false); runProcess(); }} className="bg-primary hover:bg-emerald-700 hover:text-white font-black uppercase text-xs h-10 px-8 shadow-lg shadow-primary/20">Continue & Run Processor</Button></DialogFooter></DialogContent>
+        <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-xl border-white/10 shadow-2xl p-6" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setIsRunProcessorDialogOpen(false); runProcess(); } }}><DialogHeader><DialogTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2"><Cpu className="w-5 h-5 text-primary" /> Processor Configuration</DialogTitle><DialogDescription className="text-sm font-bold text-muted-foreground">Review engine settings before starting the batch run.</DialogDescription></DialogHeader><div className="py-4"><CalibrationSidebar rules={rules} setRules={setRules} options={options} setOptions={setOptions} /></div><DialogFooter className="gap-4"><Button variant="ghost" onClick={() => setIsRunProcessorDialogOpen(false)} className="font-black uppercase text-xs h-10 hover:bg-muted hover:text-foreground">Cancel</Button><Button onClick={() => { setIsRunProcessorDialogOpen(false); runProcess(); }} className="bg-primary hover:bg-emerald-700 hover:text-white font-black uppercase text-xs h-10 px-8 shadow-lg shadow-primary/20">Continue & Run Processor</Button></DialogFooter></DialogContent>
       </Dialog>
 
       <ExportSettingsModal open={isExportSettingsOpen} onOpenChange={setIsExportSettingsOpen} data={previewData} isProcessed={processedData.length > 0} exportColumns={exportColumns} onColumnToggle={(col) => setExportColumns(prev => ({ ...prev, [col]: !prev[col] }))} onBulkColumnChange={(cols) => setExportColumns(cols)} onExport={handleFinalExport} />

@@ -201,7 +201,7 @@ export function SettingsOverlay({ onClose }: SettingsOverlayProps) {
             <div className="flex items-center gap-3">
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="ghost" className="font-black uppercase text-[10px] tracking-widest h-10 text-orange-600 hover:bg-orange-50 hover:text-orange-700">
+                    <Button variant="ghost" className="font-black uppercase text-[10px] tracking-widest h-10 text-orange-600 hover:bg-muted hover:text-orange-700">
                       <RotateCcw className="w-3.5 h-3.5 mr-2" /> Reset Defaults
                     </Button>
                   </AlertDialogTrigger>
@@ -213,7 +213,7 @@ export function SettingsOverlay({ onClose }: SettingsOverlayProps) {
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="gap-3">
-                      <AlertDialogCancel className="font-black uppercase text-xs h-10 px-6 hover:bg-slate-100 hover:text-foreground">Cancel</AlertDialogCancel>
+                      <AlertDialogCancel className="font-black uppercase text-xs h-10 px-6 hover:bg-muted hover:text-foreground">Cancel</AlertDialogCancel>
                       <AlertDialogAction onClick={handleResetToDefaults} className="bg-orange-600 hover:bg-orange-700 hover:text-white font-black uppercase text-xs h-10 px-8">Confirm Reset</AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -353,7 +353,7 @@ export function SettingsOverlay({ onClose }: SettingsOverlayProps) {
                                       variant="ghost" 
                                       size="icon" 
                                       onClick={() => handleDeleteSection(location.originalIndex)}
-                                      className="h-10 w-10 text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                                      className="h-10 w-10 text-muted-foreground hover:text-red-600 hover:bg-muted rounded-xl transition-all"
                                     >
                                       <Trash2 className="w-4.5 h-4.5" />
                                     </Button>
@@ -432,7 +432,7 @@ export function SettingsOverlay({ onClose }: SettingsOverlayProps) {
         </div>
 
         <footer className="p-8 border-t bg-card/80 backdrop-blur-xl flex justify-end shrink-0 gap-4 z-10 shadow-[0_-10px_20px_rgba(0,0,0,0.1)]">
-            <Button variant="ghost" className="font-black uppercase text-[11px] tracking-widest h-14 px-10 rounded-2xl hover:bg-slate-100 hover:text-foreground" onClick={onClose}>Discard Changes</Button>
+            <Button variant="ghost" className="font-black uppercase text-[11px] tracking-widest h-14 px-10 rounded-2xl hover:bg-muted hover:text-foreground" onClick={onClose}>Discard Changes</Button>
             <Button className="font-black uppercase text-[11px] tracking-widest h-14 px-14 bg-primary hover:bg-emerald-800 hover:text-white shadow-2xl shadow-primary/20 rounded-2xl" onClick={handleSaveChanges}>
                 <Save className="w-5 h-5 mr-3" />
                 Commit Configuration

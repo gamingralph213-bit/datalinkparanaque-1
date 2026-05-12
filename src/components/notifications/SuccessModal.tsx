@@ -36,7 +36,6 @@ export function SuccessModal({
   const [timestamp, setTimestamp] = useState<string>('');
 
   useEffect(() => {
-    // Only set the timestamp on the client to avoid hydration mismatch
     if (open) {
       setTimestamp(format(new Date(), 'p'));
     }
@@ -56,7 +55,6 @@ export function SuccessModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg bg-card/95 backdrop-blur-xl border-white/10 shadow-2xl p-0 overflow-hidden" hideClose>
         <div className="p-10 flex flex-col items-center text-center">
-          {/* Neutral Analysis Icon instead of Check */}
           <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center border border-primary/10 shadow-inner mb-8">
             <FileSearch className="w-10 h-10 text-primary" />
           </div>
@@ -91,7 +89,6 @@ export function SuccessModal({
               Review & View Result
             </Button>
             
-            {/* Minimal Export Action */}
             <button 
               onClick={handleDownload}
               className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 hover:text-primary hover:bg-transparent transition-colors py-2 flex items-center justify-center gap-2 outline-none"
