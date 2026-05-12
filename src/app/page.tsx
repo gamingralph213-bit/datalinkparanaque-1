@@ -119,6 +119,7 @@ export default function Home() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState<ProcessingStep>('idle');
   const [isExporting, setIsExporting] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
   const [viewMode, setViewMode] = useState<'results' | 'archive' | 'analytics' | 'audit'>('results');
   const [showDetailedResults, setShowDetailedResults] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
@@ -389,7 +390,13 @@ export default function Home() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [rawData.length]);
 
-  const clearWorkspace = () => {
+  const clearWorkspace = async () => {
+    if (rawData.length === 0) return;
+    
+    setIsClearing(true);
+    // Allow animation to play
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     setRawData([]);
     setProcessedData([]);
     setPreviewData([]);
@@ -401,6 +408,8 @@ export default function Home() {
     setTaxabilityFilter("all");
     setShowDetailedResults(false);
     setStats({ totalRawRows: 0, systemCleanup: 0, totalImported: 0, duplicatesRemoved: 0, finalCount: 0, totalMarketValue: 0, totalAssessedValue: 0, totalYearlyTax: 0, totalErrors: 0 } as any);
+    
+    setIsClearing(false);
     toast({ title: "Workspace Cleared", description: "All active data removed. Audit logs preserved." });
   };
 
@@ -714,7 +723,8 @@ export default function Home() {
               ) : (
                 <div className={cn(
                   "flex-1 flex flex-col min-0 transition-all duration-700 ease-in-out",
-                  showDetailedResults ? "gap-4 h-full" : "items-center justify-center h-full"
+                  showDetailedResults ? "gap-4 h-full" : "items-center justify-center h-full",
+                  isClearing && "animate-out fade-out zoom-out-95 duration-500 fill-mode-forwards"
                 )} suppressHydrationWarning>
                   
                   {/* Metric Overview with transition */}
