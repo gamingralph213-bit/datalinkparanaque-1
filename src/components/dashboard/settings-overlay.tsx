@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -14,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Percent, MapPin, Save, Info, RotateCcw, Plus, Trash2, X } from 'lucide-react';
+import { Search, Percent, MapPin, Save, Info, RotateCcw, Plus, Trash2, X, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { Card } from '@/components/ui/card';
