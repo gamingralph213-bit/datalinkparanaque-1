@@ -71,7 +71,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { ExportSettingsModal, ExportFinalSettings } from '@/components/dashboard/export-settings-modal';
 import { useNotification } from '@/contexts/NotificationContext';
 import { SettingsOverlay } from '@/components/dashboard/settings-overlay';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 
 // Sub-components
 import { MetricOverview } from '@/components/dashboard/metric-overview';
@@ -338,7 +338,7 @@ export default function Home() {
       }
       if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const activeElem = document.activeElement;
-        const isTyping = activeElem instanceof HTMLInputElement || activeElem instanceof HTMLTextAreaElement || activeElem?.getAttribute('contenteditable') === 'true';
+        const isTyping = autoScrollRef.current || document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement;
         if (!isTyping) {
           e.preventDefault();
           const modes: Array<'results' | 'archive' | 'analytics' | 'audit'> = ['results', 'archive', 'analytics', 'audit'];
@@ -791,6 +791,10 @@ export default function Home() {
       {/* --- SETTINGS PANEL --- */}
       <Sheet open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
         <SheetContent side="right" className="sm:max-w-[1200px] w-[95vw] p-0 border-none bg-card shadow-2xl">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Configuration Panel</SheetTitle>
+            <SheetDescription>Update global settings and calibration rules.</SheetDescription>
+          </SheetHeader>
           <SettingsOverlay onClose={() => setIsSettingsOpen(false)} />
         </SheetContent>
       </Sheet>
