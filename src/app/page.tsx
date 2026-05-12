@@ -30,7 +30,8 @@ import {
   ShieldCheck,
   Files,
   Plus,
-  BarChart3
+  BarChart3,
+  LayoutDashboard
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -119,6 +120,7 @@ export default function Home() {
   const [processingStep, setProcessingStep] = useState<ProcessingStep>('idle');
   const [isExporting, setIsExporting] = useState(false);
   const [viewMode, setViewMode] = useState<'results' | 'archive' | 'analytics' | 'audit'>('results');
+  const [showDetailedResults, setShowDetailedResults] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
@@ -337,9 +339,7 @@ export default function Home() {
         setIsImportDialogOpen(true);
       }
       if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        const activeElem = document.activeElement;
-        const isTyping = autoScrollRef.current || document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement;
-        if (!isTyping) {
+        if (showDetailedResults || viewMode === 'audit') {
           e.preventDefault();
           const modes: Array<'results' | 'archive' | 'analytics' | 'audit'> = ['results', 'archive', 'analytics', 'audit'];
           setViewMode(prev => {
@@ -353,7 +353,7 @@ export default function Home() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [rawData.length, isProcessing, isRunProcessorDialogOpen, isExportSettingsOpen]);
+  }, [rawData.length, isProcessing, isRunProcessorDialogOpen, isExportSettingsOpen, showDetailedResults, viewMode]);
 
   // adaptive Storage Persistence
   useEffect(() => {
@@ -403,6 +403,7 @@ export default function Home() {
     setSourceFileFilter("all");
     setBarangayFilter("all");
     setTaxabilityFilter("all");
+    setShowDetailedResults(false);
     setStats({ totalRawRows: 0, systemCleanup: 0, totalImported: 0, duplicatesRemoved: 0, finalCount: 0, totalMarketValue: 0, totalAssessedValue: 0, totalYearlyTax: 0, totalErrors: 0 } as any);
     toast({ title: "Workspace Cleared", description: "All active data removed. Audit logs preserved." });
   };
@@ -454,6 +455,7 @@ export default function Home() {
     setImportedFileName(newFileName);
     setProcessedData([]);
     setViewMode('results');
+    setShowDetailedResults(false); // Focus on metrics first
     setSourceFileFilter('all');
     setBarangayFilter('all');
     setIsImportDialogOpen(false);
@@ -475,7 +477,7 @@ export default function Home() {
           setTimeout(() => {
             setIsProcessing(false);
             setProcessingStep('idle');
-            showSuccessModal({ title: "Engine Analysis Complete", message: `${report.validCount} records have been successfully calibrated. Please conduct a manual review of all results to ensure final data integrity before export.`, onDownload: () => setIsExportSettingsOpen(true), onViewResult: () => setViewMode('results') });
+            showSuccessModal({ title: "Engine Analysis Complete", message: `${report.validCount} records have been successfully calibrated. Please conduct a manual review of all results to ensure final data integrity before export.`, onDownload: () => setIsExportSettingsOpen(true), onViewResult: () => { setShowDetailedResults(true); setViewMode('results'); } });
             setTimeout(() => { updateStats(allWithDuplicateMarkers, rawCount); }, 400); 
         }, 800);
       } else { updateStats(allWithDuplicateMarkers, rawCount); }
@@ -507,7 +509,7 @@ export default function Home() {
   const handleRowClick = useCallback((record: LandRecord) => { 
     setSelectedRecord(record); 
     if (record.statusLabel === 'DUPLICATE') {
-      const validPeer = previewData.find(r => r.pin === record.pin && !p.isDuplicate && !p.isCleanup && !p.isManualArchive);
+      const validPeer = previewData.find(p => p.pin === record.pin && !p.isDuplicate && !p.isCleanup && !p.isManualArchive);
       setComparisonRecord(validPeer || null);
     } else { setComparisonRecord(null); }
   }, [previewData]);
@@ -712,75 +714,99 @@ export default function Home() {
                 <div className="flex-1 flex flex-col gap-4 h-full min-0" suppressHydrationWarning>
                   {viewMode !== 'audit' && <MetricOverview stats={stats} />}
 
-                  <Card className="flex-1 overflow-hidden flex flex-col min-h-0 shadow-xl border-white/5">
-                    <div className="p-3 bg-muted/30 border-b flex flex-col xl:flex-row items-center justify-between gap-4 shrink-0">
-                      <TabsList className="bg-background border">
-                        <TabsTrigger value="results" className="data-[state=active]:bg-primary data-[state=active]:text-white h-9 text-xs font-bold px-4"><TableIcon className="w-3.5 h-3.5 mr-2" /> Results</TabsTrigger>
-                        <TabsTrigger value="archive" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white h-9 text-xs font-bold px-4"><Archive className="w-3.5 h-3.5 mr-2" /> Archive</TabsTrigger>
-                        <TabsTrigger value="analytics" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white h-9 text-xs font-bold px-4"><BarChart3 className="w-3.5 h-3.5 mr-2" /> Analytics</TabsTrigger>
-                        <TabsTrigger value="audit" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white h-9 text-xs font-bold px-4"><ShieldCheck className="w-3.5 h-3.5 mr-2" /> Audit Log</TabsTrigger>
-                      </TabsList>
-                      {viewMode !== 'analytics' && viewMode !== 'audit' && (
-                        <div className="flex flex-1 items-center gap-2 w-full max-w-[950px]">
-                          <div className="flex items-center gap-2 flex-1">
-                            <Select value={searchField} onValueChange={setSearchField}>
-                              <SelectTrigger className="w-[120px] h-9 text-xs font-bold uppercase"><SelectValue placeholder="In" /></SelectTrigger>
-                              <SelectContent><SelectItem value="all">All Fields</SelectItem><SelectItem value="date">Date</SelectItem><SelectItem value="arpNo">ARP No#</SelectItem><SelectItem value="pin">PIN</SelectItem><SelectItem value="acctName">Account</SelectItem><SelectItem value="address">Address</SelectItem><SelectItem value="update">Update</SelectItem><SelectItem value="taxability">Taxability</SelectItem><SelectItem value="kind">Kind</SelectItem><SelectItem value="au">AU</SelectItem></SelectContent>
+                  {!showDetailedResults && viewMode !== 'audit' ? (
+                    <div className="flex-1 flex flex-col items-center justify-center animate-in fade-in zoom-in duration-500">
+                      <div className="text-center space-y-4 mb-10">
+                        <div className="inline-flex p-4 rounded-full bg-primary/10 mb-2">
+                           <LayoutDashboard className="w-10 h-10 text-primary" />
+                        </div>
+                        <h2 className="text-4xl font-black uppercase tracking-tight text-foreground">Batch Summary Ready</h2>
+                        <p className="text-muted-foreground font-bold uppercase tracking-widest text-xs max-w-md mx-auto leading-relaxed">
+                          Initial engine analysis complete. Review the summary metrics above or reveal the detailed results to conduct manual audits.
+                        </p>
+                      </div>
+                      <Button 
+                        size="lg" 
+                        onClick={() => setShowDetailedResults(true)}
+                        className="h-16 px-16 bg-primary hover:bg-emerald-800 font-black uppercase tracking-[0.25em] text-xs shadow-2xl transition-all active:scale-95 group"
+                      >
+                        Show Overall Results & Analysis
+                        <CheckCircle2 className="ml-3 w-5 h-5 group-hover:scale-110 transition-transform" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <Card className="flex-1 overflow-hidden flex flex-col min-h-0 shadow-xl border-white/5 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                      <div className="p-3 bg-muted/30 border-b flex flex-col xl:flex-row items-center justify-between gap-4 shrink-0">
+                        <TabsList className="bg-background border">
+                          <TabsTrigger value="results" className="data-[state=active]:bg-primary data-[state=active]:text-white h-9 text-xs font-bold px-4"><TableIcon className="w-3.5 h-3.5 mr-2" /> Results</TabsTrigger>
+                          <TabsTrigger value="archive" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white h-9 text-xs font-bold px-4"><Archive className="w-3.5 h-3.5 mr-2" /> Archive</TabsTrigger>
+                          <TabsTrigger value="analytics" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white h-9 text-xs font-bold px-4"><BarChart3 className="w-3.5 h-3.5 mr-2" /> Analytics</TabsTrigger>
+                          <TabsTrigger value="audit" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white h-9 text-xs font-bold px-4"><ShieldCheck className="w-3.5 h-3.5 mr-2" /> Audit Log</TabsTrigger>
+                        </TabsList>
+                        {viewMode !== 'analytics' && viewMode !== 'audit' && (
+                          <div className="flex flex-1 items-center gap-2 w-full max-w-[950px]">
+                            <div className="flex items-center gap-2 flex-1">
+                              <Select value={searchField} onValueChange={setSearchField}>
+                                <SelectTrigger className="w-[120px] h-9 text-xs font-bold uppercase"><SelectValue placeholder="In" /></SelectTrigger>
+                                <SelectContent><SelectItem value="all">All Fields</SelectItem><SelectItem value="date">Date</SelectItem><SelectItem value="arpNo">ARP No#</SelectItem><SelectItem value="pin">PIN</SelectItem><SelectItem value="acctName">Account</SelectItem><SelectItem value="address">Address</SelectItem><SelectItem value="update">Update</SelectItem><SelectItem value="taxability">Taxability</SelectItem><SelectItem value="kind">Kind</SelectItem><SelectItem value="au">AU</SelectItem></SelectContent>
+                              </Select>
+                              <div className="relative flex-1">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input placeholder={`Search property records...`} className="pl-9 text-sm h-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                              </div>
+                            </div>
+                            {uniqueBarangays.length > 1 && (
+                              <Select value={barangayFilter} onValueChange={setBarangayFilter}>
+                                <SelectTrigger className="w-[180px] h-9 text-xs font-bold uppercase"><MapPin className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="Barangay" /></SelectTrigger>
+                                <SelectContent><SelectItem value="all">All Barangays</SelectItem>{uniqueBarangays.map(brgy => (<SelectItem key={brgy} value={brgy}>{brgy}</SelectItem>))}</SelectContent>
+                              </Select>
+                            )}
+                            {uniqueSourceFiles.length > 1 && (
+                              <Select value={sourceFileFilter} onValueChange={setSourceFileFilter}>
+                                <SelectTrigger className="w-[150px] h-9 text-xs font-bold uppercase"><Files className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="File Source" /></SelectTrigger>
+                                <SelectContent><SelectItem value="all">All Files</SelectItem>{uniqueSourceFiles.map(file => (<SelectItem key={file} value={file}>{file}</SelectItem>))}</SelectContent>
+                              </Select>
+                            )}
+                            <Select value={statusFilter} onValueChange={setStatusFilter}>
+                              <SelectTrigger className="w-[160px] h-9 text-xs font-bold uppercase"><Filter className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="Status" /></SelectTrigger>
+                              <SelectContent><SelectItem value="all">All</SelectItem>{dynamicStatusOptions.sort().map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}</SelectContent>
                             </Select>
-                            <div className="relative flex-1">
-                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input placeholder={`Search property records...`} className="pl-9 text-sm h-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                            <div className="flex gap-1">
+                               <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="sm" className="h-9 w-9 p-0 text-primary hover:bg-primary/10" onClick={() => { setImportMode('raw'); setIsImportDialogOpen(true); }}><Plus className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent>Import Raw Records (Ctrl + Alt + A)</TooltipContent></Tooltip></TooltipProvider>
                             </div>
                           </div>
-                          {uniqueBarangays.length > 1 && (
-                            <Select value={barangayFilter} onValueChange={setBarangayFilter}>
-                              <SelectTrigger className="w-[180px] h-9 text-xs font-bold uppercase"><MapPin className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="Barangay" /></SelectTrigger>
-                              <SelectContent><SelectItem value="all">All Barangays</SelectItem>{uniqueBarangays.map(brgy => (<SelectItem key={brgy} value={brgy}>{brgy}</SelectItem>))}</SelectContent>
-                            </Select>
-                          )}
-                          {uniqueSourceFiles.length > 1 && (
-                            <Select value={sourceFileFilter} onValueChange={setSourceFileFilter}>
-                              <SelectTrigger className="w-[150px] h-9 text-xs font-bold uppercase"><Files className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="File Source" /></SelectTrigger>
-                              <SelectContent><SelectItem value="all">All Files</SelectItem>{uniqueSourceFiles.map(file => (<SelectItem key={file} value={file}>{file}</SelectItem>))}</SelectContent>
-                            </Select>
-                          )}
-                          <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger className="w-[160px] h-9 text-xs font-bold uppercase"><Filter className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="Status" /></SelectTrigger>
-                            <SelectContent><SelectItem value="all">All</SelectItem>{dynamicStatusOptions.sort().map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}</SelectContent>
-                          </Select>
-                          <div className="flex gap-1">
-                             <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="sm" className="h-9 w-9 p-0 text-primary hover:bg-primary/10" onClick={() => { setImportMode('raw'); setIsImportDialogOpen(true); }}><Plus className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent>Import Raw Records (Ctrl + Alt + A)</TooltipContent></Tooltip></TooltipProvider>
-                            <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="sm" className="h-9 w-9 p-0 text-blue-600 hover:bg-blue-50" onClick={() => { setImportMode('exempt'); setIsImportDialogOpen(true); }}><ShieldOff className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent>Load Exempt Reference</TooltipContent></Tooltip></TooltipProvider>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 overflow-hidden min-h-0">
-                      <TabsContent value="results" className="m-0 h-full data-[state=active]:flex data-[state=active]:flex-col"><DataPreviewTable data={filteredDisplayData} isProcessed={processedData.length > 0} onRowClick={handleRowClick} /></TabsContent>
-                      <TabsContent value="archive" className="m-0 h-full data-[state=active]:flex data-[state=active]:flex-col"><DataPreviewTable data={filteredDisplayData} isProcessed={true} onRowClick={handleRowClick} /></TabsContent>
-                      <TabsContent value="analytics" className="m-0 h-full p-6 overflow-y-auto scrollbar-vertical-custom bg-muted/5 data-[state=active]:flex data-[state=active]:flex-col">
-                        <AnalyticsView 
-                          analyticsData={analyticsData} 
-                          onExplain={setExplainType} 
-                          onExpand={setExpandedChart} 
-                          taxabilityFilter={taxabilityFilter}
-                          onTaxabilityFilterChange={setTaxabilityFilter}
-                        />
-                      </TabsContent>
-                      <TabsContent value="audit" className="m-0 h-full data-[state=active]:flex data-[state=active]:flex-col">
-                        <AuditLogTab reports={processingReports} onClearHistory={() => { setProcessingReports([]); toast({ title: "History Purged", description: "Audit logs cleared permanently." }); }} onDeleteReport={(id) => { setProcessingReports(prev => prev.filter(r => r.id !== id)); toast({ title: "Log Deleted", description: "Audit entry has been removed." }); }} />
-                      </TabsContent>
-                    </div>
-                  </Card>
+                        )}
+                      </div>
+                      <div className="flex-1 overflow-hidden min-h-0">
+                        <TabsContent value="results" className="m-0 h-full data-[state=active]:flex data-[state=active]:flex-col"><DataPreviewTable data={filteredDisplayData} isProcessed={processedData.length > 0} onRowClick={handleRowClick} /></TabsContent>
+                        <TabsContent value="archive" className="m-0 h-full data-[state=active]:flex data-[state=active]:flex-col"><DataPreviewTable data={filteredDisplayData} isProcessed={true} onRowClick={handleRowClick} /></TabsContent>
+                        <TabsContent value="analytics" className="m-0 h-full p-6 overflow-y-auto scrollbar-vertical-custom bg-muted/5 data-[state=active]:flex data-[state=active]:flex-col">
+                          <AnalyticsView 
+                            analyticsData={analyticsData} 
+                            onExplain={setExplainType} 
+                            onExpand={setExpandedChart} 
+                            taxabilityFilter={taxabilityFilter}
+                            onTaxabilityFilterChange={setTaxabilityFilter}
+                          />
+                        </TabsContent>
+                        <TabsContent value="audit" className="m-0 h-full data-[state=active]:flex data-[state=active]:flex-col">
+                          <AuditLogTab reports={processingReports} onClearHistory={() => { setProcessingReports([]); toast({ title: "History Purged", description: "Audit logs cleared permanently." }); }} onDeleteReport={(id) => { setProcessingReports(prev => prev.filter(r => r.id !== id)); toast({ title: "Log Deleted", description: "Audit entry has been removed." }); }} />
+                        </TabsContent>
+                      </div>
+                    </Card>
+                  )}
 
                   <div className="flex items-center justify-between bg-card p-4 rounded-xl shadow-2xl border border-white/10 shrink-0">
                     <div className="flex gap-2">
                       <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="outline" onClick={() => setIsExportSettingsOpen(true)} size="sm" className="font-black uppercase text-xs tracking-widest border-primary/30 text-primary hover:bg-primary hover:text-white transition-all h-10 px-6" disabled={isExporting}><FileDown className="w-4 h-4 mr-2" /> {isExporting ? "Generating..." : "Export Data"}</Button></TooltipTrigger><TooltipContent>Shortcut: Ctrl + E</TooltipContent></Tooltip></TooltipProvider>
                       <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="sm" className="h-10 text-xs font-bold uppercase px-3" onClick={clearWorkspace}><Eraser className="w-3.5 h-3.5 mr-1" /> Clear Session</Button></TooltipTrigger><TooltipContent>Shortcut: Ctrl + Alt + C</TooltipContent></Tooltip></TooltipProvider>
+                      {!showDetailedResults && viewMode !== 'audit' && (
+                        <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => { setImportMode('exempt'); setIsImportDialogOpen(true); }} className="h-10 px-4 font-black uppercase text-[10px] tracking-widest text-blue-600 border-blue-500/30 hover:bg-blue-50"><ShieldOff className="w-3.5 h-3.5 mr-2" /> Load Exempt Reference</Button></TooltipTrigger><TooltipContent>Load data to be treated as Tax Exempt</TooltipContent></Tooltip></TooltipProvider>
+                      )}
                     </div>
                     {viewMode !== 'analytics' && viewMode !== 'audit' && (
                       <TooltipProvider><Tooltip><TooltipTrigger asChild><Button size="lg" className="bg-primary hover:bg-green-700 px-12 font-black uppercase tracking-widest text-xs shadow-2xl transition-all active:scale-95 h-10" disabled={isProcessing} onClick={() => setIsRunProcessorDialogOpen(true)}>{isProcessing ? "Processing Batch..." : "Run Batch Processor"}</Button></TooltipTrigger><TooltipContent>Shortcut: Ctrl + Enter</TooltipContent></Tooltip></TooltipProvider>
                     )}
-                    {viewMode === 'audit' && ( <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 px-12 font-black uppercase tracking-widest text-xs shadow-2xl transition-all active:scale-95 h-10" onClick={() => setViewMode('results')}>Return to Dashboard</Button> )}
+                    {(viewMode === 'audit' || (showDetailedResults && viewMode !== 'results')) && ( <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 px-12 font-black uppercase tracking-widest text-xs shadow-2xl transition-all active:scale-95 h-10" onClick={() => { setShowDetailedResults(false); setViewMode('results'); }}>Return to Dashboard</Button> )}
                   </div>
                 </div>
               )}
