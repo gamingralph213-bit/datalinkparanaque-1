@@ -740,7 +740,7 @@ export default function Home() {
                       <Button 
                         size="lg" 
                         onClick={() => setShowDetailedResults(true)}
-                        className="h-16 px-16 bg-primary hover:bg-emerald-800 hover:text-white font-black uppercase tracking-[0.25em] text-xs shadow-2xl transition-all active:scale-95 group"
+                        className="h-16 px-16 bg-primary hover:bg-emerald-700 hover:text-white font-black uppercase tracking-[0.25em] text-xs shadow-2xl transition-all active:scale-95 group"
                       >
                         Show Overall Results & Analysis
                         <ArrowRight className="ml-3 w-5 h-5 group-hover:translate-x-2 transition-transform" />
@@ -807,9 +807,9 @@ export default function Home() {
                     </Card>
                   )}
 
-                  <div className="flex items-center justify-between bg-card p-4 rounded-xl shadow-2xl border border-white/10 shrink-0">
+                  <div className="w-full flex items-center justify-between bg-card p-4 rounded-xl shadow-2xl border border-white/10 shrink-0">
                     <div className="flex gap-6">
-                      <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="outline" onClick={() => setIsExportSettingsOpen(true)} size="sm" className="font-black uppercase text-xs tracking-widest border-primary/30 text-primary hover:bg-emerald-600 hover:text-white transition-all h-10 px-6" disabled={isExporting}><FileDown className="w-4 h-4 mr-2" /> {isExporting ? "Generating..." : "Export Data"}</Button></TooltipTrigger><TooltipContent>Shortcut: Ctrl + E</TooltipContent></Tooltip></TooltipProvider>
+                      <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="outline" onClick={() => setIsExportSettingsOpen(true)} size="sm" className="font-black uppercase text-xs tracking-widest border-primary/30 text-primary hover:bg-emerald-700 hover:text-white transition-all h-10 px-6" disabled={isExporting}><FileDown className="w-4 h-4 mr-2" /> {isExporting ? "Generating..." : "Export Data"}</Button></TooltipTrigger><TooltipContent>Shortcut: Ctrl + E</TooltipContent></Tooltip></TooltipProvider>
                       <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="sm" className="h-10 text-xs font-bold uppercase px-4 hover:bg-slate-200" onClick={clearWorkspace}><Eraser className="w-3.5 h-3.5 mr-1" /> Clear Session</Button></TooltipTrigger><TooltipContent>Shortcut: Ctrl + Alt + C</TooltipContent></Tooltip></TooltipProvider>
                       {viewMode !== 'audit' && (
                         <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => { setImportMode('exempt'); setIsImportDialogOpen(true); }} className="h-10 px-6 font-black uppercase text-[10px] tracking-widest text-blue-600 border-blue-500/30 hover:bg-blue-600 hover:text-white transition-all"><ShieldOff className="w-3.5 h-3.5 mr-2" /> Load Exempt Reference</Button></TooltipTrigger><TooltipContent>Load data to be treated as Tax Exempt</TooltipContent></Tooltip></TooltipProvider>
