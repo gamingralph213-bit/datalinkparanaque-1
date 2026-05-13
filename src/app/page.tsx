@@ -896,7 +896,7 @@ export default function Home() {
                   <div className={cn(
                     "ml-auto mr-6 flex items-center bg-card p-3 rounded-3xl shadow-2xl border border-white/10 shrink-0 transition-all duration-700 ease-in-out px-6 mb-4 w-fit gap-10"
                   )}>
-                    <div className="flex gap-4 items-center">
+                    <div className="flex items-center">
                       <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="outline" onClick={() => setIsExportSettingsOpen(true)} size="sm" className={cn("font-black uppercase tracking-widest border-primary/30 text-primary hover:bg-muted hover:text-primary transition-all", showDetailedResults ? "h-10 px-5 text-[10px]" : "h-14 px-8 text-[12px]")} disabled={isExporting}><FileDown className={cn(showDetailedResults ? "w-3.5 h-3.5 mr-2" : "w-4 h-4 mr-2")} /> {isExporting ? "Generating..." : "Export Data"}</Button></TooltipTrigger><TooltipContent>Shortcut: Ctrl + E</TooltipContent></Tooltip></TooltipProvider>
                     </div>
                     <div className="flex gap-4 items-center">
