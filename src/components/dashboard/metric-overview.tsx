@@ -12,9 +12,12 @@ import {
   Archive, 
   Database, 
   BarChart3, 
-  TrendingUp 
+  TrendingUp,
+  ShieldCheck,
+  Calculator
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 /**
  * A component that animates a numeric value counting from its previous state to the new state.
@@ -69,9 +72,11 @@ interface MetricOverviewProps {
     totalErrors: number;
   };
   variant?: 'default' | 'hero';
+  taxViewMode: 'T' | 'E';
+  onTaxViewModeChange: (mode: 'T' | 'E') => void;
 }
 
-export function MetricOverview({ stats, variant = 'default' }: MetricOverviewProps) {
+export function MetricOverview({ stats, variant = 'default', taxViewMode, onTaxViewModeChange }: MetricOverviewProps) {
   const isHero = variant === 'hero';
 
   const statDefinitions = [
@@ -80,7 +85,7 @@ export function MetricOverview({ stats, variant = 'default' }: MetricOverviewPro
       value: <AnimatedNumber value={stats.totalRawRows} />,
       icon: Files,
       color: isHero ? "border-t-slate-400" : "border-l-slate-400",
-      definition: "The total count of all raw data lines detected across all your uploaded spreadsheets before any filtering or processing."
+      definition: "The total count of all raw data lines detected across all your uploaded spreadsheets."
     },
     {
       label: "Data Errors",
@@ -88,7 +93,7 @@ export function MetricOverview({ stats, variant = 'default' }: MetricOverviewPro
       icon: AlertTriangle,
       color: isHero ? "border-t-red-500 bg-red-500/5" : "border-l-red-500 bg-red-500/5",
       textClass: "text-red-600",
-      definition: "Records flagged for critical data issues like missing Property Identification Numbers (PIN) or invalid formats that require manual correction."
+      definition: "Records flagged for critical issues like missing PIN or invalid formats that require manual correction."
     },
     {
       label: "Engine Cleanup",
@@ -96,7 +101,7 @@ export function MetricOverview({ stats, variant = 'default' }: MetricOverviewPro
       icon: Eraser,
       color: isHero ? "border-t-orange-400" : "border-l-orange-400",
       textClass: "text-orange-600",
-      definition: "Rows identified as non-data noise, duplicates, or incomplete entries that are moved to the Archive tab."
+      definition: "Rows identified as noise or incomplete entries moved to the Archive."
     },
     {
       label: "Valid Records",
@@ -104,7 +109,7 @@ export function MetricOverview({ stats, variant = 'default' }: MetricOverviewPro
       icon: CheckCircle2,
       color: isHero ? "border-t-primary bg-primary/5" : "border-l-primary bg-primary/5",
       textClass: "text-primary",
-      definition: "The finalized set of clean, unique, and verified records that have passed all city-standard validation rules."
+      definition: "Unique and verified records that have passed all city-standard validation rules."
     },
     {
       label: "Duplicates",
@@ -112,7 +117,7 @@ export function MetricOverview({ stats, variant = 'default' }: MetricOverviewPro
       icon: Archive,
       color: isHero ? "border-t-amber-400 bg-amber-500/5" : "border-l-amber-400 bg-amber-500/5",
       textClass: "text-amber-500",
-      definition: "Multiple records sharing the same PIN. The engine automatically moves duplicates to the Archive tab."
+      definition: "Multiple records sharing the same PIN. The engine automatically archives older entries."
     },
     {
       label: "Total Market",
@@ -120,7 +125,7 @@ export function MetricOverview({ stats, variant = 'default' }: MetricOverviewPro
       icon: Database,
       color: isHero ? "border-t-green-600 bg-green-500/5" : "border-l-green-600 bg-green-500/5",
       textClass: "text-green-600",
-      definition: "The combined Market Value of all currently filtered valid records."
+      definition: "The combined Market Value for the currently selected tax category (Taxable or Exempted)."
     },
     {
       label: "Total Assessed",
@@ -128,68 +133,96 @@ export function MetricOverview({ stats, variant = 'default' }: MetricOverviewPro
       icon: BarChart3,
       color: isHero ? "border-t-blue-600 bg-blue-500/5" : "border-l-blue-600 bg-blue-500/5",
       textClass: "text-blue-600",
-      definition: "The sum of all Assessed Values for valid records."
+      definition: "The sum of all Assessed Values for the active tax view."
     },
     {
       label: "Total Tax",
-      value: <AnimatedNumber value={stats.totalYearlyTax || 0} prefix="₱" decimals={2} />,
+      value: taxViewMode === 'E' ? "₱0.00" : <AnimatedNumber value={stats.totalYearlyTax || 0} prefix="₱" decimals={2} />,
       icon: TrendingUp,
       color: isHero ? "border-t-emerald-600 bg-emerald-50/5" : "border-l-emerald-600 bg-emerald-50/5",
       textClass: "text-emerald-600",
-      definition: "The estimated combined Yearly Real Property Tax due for all valid records in this session."
+      definition: "The estimated combined Yearly Real Property Tax due. Always zero for Exempted properties."
     }
   ];
 
   return (
-    <div className={cn(
-      "grid gap-4 shrink-0 transition-all duration-700 ease-in-out",
-      isHero 
-        ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-4 max-w-6xl mx-auto w-full p-2" 
-        : "grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 w-full"
-    )}>
-      {statDefinitions.map((stat, i) => (
-        <Popover key={i}>
-          <PopoverTrigger asChild>
-            <Card className={cn(
-              "flex flex-col shadow-sm cursor-help transition-all hover:scale-[1.03] active:scale-95 hover:shadow-xl border-border/10",
-              isHero ? "p-8 border-t-4 items-center text-center justify-center aspect-square md:aspect-auto md:h-64" : "p-4 border-l-4",
-              stat.color
-            )}>
-              <div className={cn(
-                "font-bold text-muted-foreground uppercase flex items-center gap-1.5 tracking-wide",
-                isHero ? "text-xs mb-4" : "text-[11px] mb-1.5"
+    <div className="space-y-4 w-full">
+      <div className={cn(
+        "flex items-center justify-between px-2",
+        isHero ? "max-w-6xl mx-auto" : "w-full"
+      )}>
+        <div className="flex items-center gap-2.5">
+          <div className="p-1.5 rounded-lg bg-primary/10 border border-primary/20">
+            <Calculator className="w-4 h-4 text-primary" />
+          </div>
+          <div>
+            <h3 className="text-xs font-black uppercase tracking-tight leading-none">Dashboard Analytics Context</h3>
+            <p className="text-[9px] font-bold text-muted-foreground mt-1 uppercase tracking-widest">Toggle view for specific financial subsets</p>
+          </div>
+        </div>
+        
+        <Tabs value={taxViewMode} onValueChange={(val) => onTaxViewModeChange(val as 'T' | 'E')}>
+          <TabsList className="bg-muted/50 border h-9 px-1">
+            <TabsTrigger value="T" className="h-7 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+              <CheckCircle2 className="w-3 h-3 mr-1.5" /> Taxable
+            </TabsTrigger>
+            <TabsTrigger value="E" className="h-7 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              <ShieldCheck className="w-3 h-3 mr-1.5" /> Exempted
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      <div className={cn(
+        "grid gap-4 shrink-0 transition-all duration-700 ease-in-out",
+        isHero 
+          ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-4 max-w-6xl mx-auto w-full" 
+          : "grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 w-full"
+      )}>
+        {statDefinitions.map((stat, i) => (
+          <Popover key={i}>
+            <PopoverTrigger asChild>
+              <Card className={cn(
+                "flex flex-col shadow-sm cursor-help transition-all hover:scale-[1.03] active:scale-95 hover:shadow-xl border-border/10",
+                isHero ? "p-8 border-t-4 items-center text-center justify-center aspect-square md:aspect-auto md:h-64" : "p-4 border-l-4",
+                stat.color
               )}>
-                <stat.icon className={cn(isHero ? "w-4 h-4" : "w-3 h-3")} /> 
-                {stat.label}
-              </div>
-              <div className={cn(
-                "font-black leading-tight truncate w-full",
-                isHero ? "text-3xl md:text-4xl lg:text-3xl xl:text-4xl" : "text-[17px]",
-                stat.textClass || "text-foreground"
-              )}>
-                {stat.value}
-              </div>
-              {isHero && (
-                <div className="mt-6 hidden md:block">
-                  <p className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-[0.1em] line-clamp-2 px-2">
-                    {stat.definition}
-                  </p>
+                <div className={cn(
+                  "font-bold text-muted-foreground uppercase flex items-center gap-1.5 tracking-wide",
+                  isHero ? "text-xs mb-4" : "text-[11px] mb-1.5"
+                )}>
+                  <stat.icon className={cn(isHero ? "w-4 h-4" : "w-3 h-3")} /> 
+                  {stat.label}
                 </div>
-              )}
-            </Card>
-          </PopoverTrigger>
-          <PopoverContent className="w-80 p-5 bg-card/95 backdrop-blur-xl border-white/10 shadow-2xl rounded-2xl">
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <div className={cn("p-1.5 rounded-lg bg-primary/10", stat.textClass)}><stat.icon className="w-4 h-4" /></div>
-                <h4 className="font-black uppercase text-xs tracking-widest">{stat.label}</h4>
+                <div className={cn(
+                  "font-black leading-tight truncate w-full",
+                  isHero ? "text-2xl md:text-3xl lg:text-2xl xl:text-3xl" : "text-[16px]",
+                  stat.textClass || "text-foreground"
+                )}>
+                  {stat.value}
+                </div>
+                {isHero && (
+                  <div className="mt-6 hidden md:block">
+                    <p className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-[0.1em] line-clamp-2 px-2">
+                      {stat.definition}
+                    </p>
+                  </div>
+                )}
+              </Card>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-5 bg-card/95 backdrop-blur-xl border-white/10 shadow-2xl rounded-2xl">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className={cn("p-1.5 rounded-lg bg-primary/10", stat.textClass)}><stat.icon className="w-4 h-4" /></div>
+                  <h4 className="font-black uppercase text-xs tracking-widest">{stat.label}</h4>
+                </div>
+                <p className="font-black text-2xl text-foreground break-words">{stat.value}</p>
+                <p className="text-sm font-bold text-muted-foreground leading-relaxed">{stat.definition}</p>
               </div>
-              <p className="font-black text-2xl text-foreground break-words">{stat.value}</p>
-              <p className="text-sm font-bold text-muted-foreground leading-relaxed">{stat.definition}</p>
-            </div>
-          </PopoverContent>
-        </Popover>
-      ))}
+            </PopoverContent>
+          </Popover>
+        ))}
+      </div>
     </div>
   );
 }

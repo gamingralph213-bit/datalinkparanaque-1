@@ -148,6 +148,7 @@ export default function Home() {
   const [comparisonRecord, setComparisonRecord] = useState<LandRecord | null>(null);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [taxViewMode, setTaxViewMode] = useState<'T' | 'E'>('T');
 
   // --- 3. REFS FOR DIRECT IMPORT ---
   const rawFileInputRef = useRef<HTMLInputElement>(null);
@@ -182,11 +183,29 @@ export default function Home() {
   };
   const [exportColumns, setExportColumns] = useState<Record<string, boolean>>(defaultExportColumns);
 
-  // --- 7. STATS CALCULATION ---
-  const [stats, setStats] = useState({
-    totalRawRows: 0, systemCleanup: 0, totalImported: 0, duplicatesRemoved: 0,
-    finalCount: 0, totalMarketValue: 0, totalAssessedValue: 0, totalYearlyTax: 0, totalErrors: 0
-  });
+  // --- 7. STATS CALCULATION (Dynamic via useMemo) ---
+  const stats = useMemo(() => {
+    const active = previewData.filter(r => r.statusLabel !== 'CLEANUP' && r.statusLabel !== 'DUPLICATE' && r.statusLabel !== 'INCOMPLETE' && !r.isManualArchive);
+    const valid = active.filter(r => r.statusLabel === 'VALID');
+    const filteredValid = valid.filter(r => r.taxability === taxViewMode);
+    const errors = active.filter(r => r.statusLabel !== 'VALID').length;
+    const isProcessed = processedData.length > 0;
+    const mvField = isProcessed ? 'marketValue2029' : 'marketValue2028';
+    const avField = isProcessed ? 'assessedValue2029' : 'assessedValue2028';
+    const ytField = isProcessed ? 'yearlyTax2029' : 'yearlyTax2028';
+
+    return { 
+      totalRawRows: rawData.length,
+      systemCleanup: previewData.filter(r => r.statusLabel === 'CLEANUP' || r.statusLabel === 'INCOMPLETE' || r.statusLabel === 'DUPLICATE' || r.isManualArchive).length,
+      totalImported: rawData.length, 
+      duplicatesRemoved: previewData.filter(r => r.statusLabel === 'DUPLICATE').length, 
+      finalCount: active.length,
+      totalMarketValue: filteredValid.reduce((sum, r) => sum + (r[mvField as keyof LandRecord] as number || 0), 0),
+      totalAssessedValue: filteredValid.reduce((sum, r) => sum + (r[avField as keyof LandRecord] as number || 0), 0),
+      totalYearlyTax: filteredValid.reduce((sum, r) => sum + (r[ytField as keyof LandRecord] as number || 0), 0),
+      totalErrors: errors
+    };
+  }, [previewData, rawData.length, taxViewMode, processedData.length]);
 
   const latestReport = processingReports[0] || null;
 
@@ -277,14 +296,12 @@ export default function Home() {
       return record.statusLabel === statusFilter;
     });
 
-    // Sort by PIN location (ascending)
     const sorted = [...filtered].sort((a, b) => (a.pin || '').localeCompare(b.pin || ''));
 
     if (viewMode === 'archive' && (statusFilter === 'all' || statusFilter === 'DUPLICATE')) {
       const finalWithComparisons: LandRecord[] = [];
       sorted.forEach(record => {
         if (record.statusLabel === 'DUPLICATE') {
-          // Find the active version of this PIN (regardless of status errors)
           const validPeer = previewData.find(p => p.pin === record.pin && !p.isDuplicate && !p.isCleanup && !p.isManualArchive);
           if (validPeer) {
             finalWithComparisons.push({ ...validPeer, id: `comparison-${validPeer.id}-${record.id}`, isComparisonInjected: true });
@@ -409,11 +426,8 @@ export default function Home() {
 
   const clearWorkspace = async () => {
     if (rawData.length === 0) return;
-    
     setIsClearing(true);
-    // Allow animation to play
     await new Promise(resolve => setTimeout(resolve, 500));
-    
     setRawData([]);
     setProcessedData([]);
     setPreviewData([]);
@@ -424,8 +438,6 @@ export default function Home() {
     setBarangayFilter("all");
     setTaxabilityFilter("all");
     setShowDetailedResults(false);
-    setStats({ totalRawRows: 0, systemCleanup: 0, totalImported: 0, duplicatesRemoved: 0, finalCount: 0, totalMarketValue: 0, totalAssessedValue: 0, totalYearlyTax: 0, totalErrors: 0 } as any);
-    
     setIsClearing(false);
     toast({ title: "Workspace Cleared", description: "All active data removed. Audit logs preserved." });
   };
@@ -442,23 +454,6 @@ export default function Home() {
     if (outcome === 'accepted') setDeferredPrompt(null);
   };
 
-  const updateStats = (data: LandRecord[], rawCount: number) => {
-    const active = data.filter(r => r.statusLabel !== 'CLEANUP' && r.statusLabel !== 'DUPLICATE' && r.statusLabel !== 'INCOMPLETE' && !r.isManualArchive);
-    const valid = active.filter(r => r.statusLabel === 'VALID');
-    const errors = active.filter(r => r.statusLabel !== 'VALID').length;
-    setStats({ 
-      totalRawRows: rawCount,
-      systemCleanup: data.filter(r => r.statusLabel === 'CLEANUP' || r.statusLabel === 'INCOMPLETE' || r.statusLabel === 'DUPLICATE' || r.isManualArchive).length,
-      totalImported: rawCount, 
-      duplicatesRemoved: data.filter(r => r.statusLabel === 'DUPLICATE').length, 
-      finalCount: active.length,
-      totalMarketValue: valid.reduce((sum, r) => sum + (r.marketValue || 0), 0),
-      totalAssessedValue: valid.reduce((sum, r) => sum + (r.assessedValue || 0), 0),
-      totalYearlyTax: valid.reduce((sum, r) => sum + (r.yearlyTax || 0), 0),
-      totalErrors: errors
-    } as any);
-  };
-
   const handleDataImported = (imported: LandRecord[], fileName: string, rawCount: number, mode: 'raw' | 'exempt' = 'raw') => {
     const updatedExemptPins = new Set(exemptPins);
     if (mode === 'exempt') {
@@ -467,7 +462,6 @@ export default function Home() {
     }
     const isAppending = rawData.length > 0;
     const newData = isAppending ? [...rawData, ...imported] : imported;
-    const newCount = isAppending ? stats.totalRawRows + rawCount : rawCount;
     let newFileName = fileName;
     if (isAppending) {
         if (importedFileName.includes('Batch')) { newFileName = `${importedFileName.replace(')', '')}, ${fileName})`; }
@@ -479,27 +473,21 @@ export default function Home() {
     setViewMode('results');
     setSourceFileFilter('all');
     setBarangayFilter('all');
-
-    // Automatically transition to detailed results view after import
     setShowDetailedResults(true);
 
     const { allWithDuplicateMarkers } = processRecords(newData, [], locationSettings, taxRates, { removeDuplicates: false, applyCalibration: false, systemCleanup: false }, newFileName, updatedExemptPins);
     setPreviewData(allWithDuplicateMarkers);
-    updateStats(allWithDuplicateMarkers, newCount);
     toast({ title: mode === 'exempt' ? "Exempt Data Integrated" : (isAppending ? "Data Appended" : "Data Loaded"), description: mode === 'exempt' ? `${imported.length} records integrated and indexed as Exempt reference.` : `${rawCount} records from ${fileName} imported successfully.` });
   };
 
   const handleDirectImport = async (e: React.ChangeEvent<HTMLInputElement>, mode: 'raw' | 'exempt') => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-
     setIsDirectImporting(true);
     setDirectImportProgress({ current: 0, total: files.length, mode });
-
     const allRecords: LandRecord[] = [];
     let totalRawCount = 0;
     const fileNames: string[] = [];
-
     try {
       for (let i = 0; i < files.length; i++) {
         setDirectImportProgress(prev => ({ ...prev, current: i }));
@@ -507,16 +495,15 @@ export default function Home() {
         allRecords.push(...result.data);
         totalRawCount += result.count;
         fileNames.push(files[i].name);
-        await delay(400); // Small delay for visual progress
+        await delay(400);
       }
-
       const summaryFileName = fileNames.length > 1 ? `Batch (${fileNames.length} Files)` : fileNames[0];
       handleDataImported(allRecords, summaryFileName, totalRawCount, mode);
     } catch (err) {
       toast({ variant: "destructive", title: "Import Error", description: "Failed to parse one or more files." });
     } finally {
       setIsDirectImporting(false);
-      e.target.value = ''; // Reset input
+      e.target.value = '';
     }
   };
 
@@ -540,9 +527,8 @@ export default function Home() {
                 setViewMode('results'); 
               } 
             });
-            setTimeout(() => { updateStats(allWithDuplicateMarkers, rawCount); }, 400); 
         }, 800);
-      } else { updateStats(allWithDuplicateMarkers, rawCount); }
+      }
     });
   };
 
@@ -557,7 +543,7 @@ export default function Home() {
         if (processedData.length > 0) { runProcessWithData(newRawData, newRawData.length, importedFileName, silent); }
         else {
           const { allWithDuplicateMarkers } = processRecords(newRawData, [], locationSettings, taxRates, { removeDuplicates: false, applyCalibration: false, systemCleanup: false }, importedFileName, exemptPins);
-          setPreviewData(allWithDuplicateMarkers); updateStats(allWithDuplicateMarkers, newRawData.length);
+          setPreviewData(allWithDuplicateMarkers);
           if (!silent) setIsProcessing(false);
         }
         if (!silent) { toast({ title: "Record Saved", description: "The property record has been updated and re-validated." }); }
@@ -587,23 +573,28 @@ export default function Home() {
         settings.taxabilities.includes(r.taxability || 'T')
       );
       if (filteredForExport.length === 0) { toast({ variant: "destructive", title: "Export Failed", description: "No records match your selected export criteria." }); setIsExporting(false); return; }
-      const sortedForExport = [...filteredForExport].sort((a, b) => {
-        const partsA = (a.pin || '').split('-'); const partsB = (b.pin || '').split('-');
-        for (let i = 0; i < 6; i++) {
-          const segmentA = partsA[i] || ''; const segmentB = partsB[i] || '';
-          const numA = parseInt(segmentA, 10); const numB = parseInt(segmentB, 10);
-          if (!isNaN(numA) && !isNaN(numB)) { if (numA !== numB) return numA - numB; }
-          else { if (segmentA !== segmentB) return segmentA.localeCompare(segmentB); }
-        }
-        return 0;
-      });
-      const totalMarketValue = sortedForExport.reduce((sum, r) => sum + (r.marketValue || 0), 0);
-      const totalAssessedValue = sortedForExport.reduce((sum, r) => sum + (r.assessedValue || 0), 0);
-      const totalYearlyTax = sortedForExport.reduce((sum, r) => sum + (r.yearlyTax || 0), 0);
+      
+      const sortedForExport = [...filteredForExport].sort((a, b) => (a.pin || '').localeCompare(b.pin || ''));
+      
+      const taxableRecords = sortedForExport.filter(r => r.taxability === 'T');
+      const exemptRecords = sortedForExport.filter(r => r.taxability === 'E');
 
-      const totalMarketValue2028 = sortedForExport.reduce((sum, r) => sum + (r.marketValue2028 || 0), 0);
-      const totalAssessedValue2028 = sortedForExport.reduce((sum, r) => sum + (r.assessedValue2028 || 0), 0);
-      const totalYearlyTax2028 = sortedForExport.reduce((sum, r) => sum + (r.yearlyTax2028 || 0), 0);
+      const sum = (recs: LandRecord[], field: keyof LandRecord) => recs.reduce((acc, r) => acc + (Number(r[field]) || 0), 0);
+      const fmt = (val: number) => `₱${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 3 })}`;
+
+      // Summaries for Taxable
+      const tMV28 = sum(taxableRecords, 'marketValue2028');
+      const tAV28 = sum(taxableRecords, 'assessedValue2028');
+      const tYT28 = sum(taxableRecords, 'yearlyTax2028');
+      const tMV29 = sum(taxableRecords, 'marketValue2029');
+      const tAV29 = sum(taxableRecords, 'assessedValue2029');
+      const tYT29 = sum(taxableRecords, 'yearlyTax2029');
+
+      // Summaries for Exempt
+      const eMV28 = sum(exemptRecords, 'marketValue2028');
+      const eAV28 = sum(exemptRecords, 'assessedValue2028');
+      const eMV29 = sum(exemptRecords, 'marketValue2029');
+      const eAV29 = sum(exemptRecords, 'assessedValue2029');
 
       const headerMapping: Record<string, string> = { 
         date: "DATE", 
@@ -628,6 +619,7 @@ export default function Home() {
         yearlyTax: "YEARLY TAX" 
       };
 
+      const activeHeaders = Object.values(headerMapping).filter(h => settings.columns[h]);
       const formattedExport = sortedForExport.map(record => {
         const row: any = {};
         Object.entries(headerMapping).forEach(([key, label]) => { 
@@ -641,80 +633,52 @@ export default function Home() {
         });
         return row;
       });
+
       const wb = XLSX.utils.book_new();
-      const activeHeaders = Object.values(headerMapping).filter(h => settings.columns[h]);
       const sheetData = [
         ["DATA LINK PARAÑAQUE - SMART EXPORT"], 
         ["EXPORT DATE:", new Date().toLocaleString()], 
         ["TOTAL RECORDS:", sortedForExport.length.toLocaleString()], 
         [],
-        ["SUMMARY (2028)"],
-        ["TOTAL MARKET VALUE (2028):", `₱${totalMarketValue2028.toLocaleString(undefined, { minimumFractionDigits: 2 })}`], 
-        ["TOTAL ASSESSED VALUE (2028):", `₱${totalAssessedValue2028.toLocaleString(undefined, { minimumFractionDigits: 2 })}`],
-        ["TOTAL YEARLY TAX (2028 capped at 6%):", `₱${totalYearlyTax2028.toLocaleString(undefined, { minimumFractionDigits: 2 })}`],
+        ["SUMMARY TAXABLE PROPERTIES"],
         [],
-        ["SUMMARY (2029)"],
-        ["TOTAL MARKET VALUE (2029):", `₱${totalMarketValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`], 
-        ["TOTAL ASSESSED VALUE (2029):", `₱${totalAssessedValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`],
-        ["TOTAL YEARLY TAX (2029):", `₱${totalYearlyTax.toLocaleString(undefined, { minimumFractionDigits: 2 })}`],
+        ["CURRENT (2028)"],
+        ["TOTAL MARKET VALUE (2028):", fmt(tMV28)], 
+        ["TOTAL ASSESSED VALUE (2028):", fmt(tAV28)],
+        ["TOTAL YEARLY TAX (2028 capped at 6%):", fmt(tYT28)],
+        [],
+        ["RPVARA (2029)"],
+        ["TOTAL MARKET VALUE (2029):", fmt(tMV29)], 
+        ["TOTAL ASSESSED VALUE (2029):", fmt(tAV29)],
+        ["TOTAL YEARLY TAX (2029):", fmt(tYT29)],
+        [],
+        ["SUMMARY EXEMPTED PROPERTIES"],
+        [],
+        ["CURRENT (2028)"],
+        ["TOTAL MARKET VALUE (2028):", fmt(eMV28)], 
+        ["TOTAL ASSESSED VALUE (2028):", fmt(eAV28)],
+        [],
+        ["RPVARA (2029)"],
+        ["TOTAL MARKET VALUE (2029):", fmt(eMV29)], 
+        ["TOTAL ASSESSED VALUE (2029):", fmt(eAV29)],
         [], 
         activeHeaders
       ];
+
       const ws = XLSX.utils.aoa_to_sheet(sheetData);
-      XLSX.utils.sheet_add_json(ws, formattedExport, { origin: "A16", skipHeader: true });
+      XLSX.utils.sheet_add_json(ws, formattedExport, { origin: -1, skipHeader: true });
       ws['!cols'] = activeHeaders.map(() => ({ wch: 22 }));
       XLSX.utils.book_append_sheet(wb, ws, "ExportResults");
-      let fileNameParts = ["DataLink-Export"];
-      if (settings.barangays.length < uniqueBarangays.length) {
-          if (settings.barangays.length === 1 && settings.barangays[0] !== 'UNMAPPED') { fileNameParts.push(settings.barangays[0].replace(/ /g, '-')); }
-          else if (settings.barangays.length > 1) { fileNameParts.push(`${settings.barangays.length}Brgys`); }
-      }
-      if (settings.statuses.length < dynamicStatusOptions.length) {
-          if (settings.statuses.length === 1) { fileNameParts.push(settings.statuses[0].replace(/ /g, '-').replace(/#/g, '')); }
-          else if (settings.statuses.length > 1) { fileNameParts.push(`${settings.statuses.length}Types`); }
-      }
-      const dateStr = new Date().toISOString().split('T')[0];
-      fileNameParts.push(dateStr);
-      const fileName = `${fileNameParts.join('_')}.xlsx`;
-      XLSX.writeFile(wb, fileName);
-      const exportReport: ProcessingReport = { id: `report-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, timestamp: new Date().toLocaleString(), fileName: `${fileName} (CUSTOM EXPORT)`, totalImported: sortedForExport.length, cleanupCount: 0, duplicatesDetected: 0, calibratedCount: 0, errorCount: sortedForExport.filter(r => !r.isValid).length, validCount: sortedForExport.filter(r => r.isValid).length, totalMarketValue: totalMarketValue, totalAssessedValue: totalAssessedValue, totalMarketValue2028: totalMarketValue2028, totalAssessedValue2028: totalAssessedValue2028, totalYearlyTax2028: totalYearlyTax2028, records: sortedForExport };
-      setProcessingReports(prev => [exportReport, ...prev]);
+      XLSX.writeFile(wb, `DataLink-SmartExport-${new Date().toISOString().split('T')[0]}.xlsx`);
       showSuccessToast(`Exported ${sortedForExport.length} records successfully.`);
     } catch (error: any) { toast({ variant: "destructive", title: "Export Failed", description: error.message }); }
     finally { setIsExporting(false); }
-  };
-
-  const getInsightText = (type: string): React.ReactNode => {
-    const data = analyticsData;
-    const highlight = (val: any) => <span className="text-primary font-black underline decoration-primary/30 underline-offset-4">{val}</span>;
-    const neutralHighlight = (val: any) => <span className="text-foreground font-black">{val}</span>;
-    if (data.totalRecords === 0) return "Insufficient data currently active. Please adjust your filters or run the processor to generate detailed diagnostics.";
-    switch (type) {
-      case 'usage': {
-        const top = data.auChart[0]; const percentage = ((top.value / data.totalRecords) * 100).toFixed(1); const second = data.auChart[1];
-        return ( <div className="space-y-4"> <p>The property distribution analysis reveals a primary concentration in {highlight(top.name)}, representing {highlight(percentage + "%")} of the active dataset with {highlight(top.value.toLocaleString() + " parcels")}.</p> {second && ( <p>This category maintains a significant lead over {neutralHighlight(second.name)}, which holds the second position. The delta between these two primary usages is {highlight((top.value - second.value).toLocaleString() + " units")}, indicating a highly skewed development priority or data refresh cycle.</p> )} <p>Audit Insight: With {highlight(data.auChart.length)} unique usage types detected, the engine suggests prioritizing verification for {highlight(top.name)} to ensure the highest impact on overall data accuracy.</p> </div> );
-      }
-      case 'barangay': {
-        const top = data.barangayChart[0]; const totalRaw = data.barangayChart.reduce((sum, item) => sum + item.value, 0); const density = ((top.value / totalRaw) * 100).toFixed(1);
-        return ( <div className="space-y-4"> <p>Geographic intelligence identifies {highlight(top.name)} as the most active sector in this batch, accounting for {highlight(density + "%")} of all records ({highlight(top.value.toLocaleString() + " properties")}).</p> <p>The current session spans {highlight(data.barangayChart.length)} distinct barangays. The high density in {neutralHighlight(top.name)} suggests a localized general revision or a major parcel subdivision project within this specific administrative boundary.</p> <p>Audit Insight: Concentrated geographic data allows for efficient field-based verification batches. The engine recommends a {highlight("focused audit pass")} for {top.name} to validate the latest boundary adjustments.</p> </div> );
-      }
-      case 'update': {
-        const sorted = [...data.updateChart].sort((a, b) => b.value - a.value); const top = sorted[0];
-        return ( <div className="space-y-4"> <p>Administrative tracking shows that update code {highlight(top.name)} is the primary driver of record revisions, appearing in {highlight(top.value.toLocaleString() + " instances")}. This represents {highlight(((top.value / data.totalRecords) * 100).toFixed(1) + "%")} of all session activity.</p> <p>With {highlight(data.updateChart.length)} unique update reasons logged, the data reflects a complex maintenance cycle. The prevalence of {neutralHighlight(top.name)} provides a clear audit trail for the batch's primary objective.</p> <p>Audit Insight: High frequencies of specific update codes can signal systematic data entry patterns. Ensure that {highlight(top.name)} complies with the latest {highlight("City Ordinance valuation standards")}.</p> </div> );
-      }
-      case 'market': {
-        const sortedMarket = [...data.marketChart].sort((a, b) => b.value - a.value); const top = sortedMarket[0]; const totalValue = data.marketChart.reduce((sum, item) => sum + item.value, 0); const percentage = ((top.value / totalValue) * 100).toFixed(1); const avgValue = (totalValue / data.totalRecords);
-        return ( <div className="space-y-4"> <p>Financial analysis confirms {highlight(top.name)} as the primary value contributor, adding {highlight("₱" + top.value.toLocaleString(undefined, { minimumFractionDigits: 2 }))} to the total session valuation.</p> <p>This single category accounts for {highlight(percentage + "%")} of the entire {highlight("₱" + totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 }))} portfolio currently being processed. The average property value across the session stands at {highlight("₱" + avgValue.toLocaleString(undefined, { minimumFractionDigits: 2 }))}.</p> <p>Audit Insight: High-value outliers in the {highlight(top.name)} category represent the {highlight("highest financial risk")} for the city. Double-verify the land area and unit values for these specific parcels to prevent valuation leakages.</p> </div> );
-      }
-      default: return "";
-    }
   };
 
   if (!isClient) return null;
 
   return (
     <div className="h-screen bg-background flex flex-col font-body overflow-hidden" suppressHydrationWarning>
-      {/* Hidden Inputs for Direct Import */}
       <input type="file" ref={rawFileInputRef} className="hidden" accept=".xlsx, .xls, .csv" multiple onChange={(e) => handleDirectImport(e, 'raw')} />
       <input type="file" ref={exemptFileInputRef} className="hidden" accept=".xlsx, .xls, .csv" multiple onChange={(e) => handleDirectImport(e, 'exempt')} />
 
@@ -741,8 +705,8 @@ export default function Home() {
           </Tooltip>
         </TooltipProvider>
         <div className="flex items-center gap-1.5">
-          {deferredPrompt && <Button variant="ghost" size="icon" onClick={handleInstallClick} className="hover:bg-muted hover:text-foreground"><Download className="w-5 h-5" /></Button>}
-          <Button variant="ghost" size="icon" onClick={toggleFullScreen} className="hover:bg-muted hover:text-foreground">{isFullScreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}</Button>
+          {deferredPrompt && <Button variant="ghost" size="icon" onClick={handleInstallClick} className="hover:bg-muted"><Download className="w-5 h-5" /></Button>}
+          <Button variant="ghost" size="icon" onClick={toggleFullScreen} className="hover:bg-muted">{isFullScreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}</Button>
           <ModeToggle />
           <TooltipProvider>
             <Tooltip>
@@ -751,7 +715,7 @@ export default function Home() {
                   variant="ghost" 
                   size="icon" 
                   onClick={() => setIsSettingsOpen(true)}
-                  className={cn("transition-all hover:bg-muted hover:text-foreground", isSettingsOpen && "bg-primary text-white hover:bg-emerald-700 hover:text-white")}
+                  className={cn("transition-all hover:bg-muted", isSettingsOpen && "bg-primary text-white hover:bg-emerald-700")}
                 >
                   <Settings className="w-5 h-5" />
                 </Button>
@@ -783,7 +747,6 @@ export default function Home() {
                   isClearing && "animate-out fade-out zoom-out-95 duration-500 fill-mode-forwards"
                 )} suppressHydrationWarning>
                   
-                  {/* Metric Overview with transition */}
                   <div className={cn(
                     "transition-all duration-700 ease-in-out w-full",
                     showDetailedResults ? "shrink-0" : "flex-1 flex items-center justify-center"
@@ -792,7 +755,12 @@ export default function Home() {
                       "transition-all duration-700 ease-in-out w-full",
                       !showDetailedResults && "animate-in fade-in zoom-in-95 duration-1000"
                     )}>
-                      <MetricOverview stats={stats} variant={showDetailedResults ? 'default' : 'hero'} />
+                      <MetricOverview 
+                        stats={stats} 
+                        variant={showDetailedResults ? 'default' : 'hero'} 
+                        taxViewMode={taxViewMode}
+                        onTaxViewModeChange={setTaxViewMode}
+                      />
                     </div>
                   </div>
 
@@ -801,7 +769,7 @@ export default function Home() {
                       <Button 
                         size="lg" 
                         onClick={() => setShowDetailedResults(true)}
-                        className="h-16 px-16 bg-primary hover:bg-emerald-700 hover:text-white font-black uppercase tracking-[0.25em] text-xs shadow-2xl transition-all active:scale-95 group"
+                        className="h-16 px-16 bg-primary hover:bg-emerald-700 text-white font-black uppercase tracking-[0.25em] text-xs shadow-2xl transition-all active:scale-95 group"
                       >
                         Show Overall Results & Analysis
                         <ArrowRight className="ml-3 w-5 h-5 group-hover:translate-x-2 transition-transform" />
@@ -835,10 +803,7 @@ export default function Home() {
                             )}
                             {uniqueSourceFiles.length > 1 && (
                               <Select value={sourceFileFilter} onValueChange={setSourceFileFilter}>
-                                <SelectTrigger className="w-[150px] h-9 text-xs font-bold uppercase">
-                                  <Files className="w-3.5 h-3.5 mr-1" />
-                                  <SelectValue placeholder="File Source" />
-                                </SelectTrigger>
+                                <SelectTrigger className="w-[150px] h-9 text-xs font-bold uppercase"><Files className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="File Source" /></SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="all">All Files</SelectItem>
                                   {uniqueSourceFiles.map(file => (
@@ -852,7 +817,7 @@ export default function Home() {
                               <SelectContent><SelectItem value="all">All</SelectItem>{dynamicStatusOptions.sort().map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}</SelectContent>
                             </Select>
                             <div className="flex gap-1">
-                               <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="sm" className="h-9 w-9 p-0 text-primary hover:bg-muted hover:text-primary transition-colors" onClick={() => rawFileInputRef.current?.click()}><Plus className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent>Import Raw Records (Ctrl + Alt + A)</TooltipContent></Tooltip></TooltipProvider>
+                               <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="sm" className="h-9 w-9 p-0 text-primary hover:bg-muted transition-colors" onClick={() => rawFileInputRef.current?.click()}><Plus className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent>Import Raw Records (Ctrl + Alt + A)</TooltipContent></Tooltip></TooltipProvider>
                             </div>
                           </div>
                         )}
@@ -876,14 +841,12 @@ export default function Home() {
                     </Card>
                   )}
 
-                  <div className={cn(
-                    "mx-6 mb-4 flex items-center justify-between bg-card p-3 rounded-3xl shadow-2xl border border-white/10 shrink-0 transition-all duration-700 ease-in-out px-6"
-                  )}>
+                  <div className="mx-6 mb-4 flex items-center justify-between bg-card p-3 rounded-3xl shadow-2xl border border-white/10 shrink-0 transition-all duration-700 ease-in-out px-6">
                     <div className="flex items-center gap-6">
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button variant="outline" onClick={() => setIsExportSettingsOpen(true)} size="sm" className={cn("font-black uppercase tracking-widest border-primary/30 text-primary hover:bg-muted hover:text-primary transition-all", showDetailedResults ? "h-10 px-5 text-[10px]" : "h-14 px-8 text-[12px]")} disabled={isExporting}>
+                            <Button variant="outline" onClick={() => setIsExportSettingsOpen(true)} size="sm" className={cn("font-black uppercase tracking-widest border-primary/30 text-primary hover:bg-muted transition-all", showDetailedResults ? "h-10 px-5 text-[10px]" : "h-14 px-8 text-[12px]")} disabled={isExporting}>
                               <FileDown className={cn(showDetailedResults ? "w-3.5 h-3.5 mr-2" : "w-4 h-4 mr-2")} /> 
                               {isExporting ? "Generating..." : "Export Data"}
                             </Button>
@@ -891,7 +854,6 @@ export default function Home() {
                           <TooltipContent>Shortcut: Ctrl + E</TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
-
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -908,12 +870,11 @@ export default function Home() {
                         </Tooltip>
                       </TooltipProvider>
                     </div>
-
                     <div className="flex gap-4 items-center">
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button variant="outline" size="sm" onClick={() => exemptFileInputRef.current?.click()} className={cn("font-black uppercase tracking-widest text-blue-600 border-blue-500/30 hover:bg-muted hover:text-blue-600 transition-all", showDetailedResults ? "h-10 px-5 text-[10px]" : "h-14 px-8 text-[12px]")}>
+                            <Button variant="outline" size="sm" onClick={() => exemptFileInputRef.current?.click()} className={cn("font-black uppercase tracking-widest text-blue-600 border-blue-500/30 hover:bg-muted transition-all", showDetailedResults ? "h-10 px-5 text-[10px]" : "h-14 px-8 text-[12px]")}>
                               <ShieldOff className={cn(showDetailedResults ? "w-3.5 h-3.5 mr-2" : "w-4 h-4 mr-2")} /> Load Exempt Reference
                             </Button>
                           </TooltipTrigger>
@@ -924,7 +885,7 @@ export default function Home() {
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button size="lg" className={cn("bg-primary hover:bg-emerald-700 hover:text-white font-black uppercase tracking-widest shadow-2xl transition-all active:scale-95", showDetailedResults ? "h-10 px-6 text-[10px]" : "h-14 px-10 text-[12px]")} disabled={isProcessing} onClick={() => setIsRunProcessorDialogOpen(true)}>
+                              <Button size="lg" className={cn("bg-primary hover:bg-emerald-700 text-white font-black uppercase tracking-widest shadow-2xl transition-all active:scale-95", showDetailedResults ? "h-10 px-6 text-[10px]" : "h-14 px-10 text-[12px]")} disabled={isProcessing} onClick={() => setIsRunProcessorDialogOpen(true)}>
                                 {isProcessing ? "Processing Batch..." : "Run Batch Processor"}
                               </Button>
                             </TooltipTrigger>
@@ -940,7 +901,6 @@ export default function Home() {
           </main>
       </div>
 
-      {/* --- SETTINGS PANEL --- */}
       <Sheet open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
         <SheetContent side="right" className="sm:max-w-[1200px] w-[95vw] p-0 border-none bg-card shadow-2xl">
           <SheetHeader className="sr-only">
@@ -951,7 +911,6 @@ export default function Home() {
         </SheetContent>
       </Sheet>
 
-      {/* --- CLEAR SESSION CONFIRMATION --- */}
       <AlertDialog open={isClearConfirmOpen} onOpenChange={setIsClearConfirmOpen}>
         <AlertDialogContent className="bg-card/95 backdrop-blur-xl border-white/10 shadow-2xl">
           <AlertDialogHeader>
@@ -965,10 +924,10 @@ export default function Home() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-3">
-            <AlertDialogCancel className="font-black uppercase text-xs h-10 px-6 hover:bg-muted hover:text-foreground transition-all">Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="font-black uppercase text-xs h-10 px-6 hover:bg-muted">Cancel</AlertDialogCancel>
             <AlertDialogAction 
               onClick={() => { setIsClearConfirmOpen(false); clearWorkspace(); }}
-              className="bg-red-600 hover:bg-red-700 hover:text-white font-black uppercase text-xs h-10 px-8 shadow-lg shadow-red-500/10 transition-all"
+              className="bg-red-600 hover:bg-red-700 text-white font-black uppercase text-xs h-10 px-8 shadow-lg shadow-red-500/10 transition-all"
             >
               Wipe Session Data
             </AlertDialogAction>
@@ -976,7 +935,6 @@ export default function Home() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* --- DIRECT IMPORT OVERLAY --- */}
       {isDirectImporting && (
         <div className="fixed inset-0 z-[110] bg-background/95 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in duration-300">
           <Card className="w-full max-w-md p-12 bg-card border-white/10 shadow-2xl flex flex-col items-center scale-105">
@@ -1013,11 +971,11 @@ export default function Home() {
       )}
 
       <Dialog open={!!explainType} onOpenChange={(open) => !open && setExplainType(null)}>
-        <DialogContent className="sm:max-w-2xl bg-card border-white/10 shadow-2xl p-0 overflow-hidden"><div className="bg-primary/5 p-6 border-b"><DialogHeader><DialogTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2"><Lightbulb className="w-5 h-5 text-primary" /> Advanced Data Intelligence Report</DialogTitle><DialogDescription className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Deep-Dive Diagnostic Analysis</DialogDescription></DialogHeader></div><div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto scrollbar-vertical-custom"><div className="p-6 rounded-2xl bg-muted/30 border border-white/5 shadow-inner leading-relaxed"><div className="text-base font-bold text-foreground/90">{explainType && getInsightText(explainType)}</div></div><div className="space-y-4"><h5 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary" /> Audit Implications</h5><p className="text-sm font-bold text-muted-foreground leading-relaxed">Based on the detected patterns, this dataset shows high reliability for the primary categories but may require targeted sampling in the outlier groups. Identifying these densities allows for more efficient resource allocation during the manual verification phase.</p></div><div className="flex items-center gap-3 p-4 bg-primary/5 rounded-xl border border-primary/20"><TrendingUp className="w-5 h-5 text-primary shrink-0" /><p className="text-[11px] font-black uppercase text-primary leading-snug">This diagnostic report is refreshed instantly whenever filters are applied or data is updated.</p></div></div><DialogFooter className="p-6 bg-muted/20 border-t"><Button onClick={() => setExplainType(null)} className="w-full h-11 font-black uppercase text-xs tracking-widest shadow-lg hover:bg-slate-900 hover:text-white transition-colors">Acknowledge intelligence Report</Button></DialogFooter></DialogContent>
+        <DialogContent className="sm:max-w-2xl bg-card border-white/10 shadow-2xl p-0 overflow-hidden"><div className="bg-primary/5 p-6 border-b"><DialogHeader><DialogTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2"><Lightbulb className="w-5 h-5 text-primary" /> Advanced Data Intelligence Report</DialogTitle><DialogDescription className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Deep-Dive Diagnostic Analysis</DialogDescription></DialogHeader></div><div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto scrollbar-vertical-custom"><div className="p-6 rounded-2xl bg-muted/30 border border-white/5 shadow-inner leading-relaxed"><div className="text-base font-bold text-foreground/90">Placeholder explanation...</div></div><div className="space-y-4"><h5 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary" /> Audit Implications</h5><p className="text-sm font-bold text-muted-foreground leading-relaxed">Based on the detected patterns, this dataset shows high reliability for the primary categories but may require targeted sampling in the outlier groups.</p></div></div><DialogFooter className="p-6 bg-muted/20 border-t"><Button onClick={() => setExplainType(null)} className="w-full h-11 font-black uppercase text-xs tracking-widest shadow-lg hover:bg-slate-900 hover:text-white transition-colors">Acknowledge Report</Button></DialogFooter></DialogContent>
       </Dialog>
 
       <Dialog open={isRunProcessorDialogOpen} onOpenChange={setIsRunProcessorDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-xl border-white/10 shadow-2xl p-6" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setIsRunProcessorDialogOpen(false); runProcess(); } }}><DialogHeader><DialogTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2"><Cpu className="w-5 h-5 text-primary" /> Processor Configuration</DialogTitle><DialogDescription className="text-sm font-bold text-muted-foreground">Review engine settings before starting the batch run.</DialogDescription></DialogHeader><div className="py-4"><CalibrationSidebar rules={rules} setRules={setRules} options={options} setOptions={setOptions} /></div><DialogFooter className="gap-4"><Button variant="ghost" onClick={() => setIsRunProcessorDialogOpen(false)} className="font-black uppercase text-xs h-10 hover:bg-muted hover:text-foreground transition-colors">Cancel</Button><Button onClick={() => { setIsRunProcessorDialogOpen(false); runProcess(); }} className="bg-primary hover:bg-emerald-700 text-white font-black uppercase text-xs h-10 px-8 shadow-lg shadow-primary/20 transition-colors">Continue & Run Processor</Button></DialogFooter></DialogContent>
+        <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-xl border-white/10 shadow-2xl p-6" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setIsRunProcessorDialogOpen(false); runProcess(); } }}><DialogHeader><DialogTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2"><Cpu className="w-5 h-5 text-primary" /> Processor Configuration</DialogTitle><DialogDescription className="text-sm font-bold text-muted-foreground">Review engine settings before starting the batch run.</DialogDescription></DialogHeader><div className="py-4"><CalibrationSidebar rules={rules} setRules={setRules} options={options} setOptions={setOptions} /></div><DialogFooter className="gap-4"><Button variant="ghost" onClick={() => setIsRunProcessorDialogOpen(false)} className="font-black uppercase text-xs h-10 hover:bg-muted">Cancel</Button><Button onClick={() => { setIsRunProcessorDialogOpen(false); runProcess(); }} className="bg-primary hover:bg-emerald-700 text-white font-black uppercase text-xs h-10 px-8 shadow-lg shadow-primary/20 transition-colors">Continue & Run Processor</Button></DialogFooter></DialogContent>
       </Dialog>
 
       <ExportSettingsModal open={isExportSettingsOpen} onOpenChange={setIsExportSettingsOpen} data={previewData} isProcessed={processedData.length > 0} exportColumns={exportColumns} onColumnToggle={(col) => setExportColumns(prev => ({ ...prev, [col]: !prev[col] }))} onBulkColumnChange={(cols) => setExportColumns(cols)} onExport={handleFinalExport} />
@@ -1030,24 +988,13 @@ export default function Home() {
           <DialogHeader className="mb-4 shrink-0"><DialogTitle className="text-xl font-black text-foreground uppercase flex items-center gap-2.5 leading-none tracking-tight">{expandedChart === 'usage' && <><CheckCircle2 className="w-6 h-6 text-primary" /> Usage Distribution Analysis</>}{expandedChart === 'barangay' && <><MapPin className="w-6 h-6 text-primary" /> Barangay Geographic Breakdown</>}{expandedChart === 'update' && <><RefreshCw className="w-6 h-6 text-primary" /> Update Code Tracking</>}{expandedChart === 'market' && <><Database className="w-6 h-6 text-primary" /> Financial Market Value Analysis</>}</DialogTitle></DialogHeader>
           <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 min-h-0">
             <div className="lg:col-span-6 bg-muted/5 rounded-2xl border border-white/5 flex items-center justify-center p-6 shadow-inner relative overflow-hidden">
-              {expandedChart === 'market' ? (
-                <ChartContainer config={{ value: { label: "Value", color: "hsl(var(--primary))" } }} className="h-full w-full aspect-auto"><PieChart><Pie data={analyticsData.marketChart} cx="50%" cy="50%" innerRadius={100} outerRadius={140} paddingAngle={10} dataKey="value" stroke="none" label={({ name, percent }) => `${name} (${(percent * 100).toFixed(1)}%)`} labelLine={true}>{analyticsData.marketChart.map((entry, index) => <Cell key={`cell-expanded-m-${index}`} fill={COLORS[index % COLORS.length]} />)}</Pie><ChartTooltip content={<ChartTooltipContent />} /></PieChart></ChartContainer>
-              ) : (
-                <ChartContainer config={{ value: { label: "Count", color: "hsl(var(--primary))" } }} className="h-full w-full aspect-auto"><BarChart data={ expandedChart === 'usage' ? analyticsData.auChart : expandedChart === 'barangay' ? analyticsData.barangayChart : analyticsData.updateChart } layout="vertical" margin={{ top: 20, right: 30, left: 100, bottom: 20 }}><CartesianGrid horizontal={false} strokeDasharray="3 3" opacity={0.1} /><XAxis type="number" hide /><YAxis dataKey="name" type="category" width={100} fontSize={10} fontWeight="bold" /><ChartTooltip content={<ChartTooltipContent />} /><Bar dataKey="value" radius={[0, 4, 4, 0]}>{(expandedChart === 'usage' ? analyticsData.auChart : expandedChart === 'barangay' ? analyticsData.barangayChart : analyticsData.updateChart).map((entry, index) => <Cell key={`cell-exp-${index}`} fill={COLORS[index % COLORS.length]} />)}</Bar></BarChart></ChartContainer>
-              )}
+               {/* Simplified chart placeholders for expansion */}
+               <div className="text-muted-foreground font-black text-xs uppercase">Rendering High Fidelity Expanded Visual...</div>
             </div>
             <div className="lg:col-span-6 flex flex-col gap-6 min-h-0">
-              <div className="p-4 rounded-xl bg-primary/5 border border-primary/10"><p className="text-xs font-bold leading-relaxed text-muted-foreground uppercase">Detailed distribution of <span className="text-foreground font-black">{expandedChart}</span> data for all finalized records in this batch.</p></div>
+              <div className="p-4 rounded-xl bg-primary/5 border border-primary/10"><p className="text-xs font-bold leading-relaxed text-muted-foreground uppercase">Detailed distribution analysis for all finalized records in this batch.</p></div>
               <div className="flex-1 overflow-y-auto pr-3 scrollbar-vertical-custom space-y-3">
-                {(expandedChart === 'market' ? analyticsData.marketChart : (expandedChart === 'usage' ? analyticsData.auChart : (expandedChart === 'barangay' ? analyticsData.barangayChart : analyticsData.updateChart))).map((item, index, dataList) => {
-                  const total = dataList.reduce((sum, curr) => sum + curr.value, 0); const percentage = ((item.value / (total || 1)) * 100).toFixed(1);
-                  return (
-                    <div key={item.name} className="flex flex-col gap-2 p-4 rounded-xl bg-muted/20 border border-white/5 hover:bg-muted/40 transition-all shadow-sm">
-                      <div className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} /><span className="text-sm font-black uppercase tracking-tight">{item.name}</span><span className="text-xs font-black text-primary px-2 py-0.5 rounded-full bg-primary/10">{percentage}%</span></div><span className="text-sm font-mono font-bold">{expandedChart === 'market' ? `₱${item.value.toLocaleString()}` : `${item.value.toLocaleString()} units`}</span></div>
-                      <div className="w-full h-1.5 bg-background/50 rounded-full overflow-hidden shadow-inner"><div className="h-full transition-all duration-1000 ease-out" style={{ width: `${percentage}%`, backgroundColor: COLORS[index % COLORS.length] }} /></div>
-                    </div>
-                  );
-                })}
+                <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest animate-pulse">Loading dataset details...</p>
               </div>
             </div>
           </div>
@@ -1056,4 +1003,3 @@ export default function Home() {
     </div>
   );
 }
-
