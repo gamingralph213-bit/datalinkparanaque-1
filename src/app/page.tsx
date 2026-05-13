@@ -852,8 +852,16 @@ export default function Home() {
                             )}
                             {uniqueSourceFiles.length > 1 && (
                               <Select value={sourceFileFilter} onValueChange={setSourceFileFilter}>
-                                <SelectTrigger className="w-[150px] h-9 text-xs font-bold uppercase"><Files className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="File Source" /></SelectTrigger>
-                                <SelectContent><SelectItem value="all">All Files</SelectItem>{uniqueSourceFiles.map(file => (<SelectItem key={file} value={file}>{file}</SelectItem>))}</SelectContent>
+                                <SelectTrigger className="w-[150px] h-9 text-xs font-bold uppercase">
+                                  <Files className="w-3.5 h-3.5 mr-1" />
+                                  <SelectValue placeholder="File Source" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">All Files</SelectItem>
+                                  {uniqueSourceFiles.map(file => (
+                                    <SelectItem key={file} value={file}>{file}</SelectItem>
+                                  ))}
+                                </SelectContent>
                               </Select>
                             )}
                             <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -890,9 +898,9 @@ export default function Home() {
                   )}>
                     <div className="flex gap-4 items-center">
                       <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="outline" onClick={() => setIsExportSettingsOpen(true)} size="sm" className={cn("font-black uppercase tracking-widest border-primary/30 text-primary hover:bg-muted hover:text-primary transition-all", showDetailedResults ? "h-10 px-5 text-[10px]" : "h-14 px-8 text-[12px]")} disabled={isExporting}><FileDown className={cn(showDetailedResults ? "w-3.5 h-3.5 mr-2" : "w-4 h-4 mr-2")} /> {isExporting ? "Generating..." : "Export Data"}</Button></TooltipTrigger><TooltipContent>Shortcut: Ctrl + E</TooltipContent></Tooltip></TooltipProvider>
-                      <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => exemptFileInputRef.current?.click()} className={cn("font-black uppercase tracking-widest text-blue-600 border-blue-500/30 hover:bg-muted hover:text-blue-600 transition-all", showDetailedResults ? "h-10 px-5 text-[10px]" : "h-14 px-8 text-[12px]")}><ShieldOff className={cn(showDetailedResults ? "w-3.5 h-3.5 mr-2" : "w-4 h-4 mr-2")} /> Load Exempt Reference</Button></TooltipTrigger><TooltipContent>Load data to be treated as Tax Exempt</TooltipContent></Tooltip></TooltipProvider>
                     </div>
                     <div className="flex gap-4 items-center">
+                      <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => exemptFileInputRef.current?.click()} className={cn("font-black uppercase tracking-widest text-blue-600 border-blue-500/30 hover:bg-muted hover:text-blue-600 transition-all", showDetailedResults ? "h-10 px-5 text-[10px]" : "h-14 px-8 text-[12px]")}><ShieldOff className={cn(showDetailedResults ? "w-3.5 h-3.5 mr-2" : "w-4 h-4 mr-2")} /> Load Exempt Reference</Button></TooltipTrigger><TooltipContent>Load data to be treated as Tax Exempt</TooltipContent></Tooltip></TooltipProvider>
                       {viewMode !== 'analytics' && viewMode !== 'audit' && (
                         <TooltipProvider><Tooltip><TooltipTrigger asChild><Button size="lg" className={cn("bg-primary hover:bg-emerald-700 hover:text-white font-black uppercase tracking-widest shadow-2xl transition-all active:scale-95", showDetailedResults ? "h-10 px-6 text-[10px]" : "h-14 px-10 text-[12px]")} disabled={isProcessing} onClick={() => setIsRunProcessorDialogOpen(true)}>{isProcessing ? "Processing Batch..." : "Run Batch Processor"}</Button></TooltipTrigger><TooltipContent>Shortcut: Ctrl + Enter</TooltipContent></Tooltip></TooltipProvider>
                       )}
