@@ -839,6 +839,7 @@ export default function Home() {
                             </Select>
                             <div className="flex gap-1">
                                <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="sm" className="h-9 w-9 p-0 text-primary hover:bg-muted transition-colors" onClick={() => rawFileInputRef.current?.click()}><Plus className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent>Import Raw Records (Ctrl + Alt + A)</TooltipContent></Tooltip></TooltipProvider>
+                               <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="sm" className="h-9 w-9 p-0 text-blue-600 hover:bg-muted transition-colors" onClick={() => exemptFileInputRef.current?.click()}><ShieldOff className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent>Load Exempt Reference</TooltipContent></Tooltip></TooltipProvider>
                             </div>
                           </div>
                         )}
@@ -892,16 +893,28 @@ export default function Home() {
                       </TooltipProvider>
                     </div>
                     <div className="flex gap-4 items-center">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button variant="outline" size="sm" onClick={() => exemptFileInputRef.current?.click()} className={cn("font-black uppercase tracking-widest text-blue-600 border-blue-500/30 hover:bg-muted transition-all", showDetailedResults ? "h-10 px-5 text-[10px]" : "h-14 px-8 text-[12px]")}>
-                              <ShieldOff className={cn(showDetailedResults ? "w-3.5 h-3.5 mr-2" : "w-4 h-4 mr-2")} /> Load Exempt Reference
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Load data to be treated as Tax Exempt</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <div className="flex gap-2 items-center bg-muted/10 p-1 rounded-2xl border border-white/5">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="sm" onClick={() => rawFileInputRef.current?.click()} className={cn("font-black uppercase tracking-widest text-primary hover:bg-primary/10 transition-all", showDetailedResults ? "h-10 px-5 text-[10px]" : "h-14 px-8 text-[12px]")}>
+                                <Plus className={cn(showDetailedResults ? "w-3.5 h-3.5 mr-2" : "w-4 h-4 mr-2")} /> Import Records
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Add more property records (Ctrl + Alt + A)</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="sm" onClick={() => exemptFileInputRef.current?.click()} className={cn("font-black uppercase tracking-widest text-blue-600 hover:bg-blue-500/10 transition-all", showDetailedResults ? "h-10 px-5 text-[10px]" : "h-14 px-8 text-[12px]")}>
+                                <ShieldOff className={cn(showDetailedResults ? "w-3.5 h-3.5 mr-2" : "w-4 h-4 mr-2")} /> Load Exempt
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Load data to be treated as Tax Exempt</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
                       {viewMode !== 'analytics' && viewMode !== 'audit' && (
                         <TooltipProvider>
                           <Tooltip>
