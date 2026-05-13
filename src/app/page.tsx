@@ -5,7 +5,6 @@ import React, { useState, useEffect, useMemo, useTransition, useCallback, useRef
 import Image from 'next/image';
 import { 
   FileDown, 
-  Eraser, 
   Settings,
   Archive,
   CheckCircle2,
@@ -19,11 +18,9 @@ import {
   MapPin,
   RefreshCw,
   Lightbulb,
-  TrendingUp,
   Loader2,
   Check,
   FileSpreadsheet,
-  ArrowLeft,
   BookUser,
   ShieldOff,
   Cpu,
@@ -31,9 +28,12 @@ import {
   Files,
   Plus,
   BarChart3,
-  LayoutDashboard,
   ArrowRight,
-  Trash2
+  Trash2,
+  MoreVertical,
+  ChevronDown,
+  X,
+  FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -77,15 +77,20 @@ import {
   AlertDialogHeader, 
   AlertDialogTitle 
 } from '@/components/ui/alert-dialog';
-import { BarChart, Bar, XAxis, YAxis, Cell, Pie, PieChart, CartesianGrid } from 'recharts';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { cn } from '@/lib/utils';
+import { 
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ExportSettingsModal, ExportFinalSettings } from '@/components/dashboard/export-settings-modal';
 import { useNotification } from '@/contexts/NotificationContext';
 import { SettingsOverlay } from '@/components/dashboard/settings-overlay';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { parseFile } from '@/lib/importer';
+import { cn } from '@/lib/utils';
+import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 // Sub-components
 import { MetricOverview } from '@/components/dashboard/metric-overview';
@@ -107,8 +112,6 @@ const defaultTaxRates: TaxRateMap = {
   "SPC5": { assessmentLevel: 0.15, taxRate: 0.025 },
 };
 
-const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#f97316'];
-
 type ProcessingStep = 'idle' | 'cleanup' | 'dedupe' | 'calibrate' | 'complete';
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -126,6 +129,10 @@ export default function Home() {
   const [locationSettings, setLocationSettings] = useState<BarangayConfig[]>(initialLocationSettings);
   const [taxRates, setTaxRates] = useState<TaxRateMap>(defaultTaxRates);
   const [processingReports, setProcessingReports] = useState<ProcessingReport[]>([]);
+
+  // --- 1.1 MANIFEST STATE (Import Managers) ---
+  const [rawFileManifest, setRawFileManifest] = useState<{ name: string, count: number }[]>([]);
+  const [exemptFileManifest, setExemptFileManifest] = useState<{ name: string, count: number, pins: Set<string> }[]>([]);
 
   // --- 2. UI & MODAL STATE ---
   const [isClient, setIsClient] = useState(false);
@@ -432,6 +439,8 @@ export default function Home() {
     setProcessedData([]);
     setPreviewData([]);
     setExemptPins(new Set());
+    setRawFileManifest([]);
+    setExemptFileManifest([]);
     setSearchQuery("");
     setImportedFileName("");
     setSourceFileFilter("all");
@@ -457,13 +466,23 @@ export default function Home() {
   const handleDataImported = (imported: LandRecord[], fileName: string, rawCount: number, mode: 'raw' | 'exempt' = 'raw') => {
     const updatedExemptPins = new Set(exemptPins);
     if (mode === 'exempt') {
-      imported.forEach(r => { if (r.pin) updatedExemptPins.add(r.pin.trim()); });
+      const pinsFromThisFile = new Set<string>();
+      imported.forEach(r => { 
+        if (r.pin) {
+          const pin = r.pin.trim();
+          updatedExemptPins.add(pin);
+          pinsFromThisFile.add(pin);
+        } 
+      });
       setExemptPins(updatedExemptPins);
+      setExemptFileManifest(prev => [...prev, { name: fileName, count: imported.length, pins: pinsFromThisFile }]);
+    } else {
+      setRawFileManifest(prev => [...prev, { name: fileName, count: rawCount }]);
     }
     
     // Only append to records if it's raw data
     const isAppending = rawData.length > 0;
-    const newData = (mode === 'raw') ? (isAppending ? [...rawData, ...imported] : imported) : rawData;
+    const newData = (mode === 'raw') ? [...rawData, ...imported] : rawData;
     
     let newFileName = fileName;
     if (isAppending && mode === 'raw') {
@@ -493,6 +512,41 @@ export default function Home() {
       title: mode === 'exempt' ? "Exempt Data Integrated" : (isAppending ? "Data Appended" : "Data Loaded"), 
       description: mode === 'exempt' ? `${imported.length} records integrated and indexed as Exempt reference.` : `${rawCount} records from ${fileName} imported successfully.` 
     });
+  };
+
+  const deleteFile = (fileName: string, mode: 'raw' | 'exempt') => {
+    if (mode === 'raw') {
+      const newRawData = rawData.filter(r => r.sourceFile !== fileName);
+      setRawData(newRawData);
+      setRawFileManifest(prev => prev.filter(f => f.name !== fileName));
+      
+      // Update preview
+      const { allWithDuplicateMarkers } = processRecords(newRawData, [], locationSettings, taxRates, { removeDuplicates: false, applyCalibration: false, systemCleanup: false }, importedFileName, exemptPins);
+      setPreviewData(allWithDuplicateMarkers);
+      setProcessedData([]); // Force re-process
+
+      if (newRawData.length === 0) {
+        setShowDetailedResults(false);
+        setImportedFileName("");
+      }
+    } else {
+      const fileToDelete = exemptFileManifest.find(f => f.name === fileName);
+      if (!fileToDelete) return;
+      
+      const newExemptFiles = exemptFileManifest.filter(f => f.name !== fileName);
+      setExemptFileManifest(newExemptFiles);
+      
+      // Rebuild exempt pins set
+      const newExemptPins = new Set<string>();
+      newExemptFiles.forEach(f => f.pins.forEach(pin => newExemptPins.add(pin)));
+      setExemptPins(newExemptPins);
+      
+      // Re-validate current raw data with new pins
+      const { allWithDuplicateMarkers } = processRecords(rawData, [], locationSettings, taxRates, { removeDuplicates: false, applyCalibration: false, systemCleanup: false }, importedFileName, newExemptPins);
+      setPreviewData(allWithDuplicateMarkers);
+      setProcessedData([]); // Force re-process
+    }
+    toast({ title: "File Removed", description: `${fileName} has been removed from the session.` });
   };
 
   const handleDirectImport = async (e: React.ChangeEvent<HTMLInputElement>, mode: 'raw' | 'exempt') => {
@@ -690,6 +744,70 @@ export default function Home() {
     finally { setIsExporting(false); }
   };
 
+  const ImportManager = ({ mode, manifest, onAdd, onDelete }: { mode: 'raw' | 'exempt', manifest: any[], onAdd: () => void, onDelete: (name: string) => void }) => (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className={cn(
+            "font-black uppercase tracking-widest transition-all gap-2", 
+            showDetailedResults ? "h-10 px-5 text-[10px]" : "h-14 px-8 text-[12px]",
+            mode === 'raw' ? "border-primary/30 text-primary hover:bg-primary/10" : "border-blue-500/30 text-blue-600 hover:bg-blue-500/10"
+          )}
+        >
+          {mode === 'raw' ? <BookUser className="w-4 h-4" /> : <ShieldOff className="w-4 h-4" />}
+          {mode === 'raw' ? "Import Records" : "Load Exempt"}
+          <ChevronDown className="w-3.5 h-3.5 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0 bg-card/95 backdrop-blur-xl border-white/10 shadow-2xl rounded-2xl overflow-hidden" align="end">
+        <div className="p-4 bg-muted/30 border-b flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {mode === 'raw' ? <BookUser className="w-4 h-4 text-primary" /> : <ShieldOff className="w-4 h-4 text-blue-600" />}
+            <span className="text-[10px] font-black uppercase tracking-widest">{mode === 'raw' ? "Raw File Manager" : "Exempt File Manager"}</span>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onAdd} className="h-7 px-2 text-[9px] font-black uppercase tracking-widest bg-primary/10 text-primary hover:bg-primary hover:text-white">
+            <Plus className="w-3 h-3 mr-1" /> Add File
+          </Button>
+        </div>
+        <ScrollArea className="h-[250px]">
+          {manifest.length === 0 ? (
+            <div className="p-10 text-center flex flex-col items-center justify-center opacity-30">
+              <Files className="w-8 h-8 mb-2" />
+              <p className="text-[9px] font-black uppercase tracking-widest">No Files Loaded</p>
+            </div>
+          ) : (
+            <div className="p-2 space-y-1">
+              {manifest.map((file, i) => (
+                <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-muted/10 border border-white/5 group hover:bg-muted/30 transition-all">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-black uppercase truncate pr-2">{file.name}</p>
+                      <p className="text-[9px] font-bold text-muted-foreground uppercase">{file.count} Records</p>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => onDelete(file.name)}
+                    className="h-8 w-8 text-muted-foreground hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+        <div className="p-3 bg-muted/30 border-t flex items-center justify-between">
+          <span className="text-[9px] font-black text-muted-foreground uppercase">Total records: {manifest.reduce((sum, f) => sum + f.count, 0).toLocaleString()}</span>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+
   if (!isClient) return null;
 
   return (
@@ -864,7 +982,7 @@ export default function Home() {
                   )}
 
                   <div className="mx-6 mb-4 flex items-center justify-between bg-card p-3 rounded-3xl shadow-2xl border border-white/10 shrink-0 transition-all duration-700 ease-in-out px-6">
-                    <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-4">
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -893,28 +1011,18 @@ export default function Home() {
                       </TooltipProvider>
                     </div>
                     <div className="flex gap-4 items-center">
-                      <div className="flex gap-2 items-center bg-muted/10 p-1 rounded-2xl border border-white/5">
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="sm" onClick={() => rawFileInputRef.current?.click()} className={cn("font-black uppercase tracking-widest text-primary hover:bg-primary/10 transition-all", showDetailedResults ? "h-10 px-5 text-[10px]" : "h-14 px-8 text-[12px]")}>
-                                <Plus className={cn(showDetailedResults ? "w-3.5 h-3.5 mr-2" : "w-4 h-4 mr-2")} /> Import Records
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Add more property records (Ctrl + Alt + A)</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="sm" onClick={() => exemptFileInputRef.current?.click()} className={cn("font-black uppercase tracking-widest text-blue-600 hover:bg-blue-500/10 transition-all", showDetailedResults ? "h-10 px-5 text-[10px]" : "h-14 px-8 text-[12px]")}>
-                                <ShieldOff className={cn(showDetailedResults ? "w-3.5 h-3.5 mr-2" : "w-4 h-4 mr-2")} /> Load Exempt
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Load data to be treated as Tax Exempt</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </div>
+                      <ImportManager 
+                        mode="raw" 
+                        manifest={rawFileManifest} 
+                        onAdd={() => rawFileInputRef.current?.click()} 
+                        onDelete={(name) => deleteFile(name, 'raw')} 
+                      />
+                      <ImportManager 
+                        mode="exempt" 
+                        manifest={exemptFileManifest} 
+                        onAdd={() => exemptFileInputRef.current?.click()} 
+                        onDelete={(name) => deleteFile(name, 'exempt')} 
+                      />
                       {viewMode !== 'analytics' && viewMode !== 'audit' && (
                         <TooltipProvider>
                           <Tooltip>
@@ -994,7 +1102,7 @@ export default function Home() {
 
       {isProcessing && processingStep !== 'idle' && (
         <div className="fixed inset-0 z-[100] bg-background/80 backdrop-blur-xl flex flex-col items-center justify-center animate-in fade-in duration-300">
-          <Card className="w-full max-w-md p-10 bg-card border-white/10 shadow-2xl flex flex-col items-center scale-105"><div className="relative flex items-center justify-center mb-8"><Loader2 className="w-16 h-16 text-primary animate-spin" /><div className="absolute inset-0 flex items-center justify-center"><Cpu className="w-6 h-6 text-primary" /></div></div><h3 className="text-2xl font-black text-foreground uppercase tracking-tight mb-8">Engine Initializing...</h3><div className="w-full space-y-4">{[ { step: 'cleanup', label: '1. System Cleanup', icon: Eraser }, { step: 'dedupe', label: '2. Deduplication', icon: Archive }, { step: 'calibrate', label: '3. Calibration', icon: Cpu } ].map((item) => (<div key={item.step} className="flex items-center justify-between p-4 rounded-xl bg-muted/20 border border-white/5"><div className="flex items-center gap-3"><div className={cn("w-6 h-6 rounded-full flex items-center justify-center transition-all", processingStep === item.step ? "bg-primary/20 text-primary animate-pulse" : (processingStep !== 'idle' && processingStep !== 'cleanup' && (item.step === 'cleanup' || (processingStep === 'calibrate' && item.step === 'dedupe') || processingStep === 'complete') ? "bg-primary text-white" : "bg-muted text-muted-foreground"))}>{processingStep !== 'idle' && processingStep !== 'cleanup' && (item.step === 'cleanup' || (processingStep === 'calibrate' && item.step === 'dedupe') || processingStep === 'complete') ? <Check className="w-3.5 h-3.5" /> : <item.icon className="w-3.5 h-3.5" />}</div><span className={cn("text-xs font-black uppercase tracking-widest", processingStep === item.step ? "text-primary" : "text-muted-foreground")}>{item.label}</span></div>{processingStep === item.step && <span className="text-[10px] font-bold text-primary animate-pulse uppercase">⏳ Running</span>}{processingStep !== 'idle' && processingStep !== 'cleanup' && (item.step === 'cleanup' || (processingStep === 'calibrate' && item.step === 'dedupe') || processingStep === 'complete') && <span className="text-[10px] font-bold text-primary uppercase">✔ Done</span>}</div>))}</div><p className="mt-8 text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em] animate-pulse">Validating Parañaque Land Records</p></Card>
+          <Card className="w-full max-w-md p-10 bg-card border-white/10 shadow-2xl flex flex-col items-center scale-105"><div className="relative flex items-center justify-center mb-8"><Loader2 className="w-16 h-16 text-primary animate-spin" /><div className="absolute inset-0 flex items-center justify-center"><Cpu className="w-6 h-6 text-primary" /></div></div><h3 className="text-2xl font-black text-foreground uppercase tracking-tight mb-8">Engine Initializing...</h3><div className="w-full space-y-4">{[ { step: 'cleanup', label: '1. System Cleanup', icon: RefreshCw }, { step: 'dedupe', label: '2. Deduplication', icon: Archive }, { step: 'calibrate', label: '3. Calibration', icon: Cpu } ].map((item) => (<div key={item.step} className="flex items-center justify-between p-4 rounded-xl bg-muted/20 border border-white/5"><div className="flex items-center gap-3"><div className={cn("w-6 h-6 rounded-full flex items-center justify-center transition-all", processingStep === item.step ? "bg-primary/20 text-primary animate-pulse" : (processingStep !== 'idle' && processingStep !== 'cleanup' && (item.step === 'cleanup' || (processingStep === 'calibrate' && item.step === 'dedupe') || processingStep === 'complete') ? "bg-primary text-white" : "bg-muted text-muted-foreground"))}>{processingStep !== 'idle' && processingStep !== 'cleanup' && (item.step === 'cleanup' || (processingStep === 'calibrate' && item.step === 'dedupe') || processingStep === 'complete') ? <Check className="w-3.5 h-3.5" /> : <item.icon className="w-3.5 h-3.5" />}</div><span className={cn("text-xs font-black uppercase tracking-widest", processingStep === item.step ? "text-primary" : "text-muted-foreground")}>{item.label}</span></div>{processingStep === item.step && <span className="text-[10px] font-bold text-primary animate-pulse uppercase">⏳ Running</span>}{processingStep !== 'idle' && processingStep !== 'cleanup' && (item.step === 'cleanup' || (processingStep === 'calibrate' && item.step === 'dedupe') || processingStep === 'complete') && <span className="text-[10px] font-bold text-primary uppercase">✔ Done</span>}</div>))}</div><p className="mt-8 text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em] animate-pulse">Validating Parañaque Land Records</p></Card>
         </div>
       )}
 
@@ -1044,3 +1152,4 @@ export default function Home() {
     </div>
   );
 }
+
