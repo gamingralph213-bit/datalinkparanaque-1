@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useTransition, useCallback, useRef } from 'react';
@@ -33,7 +34,8 @@ import {
   ChevronDown,
   X,
   FileText,
-  LayoutDashboard
+  LayoutDashboard,
+  ArrowUpDown
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -177,6 +179,7 @@ export default function Home() {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [taxViewMode, setTaxViewMode] = useState<'T' | 'E'>('T');
+  const [sortBy, setSortBy] = useState<'pin' | 'arpNo'>('pin');
 
   // --- 3. REFS FOR DIRECT IMPORT ---
   const rawFileInputRef = useRef<HTMLInputElement>(null);
@@ -324,7 +327,11 @@ export default function Home() {
       return record.statusLabel === statusFilter;
     });
 
-    const sorted = [...filtered].sort((a, b) => (a.pin || '').localeCompare(b.pin || ''));
+    const sorted = [...filtered].sort((a, b) => {
+      const fieldA = sortBy === 'pin' ? (a.pin || '') : (a.arpNo || '');
+      const fieldB = sortBy === 'pin' ? (b.pin || '') : (b.arpNo || '');
+      return fieldA.localeCompare(fieldB);
+    });
 
     if (viewMode === 'archive' && (statusFilter === 'all' || statusFilter === 'DUPLICATE')) {
       const finalWithComparisons: LandRecord[] = [];
@@ -340,7 +347,7 @@ export default function Home() {
       return finalWithComparisons;
     }
     return sorted;
-  }, [previewData, processedData, viewMode, searchQuery, searchField, statusFilter, sourceFileFilter, barangayFilter]);
+  }, [previewData, processedData, viewMode, searchQuery, searchField, statusFilter, sourceFileFilter, barangayFilter, sortBy]);
 
   // Initialization & Storage Load
   useEffect(() => {
@@ -557,7 +564,7 @@ export default function Home() {
     }
     
     toast({ 
-      title: mode === 'exempt' ? "Exempt Data Integrated" : (isAppending ? "Data Appended" : "Data Loaded"), 
+      title: mode === 'exempt' ? "Exempt Data Integrated" : (isAppending ? "Data Loaded" : "Data Loaded"), 
       description: mode === 'exempt' ? `${imported.length} records integrated and indexed as Exempt reference.` : `${rawCount} records from ${fileName} imported successfully.` 
     });
   };
@@ -685,8 +692,11 @@ export default function Home() {
       });
 
       const sortedForExport = [...filteredForExport].sort((a, b) => {
-         const pinCompare = (a.pin || '').localeCompare(b.pin || '');
-         if (pinCompare !== 0) return pinCompare;
+         const fieldA = settings.sortBy === 'pin' ? (a.pin || '') : (a.arpNo || '');
+         const fieldB = settings.sortBy === 'pin' ? (b.pin || '') : (b.arpNo || '');
+         const fieldCompare = fieldA.localeCompare(fieldB);
+         
+         if (fieldCompare !== 0) return fieldCompare;
          // Ensure REF (injected or real) comes before DUP
          const isARef = a.isComparisonInjected || a.duplicateWithReference === 'REF';
          const isBRef = b.isComparisonInjected || b.duplicateWithReference === 'REF';
@@ -1071,6 +1081,16 @@ export default function Home() {
                                 <SelectContent><SelectItem value="all">All Files</SelectItem>{uniqueSourceFiles.map(file => (<SelectItem key={file} value={file}>{file}</SelectItem>))}</SelectContent>
                               </Select>
                             )}
+                            <Select value={sortBy} onValueChange={(val: any) => { setSortBy(val); setStatusFilter('all'); }}>
+                              <SelectTrigger className="w-[160px] h-9 text-xs font-bold uppercase">
+                                <ArrowUpDown className="w-3.5 h-3.5 mr-1" />
+                                <SelectValue placeholder="Sort By" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pin">Sort by PIN</SelectItem>
+                                <SelectItem value="arpNo">Sort by ARP No#</SelectItem>
+                              </SelectContent>
+                            </Select>
                             <Select value={statusFilter} onValueChange={setStatusFilter}>
                               <SelectTrigger className="w-[160px] h-9 text-xs font-bold uppercase"><Filter className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="Status" /></SelectTrigger>
                               <SelectContent><SelectItem value="all">All</SelectItem>{dynamicStatusOptions.sort().map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}</SelectContent>
@@ -1269,7 +1289,7 @@ export default function Home() {
         <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-xl border-white/10 shadow-2xl p-6" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setIsRunProcessorDialogOpen(false); runProcess(); } }}><DialogHeader><DialogTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2"><Cpu className="w-5 h-5 text-primary" /> Processor Configuration</DialogTitle><DialogDescription className="text-sm font-bold text-muted-foreground">Review engine settings before starting the batch run.</DialogDescription></DialogHeader><div className="py-4"><CalibrationSidebar rules={rules} setRules={setRules} options={options} setOptions={setOptions} /></div><DialogFooter className="gap-4"><Button variant="ghost" onClick={() => setIsRunProcessorDialogOpen(false)} className="font-black uppercase text-xs h-10 hover:bg-muted">Cancel</Button><Button onClick={() => { setIsRunProcessorDialogOpen(false); runProcess(); }} className="bg-primary hover:bg-emerald-700 text-white font-black uppercase text-xs h-10 px-8 shadow-lg shadow-primary/20 transition-colors">Continue & Run Processor</Button></DialogFooter></DialogContent>
       </Dialog>
 
-      <ExportSettingsModal open={isExportSettingsOpen} onOpenChange={setIsExportSettingsOpen} data={previewData} isProcessed={processedData.length > 0} exportColumns={exportColumns} onColumnToggle={(col) => setExportColumns(prev => ({ ...prev, [col]: !prev[col] }))} onBulkColumnChange={(cols) => setExportColumns(cols)} onExport={handleFinalExport} />
+      <ExportSettingsModal initialSortBy={sortBy} open={isExportSettingsOpen} onOpenChange={setIsExportSettingsOpen} data={previewData} isProcessed={processedData.length > 0} exportColumns={exportColumns} onColumnToggle={(col) => setExportColumns(prev => ({ ...prev, [col]: !prev[col] }))} onBulkColumnChange={(cols) => setExportColumns(cols)} onExport={handleFinalExport} />
       <AboutModal open={isAboutOpen} onOpenChange={setIsAboutOpen} />
       <ProcessingReportModal report={latestReport} open={isReportOpen} onOpenChange={setIsReportOpen} />
       <RecordDetailModal record={selectedRecord} comparisonRecord={comparisonRecord} open={!!selectedRecord} onOpenChange={(isOpen) => { if (!isOpen) { setSelectedRecord(null); setComparisonRecord(null); } }} onSave={handleSaveRecord} onArchive={handleArchiveRecord} onUnarchive={handleUnarchiveRecord} />

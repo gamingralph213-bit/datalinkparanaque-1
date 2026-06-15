@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -21,7 +22,8 @@ import {
   Trash2,
   HelpCircle,
   Shapes,
-  ShieldCheck
+  ShieldCheck,
+  ArrowUpDown
 } from 'lucide-react';
 import { LandRecord, RecordStatusType } from '@/lib/processor';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +33,7 @@ import {
   PopoverContent, 
   PopoverTrigger 
 } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 
 interface ExportSettingsModalProps {
   open: boolean;
@@ -41,6 +44,7 @@ interface ExportSettingsModalProps {
   onColumnToggle: (col: string) => void;
   onBulkColumnChange?: (cols: Record<string, boolean>) => void;
   onExport: (settings: ExportFinalSettings) => void;
+  initialSortBy?: 'pin' | 'arpNo';
 }
 
 export interface ExportFinalSettings {
@@ -49,6 +53,7 @@ export interface ExportFinalSettings {
   statuses: RecordStatusType[];
   kinds: string[];
   taxabilities: ('T' | 'E')[];
+  sortBy: 'pin' | 'arpNo';
 }
 
 const columnLabels = [
@@ -72,12 +77,14 @@ export function ExportSettingsModal({
   exportColumns,
   onColumnToggle,
   onBulkColumnChange,
-  onExport
+  onExport,
+  initialSortBy = 'pin'
 }: ExportSettingsModalProps) {
-  const [selectedBarangays, setSelectedBarangays] = React.useState<string[]>([]);
-  const [selectedStatuses, setSelectedStatuses] = React.useState<RecordStatusType[]>([]);
-  const [selectedKinds, setSelectedKinds] = React.useState<string[]>([]);
-  const [selectedTaxabilities, setSelectedTaxabilities] = React.useState<('T' | 'E')[]>([]);
+  const [selectedBarangays, setSelectedBarangays] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<RecordStatusType[]>([]);
+  const [selectedKinds, setSelectedKinds] = useState<string[]>([]);
+  const [selectedTaxabilities, setSelectedTaxabilities] = useState<('T' | 'E')[]>([]);
+  const [localSortBy, setLocalSortBy] = useState<'pin' | 'arpNo'>(initialSortBy);
 
   const availableBarangays = useMemo(() => {
     const set = new Set<string>();
@@ -116,11 +123,12 @@ export function ExportSettingsModal({
     [availableStatuses]
   );
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (open) {
       setSelectedBarangays(availableBarangays);
       setSelectedKinds(availableKinds);
       setSelectedTaxabilities(availableTaxabilities);
+      setLocalSortBy(initialSortBy);
       if (onBulkColumnChange) {
         const allCols = { ...exportColumns };
         columnLabels.forEach(col => allCols[col] = true);
@@ -128,7 +136,7 @@ export function ExportSettingsModal({
       }
       setSelectedStatuses([]);
     }
-  }, [open, availableBarangays, availableKinds, availableTaxabilities]);
+  }, [open, availableBarangays, availableKinds, availableTaxabilities, initialSortBy]);
 
   const toggleBarangay = (brgy: string) => {
     setSelectedBarangays(prev => 
@@ -200,7 +208,8 @@ export function ExportSettingsModal({
       barangays: selectedBarangays,
       statuses: selectedStatuses,
       kinds: selectedKinds,
-      taxabilities: selectedTaxabilities
+      taxabilities: selectedTaxabilities,
+      sortBy: localSortBy
     });
   };
   
@@ -346,23 +355,30 @@ export function ExportSettingsModal({
 
               <section className="space-y-4">
                 <h3 className="text-sm font-black uppercase text-primary tracking-[0.15em] flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4" /> Financial Status
+                  <ArrowUpDown className="w-4 h-4" /> Record Arrangement
                 </h3>
-                <Card className="bg-muted/10 p-5 shadow-inner border-white/5 h-full">
-                  <div className="space-y-3">
-                    {['T', 'E'].map(tax => (
-                      <div key={tax} className="flex items-center gap-3 group">
-                        <Checkbox 
-                          id={`exp-tax-${tax}`} 
-                          checked={selectedTaxabilities.includes(tax as any)} 
-                          onCheckedChange={() => toggleTaxability(tax as any)}
-                          className="w-4.5 h-4.5"
-                        />
-                        <label htmlFor={`exp-tax-${tax}`} className="text-[11px] font-black cursor-pointer truncate uppercase select-none text-foreground/80 group-hover:text-primary transition-colors">
-                          {tax === 'T' ? 'Taxable (T)' : 'Exempted (E)'}
-                        </label>
-                      </div>
-                    ))}
+                <Card className="bg-muted/10 p-5 shadow-inner border-white/5 h-full flex flex-col justify-center gap-4">
+                  <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setLocalSortBy('pin')}>
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all",
+                      localSortBy === 'pin' ? "border-primary bg-primary" : "border-primary/40"
+                    )}>
+                      {localSortBy === 'pin' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </div>
+                    <span className={cn("text-[11px] font-black uppercase transition-colors", localSortBy === 'pin' ? "text-primary" : "text-foreground/70 group-hover:text-primary")}>
+                      Arrange by PIN (Geographic)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setLocalSortBy('arpNo')}>
+                    <div className={cn(
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all",
+                      localSortBy === 'arpNo' ? "border-primary bg-primary" : "border-primary/40"
+                    )}>
+                      {localSortBy === 'arpNo' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </div>
+                    <span className={cn("text-[11px] font-black uppercase transition-colors", localSortBy === 'arpNo' ? "text-primary" : "text-foreground/70 group-hover:text-primary")}>
+                      Arrange by ARP No# (Admin)
+                    </span>
                   </div>
                 </Card>
               </section>
@@ -449,7 +465,7 @@ export function ExportSettingsModal({
             <Button variant="ghost" onClick={() => onOpenChange(false)} className="font-black uppercase text-xs tracking-widest px-8 h-12 flex-1 sm:flex-none hover:bg-muted hover:text-foreground">Discard</Button>
             <Button 
               onClick={handleExport} 
-              disabled={selectedBarangays.length === 0 || selectedStatuses.length === 0 || selectedKinds.length === 0 || selectedTaxabilities.length === 0 || estimatedRecordCount === 0}
+              disabled={selectedBarangays.length === 0 || selectedStatuses.length === 0 || selectedKinds.length === 0 || estimatedRecordCount === 0}
               className="bg-primary hover:bg-emerald-700 text-white font-black uppercase text-xs tracking-widest px-12 h-12 shadow-2xl shadow-primary/20 flex-1 sm:flex-none transition-colors"
             >
               <FileDown className="w-4 h-4 mr-2" /> Generate File
@@ -460,3 +476,4 @@ export function ExportSettingsModal({
     </Dialog>
   );
 }
+
