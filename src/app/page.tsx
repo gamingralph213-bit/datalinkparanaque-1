@@ -656,15 +656,44 @@ export default function Home() {
     setIsExporting(true); setIsExportSettingsOpen(false);
     try {
       await delay(1500);
-      const filteredForExport = previewData.filter(r => 
+      const baseFilteredForExport = previewData.filter(r => 
         settings.barangays.includes(r.barangayName || 'UNMAPPED') && 
         settings.statuses.includes(r.statusLabel || 'VALID' as any) &&
         settings.kinds.includes(r.kind?.trim().toUpperCase() || '') &&
         settings.taxabilities.includes(r.taxability || 'T')
       );
-      if (filteredForExport.length === 0) { toast({ variant: "destructive", title: "Export Failed", description: "No records match your selected export criteria." }); setIsExporting(false); return; }
+
+      if (baseFilteredForExport.length === 0) { toast({ variant: "destructive", title: "Export Failed", description: "No records match your selected export criteria." }); setIsExporting(false); return; }
       
-      const sortedForExport = [...filteredForExport].sort((a, b) => (a.pin || '').localeCompare(b.pin || ''));
+      // CONFLICT COMPARISON LOGIC: If exporting DUPs, inject their REFs for context
+      const filteredForExport: LandRecord[] = [];
+      const includedIds = new Set<string>();
+
+      baseFilteredForExport.forEach(record => {
+        if (record.statusLabel === 'DUPLICATE' && !includedIds.has(record.id!)) {
+           // Find matching reference
+           const validPeer = previewData.find(p => p.pin === record.pin && !p.isDuplicate && !p.isCleanup && !p.isManualArchive);
+           if (validPeer && !includedIds.has(validPeer.id!)) {
+              filteredForExport.push({ ...validPeer, isComparisonInjected: true });
+              includedIds.add(validPeer.id!);
+           }
+        }
+        if (!includedIds.has(record.id!)) {
+          filteredForExport.push(record);
+          includedIds.add(record.id!);
+        }
+      });
+
+      const sortedForExport = [...filteredForExport].sort((a, b) => {
+         const pinCompare = (a.pin || '').localeCompare(b.pin || '');
+         if (pinCompare !== 0) return pinCompare;
+         // Ensure REF (injected or real) comes before DUP
+         const isARef = a.isComparisonInjected || a.duplicateWithReference === 'REF';
+         const isBRef = b.isComparisonInjected || b.duplicateWithReference === 'REF';
+         if (isARef && !isBRef) return -1;
+         if (!isARef && isBRef) return 1;
+         return 0;
+      });
       
       const taxableRecords = sortedForExport.filter(r => r.taxability === 'T');
       const exemptRecords = sortedForExport.filter(r => r.taxability === 'E');
@@ -685,7 +714,7 @@ export default function Home() {
       const eAV29 = sum(exemptRecords, 'assessedValue2029');
 
       const headerMapping: Record<string, string> = { 
-        duplicateWithReference: "TYPE",
+        isComparisonInjected: "TYPE", // Mapped to our helper logic in generation
         date: "DATE", 
         arpNo: "ARP NO#", 
         pin: "PIN", 
@@ -713,7 +742,8 @@ export default function Home() {
         const row: any = {};
         Object.entries(headerMapping).forEach(([key, label]) => { 
           if (settings.columns[label]) {
-            if (label === "UNIT VALUE") row[label] = processedData.length > 0 ? record.unitValue2029 : record.unitValue2028;
+            if (label === "TYPE") row[label] = record.isComparisonInjected || record.duplicateWithReference === 'REF' ? "REF" : "DUP";
+            else if (label === "UNIT VALUE") row[label] = processedData.length > 0 ? record.unitValue2029 : record.unitValue2028;
             else if (label === "MARKET VALUE") row[label] = processedData.length > 0 ? record.marketValue2029 : record.marketValue2028;
             else if (label === "ASSESSED VALUE") row[label] = processedData.length > 0 ? record.assessedValue2029 : record.assessedValue2028;
             else if (label === "YEARLY TAX") row[label] = processedData.length > 0 ? record.yearlyTax2029 : record.yearlyTax2028;
