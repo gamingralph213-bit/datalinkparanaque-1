@@ -23,7 +23,8 @@ import {
   HelpCircle,
   Shapes,
   ShieldCheck,
-  ArrowUpDown
+  ArrowUpDown,
+  Percent
 } from 'lucide-react';
 import { LandRecord, RecordStatusType } from '@/lib/processor';
 import { Badge } from '@/components/ui/badge';
@@ -257,7 +258,6 @@ export function ExportSettingsModal({
         </div>
 
         <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-12 gap-0 px-0">
-          {/* LEFT SIDE - Columns Selection */}
           <div className="lg:col-span-4 flex flex-col gap-6 p-8 overflow-y-auto scrollbar-vertical-custom border-r border-white/5">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-black uppercase text-primary tracking-[0.15em] flex items-center gap-2">
@@ -296,7 +296,6 @@ export function ExportSettingsModal({
             </Card>
           </div>
 
-          {/* RIGHT SIDE - Advanced Filters */}
           <div className="lg:col-span-8 flex flex-col p-8 overflow-y-auto scrollbar-vertical-custom gap-10">
             <section className="space-y-4">
               <div className="flex items-center justify-between">
@@ -329,7 +328,7 @@ export function ExportSettingsModal({
               </Card>
             </section>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <section className="space-y-4">
                 <h3 className="text-sm font-black uppercase text-primary tracking-[0.15em] flex items-center gap-2">
                   <Shapes className="w-4 h-4" /> Property Kind
@@ -346,6 +345,29 @@ export function ExportSettingsModal({
                         />
                         <label htmlFor={`exp-kind-${kind}`} className="text-[11px] font-black cursor-pointer truncate uppercase select-none text-foreground/80 group-hover:text-primary transition-colors">
                           {KIND_LABELS[kind] || kind}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </section>
+
+              <section className="space-y-4">
+                <h3 className="text-sm font-black uppercase text-primary tracking-[0.15em] flex items-center gap-2">
+                  <Percent className="w-4 h-4" /> Financial Status
+                </h3>
+                <Card className="bg-muted/10 p-5 shadow-inner border-white/5 h-full">
+                  <div className="space-y-3">
+                    {availableTaxabilities.map(tax => (
+                      <div key={tax} className="flex items-center gap-3 group">
+                        <Checkbox 
+                          id={`exp-tax-${tax}`} 
+                          checked={selectedTaxabilities.includes(tax)} 
+                          onCheckedChange={() => toggleTaxability(tax)}
+                          className="w-4.5 h-4.5"
+                        />
+                        <label htmlFor={`exp-tax-${tax}`} className="text-[11px] font-black cursor-pointer truncate uppercase select-none text-foreground/80 group-hover:text-primary transition-colors">
+                          {tax === 'T' ? 'Taxable (T)' : 'Exempted (E)'}
                         </label>
                       </div>
                     ))}
@@ -465,7 +487,7 @@ export function ExportSettingsModal({
             <Button variant="ghost" onClick={() => onOpenChange(false)} className="font-black uppercase text-xs tracking-widest px-8 h-12 flex-1 sm:flex-none hover:bg-muted hover:text-foreground">Discard</Button>
             <Button 
               onClick={handleExport} 
-              disabled={selectedBarangays.length === 0 || selectedStatuses.length === 0 || selectedKinds.length === 0 || estimatedRecordCount === 0}
+              disabled={selectedBarangays.length === 0 || selectedStatuses.length === 0 || selectedKinds.length === 0 || selectedTaxabilities.length === 0 || estimatedRecordCount === 0}
               className="bg-primary hover:bg-emerald-700 text-white font-black uppercase text-xs tracking-widest px-12 h-12 shadow-2xl shadow-primary/20 flex-1 sm:flex-none transition-colors"
             >
               <FileDown className="w-4 h-4 mr-2" /> Generate File
@@ -476,4 +498,3 @@ export function ExportSettingsModal({
     </Dialog>
   );
 }
-
