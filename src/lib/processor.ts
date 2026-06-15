@@ -68,7 +68,7 @@ export interface LandRecord {
   sourceFile?: string; // Track original file in batch processing
   statusLabel?: RecordStatusType; // Specific labeling for UI
   rawRow?: any; // CRITICAL: Stores the 1:1 original source data for recovery
-  duplicateWithReference?: string; // New: Link between duplicate and primary
+  duplicateWithReference?: string; // Internal: Link between duplicate and primary
 }
 
 export interface CalibrationRule {
@@ -308,18 +308,18 @@ export function processRecords(
       const existing = pinToBestRecord.get(record.pin);
       if (!existing) { 
         pinToBestRecord.set(record.pin, { index: idx, arpVal: currentArpVal, arpNo: record.arpNo }); 
-        record.duplicateWithReference = "[VALID REFERENCE]";
+        record.duplicateWithReference = "REF";
       }
       else {
         if (currentArpVal > existing.arpVal) {
           result[existing.index].isDuplicate = true;
-          result[existing.index].duplicateWithReference = `[ARCHIVED DUPLICATE] -> Ref ARP: ${record.arpNo}`;
+          result[existing.index].duplicateWithReference = "DUP";
           pinToBestRecord.set(record.pin, { index: idx, arpVal: currentArpVal, arpNo: record.arpNo });
           record.isDuplicate = false;
-          record.duplicateWithReference = "[VALID REFERENCE]";
+          record.duplicateWithReference = "REF";
         } else { 
           record.isDuplicate = true; 
-          record.duplicateWithReference = `[ARCHIVED DUPLICATE] -> Ref ARP: ${existing.arpNo}`;
+          record.duplicateWithReference = "DUP";
         }
       }
     });

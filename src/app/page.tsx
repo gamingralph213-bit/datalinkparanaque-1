@@ -202,12 +202,12 @@ export default function Home() {
   });
   
   const defaultExportColumns = {
-    "DATE": true, "ARP NO#": true, "PIN": true, "NEW ARP NO#": true, "UPDATE": true, "TAXABILITY": true,
+    "TYPE": true, "DATE": true, "ARP NO#": true, "PIN": true, "NEW ARP NO#": true, "UPDATE": true, "TAXABILITY": true,
     "ACCTNAME": true, "ADDRESS": true, "LOCATION": true, "KIND": true,
     "AU": true, "LAND AREA": true, "UNIT VALUE (2028)": true, "MARKET VALUE (2028)": true,
     "ASSESSED VALUE (2028)": true, "YEARLY TAX (2028 CAP)": true,
     "UNIT VALUE": true, "MARKET VALUE": true,
-    "ASSESSED VALUE": true, "YEARLY TAX": true, "DUPLICATE WITH REFERENCE": true
+    "ASSESSED VALUE": true, "YEARLY TAX": true
   };
   const [exportColumns, setExportColumns] = useState<Record<string, boolean>>(defaultExportColumns);
 
@@ -647,6 +647,7 @@ export default function Home() {
     setSelectedRecord(record); 
     if (record.statusLabel === 'DUPLICATE') {
       const validPeer = previewData.find(p => p.pin === record.pin && !p.isDuplicate && !p.isCleanup && !p.isManualArchive);
+      setSelectedRecord({ ...record, duplicateWithReference: validPeer?.arpNo || "N/A" });
       setComparisonRecord(validPeer || null);
     } else { setComparisonRecord(null); }
   }, [previewData]);
@@ -684,6 +685,7 @@ export default function Home() {
       const eAV29 = sum(exemptRecords, 'assessedValue2029');
 
       const headerMapping: Record<string, string> = { 
+        duplicateWithReference: "TYPE",
         date: "DATE", 
         arpNo: "ARP NO#", 
         pin: "PIN", 
@@ -703,8 +705,7 @@ export default function Home() {
         unitValue: "UNIT VALUE", 
         marketValue: "MARKET VALUE", 
         assessedValue: "ASSESSED VALUE", 
-        yearlyTax: "YEARLY TAX",
-        duplicateWithReference: "DUPLICATE WITH REFERENCE"
+        yearlyTax: "YEARLY TAX"
       };
 
       const activeHeaders = Object.values(headerMapping).filter(h => settings.columns[h]);
@@ -1188,7 +1189,7 @@ export default function Home() {
 
       {isProcessing && processingStep !== 'idle' && (
         <div className="fixed inset-0 z-[100] bg-background/80 backdrop-blur-xl flex flex-col items-center justify-center animate-in fade-in duration-300">
-          <Card className="w-full max-w-md p-10 bg-card border-white/10 shadow-2xl flex flex-col items-center scale-105"><div className="relative flex items-center justify-center mb-8"><Loader2 className="w-16 h-16 text-primary animate-spin" /><div className="absolute inset-0 flex items-center justify-center"><Cpu className="w-6 h-6 text-primary" /></div></div><h3 className="text-2xl font-black text-foreground uppercase tracking-tight mb-8">Engine Initializing...</h3><div className="w-full space-y-4">{[ { step: 'cleanup', label: '1. System Cleanup', icon: RefreshCw }, { step: 'dedupe', label: '2. Deduplication', icon: Archive }, { step: 'calibrate', label: '3. Calibration', icon: Cpu } ].map((item) => (<div key={item.step} className="flex items-center justify-between p-4 rounded-xl bg-muted/20 border border-white/5"><div className="flex items-center gap-3"><div className={cn("w-6 h-6 rounded-full flex items-center justify-center transition-all", processingStep === item.step ? "bg-primary/20 text-primary animate-pulse" : (processingStep !== 'idle' && processingStep !== 'cleanup' && (item.step === 'cleanup' || (processingStep === 'calibrate' && item.step === 'dedupe') || processingStep === 'complete') ? "bg-primary text-white" : "bg-muted text-muted-foreground"))}>{processingStep !== 'idle' && processingStep !== 'cleanup' && (item.step === 'cleanup' || (processingStep === 'calibrate' && item.step === 'dedupe') || processingStep === 'complete') ? <Check className="w-3.5 h-3.5" /> : <item.icon className="w-3.5 h-3.5" />}</div><span className={cn("text-xs font-black uppercase tracking-widest", processingStep === item.step ? "text-primary" : "text-muted-foreground")}>{item.label}</span></div>{processingStep === item.step && <span className="text-[10px] font-bold text-primary animate-pulse uppercase">⏳ Running</span>}{processingStep !== 'idle' && processingStep !== 'cleanup' && (item.step === 'cleanup' || (processingStep === 'calibrate' && item.step === 'dedupe') || processingStep === 'complete') && <span className="text-[10px] font-bold text-primary uppercase">✔ Done</span>}</div>))}</div><p className="mt-8 text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em] animate-pulse">Validating Parañaque Land Records</p></Card>
+          <Card className="w-full max-w-md p-10 bg-card border-white/10 shadow-2xl flex flex-col items-center scale-105"><div className="relative flex items-center justify-center mb-8"><Loader2 className="w-16 h-16 text-primary animate-spin" /><div className="absolute inset-0 flex items-center justify-center"><Cpu className="w-6 h-6 text-primary" /></div></div><h3 className="text-2xl font-black text-foreground uppercase tracking-tight mb-8">Engine Initializing...</h3><div className="w-full space-y-4">{[ { step: 'cleanup', label: '1. System Cleanup', icon: RefreshCw }, { step: 'dedupe', label: '2. Deduplication', icon: Archive }, { step: 'calibrate', label: '3. Calibration', icon: Cpu } ].map((item) => (<div key={item.step} className="flex items-center justify-between p-4 rounded-xl bg-muted/20 border border-white/5"><div className="flex items-center gap-3"><div className={cn("w-6 h-6 rounded-full flex items-center justify-center transition-all", processingStep === item.step ? "bg-primary/20 text-primary animate-pulse" : (processingStep !== 'idle' && processingStep !== 'cleanup' && (item.step === 'cleanup' || (processingStep === 'calibrate' && item.step === 'dedupe') || processingStep === 'complete') ? "bg-primary text-white" : "bg-muted text-muted-foreground"))}>{processingStep !== 'idle' && processingStep !== 'cleanup' && (item.step === 'cleanup' || (processingStep === 'calibrate' && item.step === 'dedupe') || processingStep === 'complete') ? <TableIcon className="w-3.5 h-3.5" /> : <item.icon className="w-3.5 h-3.5" />}</div><span className={cn("text-xs font-black uppercase tracking-widest", processingStep === item.step ? "text-primary" : "text-muted-foreground")}>{item.label}</span></div>{processingStep === item.step && <span className="text-[10px] font-bold text-primary animate-pulse uppercase">⏳ Running</span>}{processingStep !== 'idle' && processingStep !== 'cleanup' && (item.step === 'cleanup' || (processingStep === 'calibrate' && item.step === 'dedupe') || processingStep === 'complete') && <span className="text-[10px] font-bold text-primary uppercase">✔ Done</span>}</div>))}</div><p className="mt-8 text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em] animate-pulse">Validating Parañaque Land Records</p></Card>
         </div>
       )}
 
@@ -1238,7 +1239,6 @@ export default function Home() {
       </Dialog>
 
       <ExportSettingsModal open={isExportSettingsOpen} onOpenChange={setIsExportSettingsOpen} data={previewData} isProcessed={processedData.length > 0} exportColumns={exportColumns} onColumnToggle={(col) => setExportColumns(prev => ({ ...prev, [col]: !prev[col] }))} onBulkColumnChange={(cols) => setExportColumns(cols)} onExport={handleFinalExport} />
-      <AboutModal open={isAboutOpen} onOpenChange={setIsAboutOpen} />
       <AboutModal open={isAboutOpen} onOpenChange={setIsAboutOpen} />
       <ProcessingReportModal report={latestReport} open={isReportOpen} onOpenChange={setIsReportOpen} />
       <RecordDetailModal record={selectedRecord} comparisonRecord={comparisonRecord} open={!!selectedRecord} onOpenChange={(isOpen) => { if (!isOpen) { setSelectedRecord(null); setComparisonRecord(null); } }} onSave={handleSaveRecord} onArchive={handleArchiveRecord} onUnarchive={handleUnarchiveRecord} />

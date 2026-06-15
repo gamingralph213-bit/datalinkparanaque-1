@@ -77,6 +77,12 @@ const RecordRow = memo(({
   const displayAssessedValue = isProcessed ? (row.assessedValue2029 ?? row.assessedValue) : row.assessedValue2028;
   const displayYearlyTax = isProcessed ? (row.yearlyTax2029 ?? row.yearlyTax) : row.yearlyTax2028;
 
+  const getTypeLabel = () => {
+    if (row.isComparisonInjected || row.duplicateWithReference === 'REF') return "REF";
+    if (row.isDuplicate || row.duplicateWithReference === 'DUP') return "DUP";
+    return index + 1;
+  };
+
   return (
     <TableRow 
       onClick={() => onRowClick(row)}
@@ -88,10 +94,10 @@ const RecordRow = memo(({
       )}
     >
       <TableCell className={cn(
-        "text-center font-mono text-muted-foreground p-3 border-r bg-muted/5",
-        row.isComparisonInjected && "text-emerald-700 font-black text-[10px]"
+        "text-center font-black p-3 border-r bg-muted/5",
+        (row.isComparisonInjected || row.duplicateWithReference === 'REF') ? "text-emerald-600 text-[10px] tracking-widest" : "text-muted-foreground font-mono"
       )}>
-        {row.isComparisonInjected ? "REF" : index + 1}
+        {getTypeLabel()}
       </TableCell>
       <TableCell className="whitespace-nowrap p-3">{row.date || '---'}</TableCell>
       <TableCell className={cn(
@@ -181,6 +187,7 @@ const RecordRow = memo(({
     prevProps.row.unitValue2029 === nextProps.row.unitValue2029 &&
     prevProps.row.isComparisonInjected === nextProps.row.isComparisonInjected &&
     prevProps.row.newArpNo === nextProps.row.newArpNo &&
+    prevProps.row.duplicateWithReference === nextProps.row.duplicateWithReference &&
     prevProps.isProcessed === nextProps.isProcessed &&
     prevProps.index === nextProps.index
   );
