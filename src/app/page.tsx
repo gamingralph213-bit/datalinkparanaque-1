@@ -1068,30 +1068,30 @@ export default function Home() {
                           <TabsTrigger value="audit" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white h-9 text-xs font-bold px-4"><ShieldCheck className="w-3.5 h-3.5 mr-2" /> Audit Log</TabsTrigger>
                         </TabsList>
                         {viewMode !== 'analytics' && viewMode !== 'audit' && (
-                          <div className="flex flex-1 items-center gap-2 w-full max-w-[950px]">
-                            <div className="flex items-center gap-2 flex-1">
+                          <div className="flex flex-1 items-center gap-2 w-full max-w-[1400px]">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
                               <Select value={searchField} onValueChange={setSearchField}>
-                                <SelectTrigger className="w-[120px] h-9 text-xs font-bold uppercase"><SelectValue placeholder="In" /></SelectTrigger>
+                                <SelectTrigger className="w-[120px] h-9 text-xs font-bold uppercase shrink-0"><SelectValue placeholder="In" /></SelectTrigger>
                                 <SelectContent><SelectItem value="all">All Fields</SelectItem><SelectItem value="date">Date</SelectItem><SelectItem value="arpNo">ARP No#</SelectItem><SelectItem value="pin">PIN</SelectItem><SelectItem value="acctName">Account</SelectItem><SelectItem value="address">Address</SelectItem><SelectItem value="update">Update</SelectItem><SelectItem value="taxability">Taxability</SelectItem><SelectItem value="kind">Kind</SelectItem><SelectItem value="au">AU</SelectItem></SelectContent>
                               </Select>
-                              <div className="relative flex-1">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input placeholder={`Search property records...`} className="pl-9 text-sm h-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                              <div className="relative flex-1 min-w-0">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input placeholder={`Search property records...`} className="pl-9 text-sm h-9 w-full" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                               </div>
                             </div>
                             {uniqueBarangays.length > 1 && (
                               <Select value={barangayFilter} onValueChange={setBarangayFilter}>
-                                <SelectTrigger className="w-[180px] h-9 text-xs font-bold uppercase"><MapPin className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="Barangay" /></SelectTrigger>
+                                <SelectTrigger className="w-[180px] h-9 text-xs font-bold uppercase shrink-0"><MapPin className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="Barangay" /></SelectTrigger>
                                 <SelectContent><SelectItem value="all">All Barangays</SelectItem>{uniqueBarangays.map(brgy => (<SelectItem key={brgy} value={brgy}>{brgy}</SelectItem>))}</SelectContent>
                               </Select>
                             )}
                             {uniqueSourceFiles.length > 1 && (
                               <Select value={sourceFileFilter} onValueChange={setSourceFileFilter}>
-                                <SelectTrigger className="w-[150px] h-9 text-xs font-bold uppercase"><Files className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="File Source" /></SelectTrigger>
+                                <SelectTrigger className="w-[150px] h-9 text-xs font-bold uppercase shrink-0"><Files className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="File Source" /></SelectTrigger>
                                 <SelectContent><SelectItem value="all">All Files</SelectItem>{uniqueSourceFiles.map(file => (<SelectItem key={file} value={file}>{file}</SelectItem>))}</SelectContent>
                               </Select>
                             )}
                             <Select value={sortBy} onValueChange={(val: any) => { setSortBy(val); setStatusFilter('all'); }}>
-                              <SelectTrigger className="w-[160px] h-9 text-xs font-bold uppercase">
+                              <SelectTrigger className="w-[160px] h-9 text-xs font-bold uppercase shrink-0">
                                 <ArrowUpDown className="w-3.5 h-3.5 mr-1" />
                                 <SelectValue placeholder="Sort By" />
                               </SelectTrigger>
@@ -1101,10 +1101,10 @@ export default function Home() {
                               </SelectContent>
                             </Select>
                             <Select value={statusFilter} onValueChange={setStatusFilter}>
-                              <SelectTrigger className="w-[160px] h-9 text-xs font-bold uppercase"><Filter className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="Status" /></SelectTrigger>
+                              <SelectTrigger className="w-[160px] h-9 text-xs font-bold uppercase shrink-0"><Filter className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="Status" /></SelectTrigger>
                               <SelectContent><SelectItem value="all">All</SelectItem>{dynamicStatusOptions.sort().map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>))}</SelectContent>
                             </Select>
-                            <div className="flex gap-2 items-center">
+                            <div className="flex gap-2 items-center shrink-0">
                               <ImportManager 
                                 mode="raw" 
                                 manifest={rawFileManifest} 
