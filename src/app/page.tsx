@@ -894,42 +894,53 @@ export default function Home() {
     finally { setIsExporting(false); }
   };
 
-  const handleAbstractExport = async (settings?: AbstractExportSettings) => {
+  const handleAbstractExport = async (settings: AbstractExportSettings) => {
     setIsExporting(true);
     try {
       await delay(1500);
       
-      let baseData = joinedAbstractData;
+      let baseData = [...joinedAbstractData];
 
-      // Apply Filters if Modal settings provided
-      if (settings) {
-        const start = settings.startDate ? startOfDay(new Date(settings.startDate)) : null;
-        const end = settings.endDate ? endOfDay(new Date(settings.endDate)) : null;
+      const start = settings.startDate ? startOfDay(new Date(settings.startDate)) : null;
+      const end = settings.endDate ? endOfDay(new Date(settings.endDate)) : null;
 
-        baseData = baseData.filter(record => {
-          if (settings.linkedOnly && !record.isJoined) return false;
-          if (start || end) {
-            const parseRecordDate = (dateStr: string) => {
-              if (!dateStr) return null;
-              const formats = ['MM/dd/yyyy', 'M/d/yyyy', 'yyyy-MM-dd', 'MM-dd-yyyy'];
-              for (const fmt of formats) {
-                const parsed = parse(dateStr.trim(), fmt, new Date());
-                if (isValid(parsed)) return parsed;
-              }
-              const fb = new Date(dateStr.trim());
-              return isValid(fb) ? fb : null;
-            };
-            const recDate = parseRecordDate(record.date);
-            if (!recDate) return false;
-            if (start && recDate < start) return false;
-            if (end && recDate > end) return false;
-          }
-          const kind = (record.kind || '').trim().toUpperCase();
-          if (!settings.kinds.includes(kind)) return false;
-          if (!settings.taxabilities.includes(record.taxability)) return false;
-          if (!settings.selectedBarangays.includes(record.location || 'UNMAPPED')) return false;
-          return true;
+      // Helper to parse date for filtering/sorting
+      const parseRecordDate = (dateStr: string) => {
+        if (!dateStr) return null;
+        const cleaned = dateStr.trim();
+        const formats = ['MM/dd/yyyy', 'M/d/yyyy', 'yyyy-MM-dd', 'MM-dd-yyyy'];
+        for (const fmt of formats) {
+          const parsed = parse(cleaned, fmt, new Date());
+          if (isValid(parsed)) return parsed;
+        }
+        const fallback = new Date(cleaned);
+        return isValid(fallback) ? fallback : null;
+      };
+
+      // Apply Filters
+      baseData = baseData.filter(record => {
+        if (settings.linkedOnly && !record.isJoined) return false;
+        if (start || end) {
+          const recDate = parseRecordDate(record.date);
+          if (!recDate) return false;
+          if (start && recDate < start) return false;
+          if (end && recDate > end) return false;
+        }
+        const kind = (record.kind || '').trim().toUpperCase();
+        if (!settings.kinds.includes(kind)) return false;
+        if (!settings.taxabilities.includes(record.taxability)) return false;
+        return true;
+      });
+
+      // Apply Sorting
+      if (settings.sortBy === 'date') {
+        baseData.sort((a, b) => {
+          const dateA = parseRecordDate(a.date)?.getTime() || 0;
+          const dateB = parseRecordDate(b.date)?.getTime() || 0;
+          return dateA - dateB;
         });
+      } else {
+        baseData.sort((a, b) => (a.arpNo || '').localeCompare(b.arpNo || ''));
       }
       
       if (baseData.length === 0) {
@@ -1075,7 +1086,7 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="flex-1 flex-col flex overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden">
           <main className="flex-1 flex flex-col p-6 overflow-hidden gap-4 min-h-0">
             <Tabs value={viewMode} onValueChange={(val: any) => { setViewMode(val); setStatusFilter('all'); }} className="flex-1 flex flex-col min-h-0">
               {workflowMode === 'idle' && viewMode !== 'audit' ? (
