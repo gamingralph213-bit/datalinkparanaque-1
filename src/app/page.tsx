@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useTransition, useCallback, useRef } from 'react';
@@ -326,7 +327,7 @@ export default function Home() {
 
     const normalizedExemptPins = new Set(Array.from(exemptPins).map(p => normalizePin(p)));
 
-    // Mapping
+    // Mapping - Ensure full original date is preserved for logic
     const joined = journals.map(j => {
       const pinNorm = normalizePin(j.pin);
       const rollMatch = rollLookup.get(pinNorm) || null;
@@ -349,7 +350,7 @@ export default function Home() {
     });
 
     // Multi-level sort: Date Ascending, then ARP Ascending
-    const sorted = [...joined].sort((a, b) => {
+    return [...joined].sort((a, b) => {
        const dateA = parseRecordDate(a.date) || new Date(0);
        const dateB = parseRecordDate(b.date) || new Date(0);
        if (dateA.getTime() !== dateB.getTime()) {
@@ -357,15 +358,6 @@ export default function Home() {
        }
        return (a.arpNo || "").localeCompare(b.arpNo || "", undefined, { numeric: true });
     });
-
-    // Visual Grouping logic: Blank out repeated dates
-    let lastDate = "";
-    return sorted.map(record => {
-      const currentDate = record.date || "";
-      const displayDate = currentDate === lastDate ? "" : currentDate;
-      lastDate = currentDate;
-      return { ...record, displayDate };
-    }) as any[];
   }, [workflowMode, journalData, rawData, exemptPins]);
 
   const stats = useMemo(() => {
@@ -485,11 +477,20 @@ export default function Home() {
   const filteredDisplayData = useMemo(() => {
     if (workflowMode === 'abstract' && viewMode === 'results') {
       const query = searchQuery.toLowerCase();
-      return joinedAbstractData.filter(record => {
+      const filtered = joinedAbstractData.filter(record => {
         if (query) {
            return record.acctName?.toLowerCase().includes(query) || record.pin?.toLowerCase().includes(query) || record.rollTctNo?.toLowerCase().includes(query) || record.rollOwner?.toLowerCase().includes(query);
         }
         return true;
+      });
+
+      // APPLY VISUAL GROUPING AFTER FILTERING
+      let lastDate = "";
+      return filtered.map(record => {
+        const currentDate = record.date || "";
+        const displayDate = currentDate === lastDate ? "" : currentDate;
+        lastDate = currentDate;
+        return { ...record, displayDate };
       });
     }
 
@@ -927,6 +928,7 @@ export default function Home() {
     try {
       await delay(1500);
       
+      // Start with the full joined set (with carry-forward dates assigned)
       let baseData = [...joinedAbstractData];
 
       const start = settings.startDate ? startOfDay(new Date(settings.startDate)) : null;
@@ -947,7 +949,7 @@ export default function Home() {
         return true;
       });
 
-      // Sorting
+      // Strict Sorting: Date primarily, then ARP No.
       baseData.sort((a, b) => {
          const dateA = parseRecordDate(a.date) || new Date(0);
          const dateB = parseRecordDate(b.date) || new Date(0);
