@@ -474,6 +474,7 @@ export default function Home() {
     setShowDetailedResults(false);
     setWorkflowMode('idle');
     setAbstractStep('roll');
+    setViewMode('results');
     setIsClearing(false);
     toast({ title: "Workspace Cleared", description: "All active data removed. Audit logs preserved." });
   };
@@ -1004,7 +1005,7 @@ export default function Home() {
              </TooltipProvider>
           </div>
           {deferredPrompt && <Button variant="ghost" size="icon" onClick={handleInstallClick} className="hover:bg-muted"><Download className="w-5 h-5" /></Button>}
-          <Button variant="ghost" size="icon" onClick={() => toggleFullScreen()} className="hover:bg-muted">{isFullScreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}</Button>
+          <Button variant="ghost" size="icon" onClick={toggleFullScreen} className="hover:bg-muted">{isFullScreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}</Button>
           <ModeToggle />
           <TooltipProvider>
             <Tooltip>
@@ -1024,7 +1025,7 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex-col flex overflow-hidden">
           <main className="flex-1 flex flex-col p-6 overflow-hidden gap-4 min-h-0">
             <Tabs value={viewMode} onValueChange={(val: any) => { setViewMode(val); setStatusFilter('all'); }} className="flex-1 flex flex-col min-h-0">
               {workflowMode === 'idle' && viewMode !== 'audit' ? (
@@ -1123,8 +1124,12 @@ export default function Home() {
                       <div className="p-3 bg-muted/30 border-b flex flex-col xl:flex-row items-center justify-between gap-4 shrink-0">
                         <TabsList className="bg-background border">
                           <TabsTrigger value="results" className="data-[state=active]:bg-primary data-[state=active]:text-white h-9 text-xs font-bold px-4"><TableIcon className="w-3.5 h-3.5 mr-2" /> {workflowMode === 'abstract' ? 'Joined Preview' : 'Results'}</TabsTrigger>
-                          <TabsTrigger value="archive" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white h-9 text-xs font-bold px-4"><Archive className="w-3.5 h-3.5 mr-2" /> Archive</TabsTrigger>
-                          <TabsTrigger value="analytics" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white h-9 text-xs font-bold px-4"><BarChart3 className="w-3.5 h-3.5 mr-2" /> Analytics</TabsTrigger>
+                          {workflowMode !== 'abstract' && (
+                            <>
+                              <TabsTrigger value="archive" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white h-9 text-xs font-bold px-4"><Archive className="w-3.5 h-3.5 mr-2" /> Archive</TabsTrigger>
+                              <TabsTrigger value="analytics" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white h-9 text-xs font-bold px-4"><BarChart3 className="w-3.5 h-3.5 mr-2" /> Analytics</TabsTrigger>
+                            </>
+                          )}
                           <TabsTrigger value="audit" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white h-9 text-xs font-bold px-4"><ShieldCheck className="w-3.5 h-3.5 mr-2" /> Audit Log</TabsTrigger>
                         </TabsList>
                         {viewMode !== 'analytics' && viewMode !== 'audit' && (
@@ -1198,16 +1203,20 @@ export default function Home() {
                             workflowMode={workflowMode}
                           />
                         </TabsContent>
-                        <TabsContent value="archive" className="m-0 h-full data-[state=active]:flex data-[state=active]:flex-col"><DataPreviewTable data={filteredDisplayData} isProcessed={true} onRowClick={handleRowClick} showLabels /></TabsContent>
-                        <TabsContent value="analytics" className="m-0 h-full p-6 overflow-y-auto scrollbar-vertical-custom bg-muted/5 data-[state=active]:flex data-[state=active]:flex-col">
-                          <AnalyticsView 
-                            analyticsData={analyticsData} 
-                            onExplain={setExplainType} 
-                            onExpand={setExpandedChart} 
-                            taxabilityFilter={taxabilityFilter}
-                            onTaxabilityFilterChange={setTaxabilityFilter}
-                          />
-                        </TabsContent>
+                        {workflowMode !== 'abstract' && (
+                          <>
+                            <TabsContent value="archive" className="m-0 h-full data-[state=active]:flex data-[state=active]:flex-col"><DataPreviewTable data={filteredDisplayData} isProcessed={true} onRowClick={handleRowClick} showLabels /></TabsContent>
+                            <TabsContent value="analytics" className="m-0 h-full p-6 overflow-y-auto scrollbar-vertical-custom bg-muted/5 data-[state=active]:flex data-[state=active]:flex-col">
+                              <AnalyticsView 
+                                analyticsData={analyticsData} 
+                                onExplain={setExplainType} 
+                                onExpand={setExpandedChart} 
+                                taxabilityFilter={taxabilityFilter}
+                                onTaxabilityFilterChange={setTaxabilityFilter}
+                              />
+                            </TabsContent>
+                          </>
+                        )}
                         <TabsContent value="audit" className="m-0 h-full data-[state=active]:flex data-[state=active]:flex-col">
                           <AuditLogTab reports={processingReports} onClearHistory={() => { setProcessingReports([]); toast({ title: "History Purged", description: "Audit logs cleared permanently." }); }} onDeleteReport={(id) => { setProcessingReports(prev => prev.filter(r => r.id !== id)); toast({ title: "Log Deleted", description: "Audit entry has been removed." }); }} />
                         </TabsContent>
