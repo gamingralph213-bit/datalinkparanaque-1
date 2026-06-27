@@ -1112,12 +1112,14 @@ export default function Home() {
                                 onAdd={() => exemptFileInputRef.current?.click()} 
                                 onDelete={(name) => deleteFile(name, 'exempt')} 
                               />
-                              <ImportManager 
-                                mode="journal" 
-                                manifest={journalFileManifest} 
-                                onAdd={() => journalFileInputRef.current?.click()} 
-                                onDelete={(name) => deleteFile(name, 'journal')} 
-                              />
+                              {workflowMode === 'abstract' && (
+                                <ImportManager 
+                                  mode="journal" 
+                                  manifest={journalFileManifest} 
+                                  onAdd={() => journalFileInputRef.current?.click()} 
+                                  onDelete={(name) => deleteFile(name, 'journal')} 
+                                />
+                              )}
                             </div>
                           </div>
                         )}
@@ -1316,4 +1318,3 @@ export default function Home() {
     </div>
   );
 }
-
