@@ -105,6 +105,7 @@ import {
 } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ExportSettingsModal, ExportFinalSettings } from '@/components/dashboard/export-settings-modal';
+import { AbstractExportModal, AbstractExportSettings } from '@/components/dashboard/abstract-export-modal';
 import { useNotification } from '@/contexts/NotificationContext';
 import { SettingsOverlay } from '@/components/dashboard/settings-overlay';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -114,6 +115,7 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { parse, isValid, startOfDay, endOfDay } from 'date-fns';
 
 // Sub-components
 import { MetricOverview } from '@/components/dashboard/metric-overview';
@@ -254,6 +256,7 @@ export default function Home() {
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [isExportSettingsOpen, setIsExportSettingsOpen] = useState(false);
+  const [isAbstractExportModalOpen, setIsAbstractExportModalOpen] = useState(false);
   const [isRunProcessorDialogOpen, setIsRunProcessorDialogOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [importedFileName, setImportedFileName] = useState<string>("");
@@ -891,50 +894,68 @@ export default function Home() {
     finally { setIsExporting(false); }
   };
 
-  const handleAbstractExport = async () => {
+  const handleAbstractExport = async (settings?: AbstractExportSettings) => {
     setIsExporting(true);
     try {
       await delay(1500);
       
-      const journals = journalData.length > 0 ? journalData : rawData.filter(r => r.sourceFile?.toLowerCase().includes('journal'));
-      const rolls = rawData.filter(r => !r.sourceFile?.toLowerCase().includes('journal'));
+      let baseData = joinedAbstractData;
+
+      // Apply Filters if Modal settings provided
+      if (settings) {
+        const start = settings.startDate ? startOfDay(new Date(settings.startDate)) : null;
+        const end = settings.endDate ? endOfDay(new Date(settings.endDate)) : null;
+
+        baseData = baseData.filter(record => {
+          if (settings.linkedOnly && !record.isJoined) return false;
+          if (start || end) {
+            const parseRecordDate = (dateStr: string) => {
+              if (!dateStr) return null;
+              const formats = ['MM/dd/yyyy', 'M/d/yyyy', 'yyyy-MM-dd', 'MM-dd-yyyy'];
+              for (const fmt of formats) {
+                const parsed = parse(dateStr.trim(), fmt, new Date());
+                if (isValid(parsed)) return parsed;
+              }
+              const fb = new Date(dateStr.trim());
+              return isValid(fb) ? fb : null;
+            };
+            const recDate = parseRecordDate(record.date);
+            if (!recDate) return false;
+            if (start && recDate < start) return false;
+            if (end && recDate > end) return false;
+          }
+          const kind = (record.kind || '').trim().toUpperCase();
+          if (!settings.kinds.includes(kind)) return false;
+          if (!settings.taxabilities.includes(record.taxability)) return false;
+          if (!settings.selectedBarangays.includes(record.location || 'UNMAPPED')) return false;
+          return true;
+        });
+      }
       
-      if (journals.length === 0) {
-        toast({ variant: "destructive", title: "Export Failed", description: "No Journal transactions found in the session." });
+      if (baseData.length === 0) {
+        toast({ variant: "destructive", title: "Export Failed", description: "No records found matching your specific filter criteria." });
         setIsExporting(false);
         return;
       }
 
-      const rollLookup = new Map<string, LandRecord>();
-      rolls.forEach(r => { if (r.pin) rollLookup.set(normalizePin(r.pin), r); });
-
-      const normalizedExemptPins = new Set(Array.from(exemptPins).map(p => normalizePin(p)));
-
-      const abstractData = journals.map(j => {
-        const pinNorm = normalizePin(j.pin);
-        const rollMatch = rollLookup.get(pinNorm) || null;
-        
-        const rollOwnerRaw = (rollMatch?.acctName || "").trim().toUpperCase();
-        const journalOwnerRaw = (j.acctName || "").trim().toUpperCase();
-        
-        const ownersMatch = rollOwnerRaw !== "" && journalOwnerRaw !== "" && rollOwnerRaw === journalOwnerRaw;
+      const abstractData = baseData.map(j => {
         const kind = (j.kind || "").trim().toUpperCase();
         const au = (j.au || "").trim().toUpperCase();
         
         return {
           "col1": j.date || "", 
-          "col2": ownersMatch ? "" : (rollMatch?.acctName || ""), 
+          "col2": j.rollOwner || "", 
           "col3": j.acctName || "", 
-          "col4": rollMatch?.address || "", 
+          "col4": j.rollAddress || "", 
           "col5": j.location || "", 
           "col6": "", 
           "col7": "", 
-          "col8": (kind === 'L' || kind === 'LAND') ? au : "", 
-          "col9": (kind === 'B' || kind === 'BUILDING') ? au : "", 
+          "col8": (kind === 'L' || kind === 'LAND') ? 'x' : "", 
+          "col9": (kind === 'B' || kind === 'BUILDING') ? 'x' : "", 
           "col10": j.landArea || 0, 
-          "col11": rollMatch?.lotNo || "", 
+          "col11": j.rollLotNo || "", 
           "col12": "", 
-          "col13": rollMatch?.tctNo || "" 
+          "col13": j.rollTctNo || "" 
         };
       });
 
@@ -1054,7 +1075,7 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex-col flex overflow-hidden">
           <main className="flex-1 flex flex-col p-6 overflow-hidden gap-4 min-h-0">
             <Tabs value={viewMode} onValueChange={(val: any) => { setViewMode(val); setStatusFilter('all'); }} className="flex-1 flex flex-col min-h-0">
               {workflowMode === 'idle' && viewMode !== 'audit' ? (
@@ -1276,7 +1297,7 @@ export default function Home() {
                             <TooltipTrigger asChild>
                               <Button 
                                 variant="outline" 
-                                onClick={handleAbstractExport} 
+                                onClick={() => setIsAbstractExportModalOpen(true)} 
                                 size="sm" 
                                 className={cn(
                                   "font-black uppercase tracking-widest transition-all",
@@ -1427,6 +1448,7 @@ export default function Home() {
       )}
 
       <ExportSettingsModal initialSortBy={sortBy} open={isExportSettingsOpen} onOpenChange={setIsExportSettingsOpen} data={previewData} isProcessed={processedData.length > 0} exportColumns={exportColumns} onColumnToggle={(col) => setExportColumns(prev => ({ ...prev, [col]: !prev[col] }))} onBulkColumnChange={(cols) => setExportColumns(cols)} onExport={handleFinalExport} />
+      <AbstractExportModal open={isAbstractExportModalOpen} onOpenChange={setIsAbstractExportModalOpen} data={joinedAbstractData} onExport={handleAbstractExport} />
       <AboutModal open={isAboutOpen} onOpenChange={setIsAboutOpen} />
       <ProcessingReportModal report={latestReport} open={isReportOpen} onOpenChange={setIsReportOpen} />
       <RecordDetailModal record={selectedRecord} comparisonRecord={comparisonRecord} open={!!selectedRecord} onOpenChange={(isOpen) => { if (!isOpen) { setSelectedRecord(null); setComparisonRecord(null); } }} onSave={handleSaveRecord} onArchive={handleArchiveRecord} onUnarchive={handleUnarchiveRecord} />
