@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 
 /**
  * A component that animates a numeric value counting from its previous state to the new state.
@@ -161,16 +162,10 @@ export function MetricOverview({ stats, variant = 'default', taxViewMode, onTaxV
           </div>
         </div>
         
-        <Tabs value={taxViewMode} onValueChange={(val) => onTaxViewModeChange(val as 'T' | 'E')}>
-          <TabsList className="bg-muted/50 border h-9 px-1">
-            <TabsTrigger value="T" className="h-7 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
-              <CheckCircle2 className="w-3 h-3 mr-1.5" /> Taxable
-            </TabsTrigger>
-            <TabsTrigger value="E" className="h-7 text-[10px] font-black uppercase tracking-widest data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-              <ShieldCheck className="w-3 h-3 mr-1.5" /> Exempted
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex items-center gap-1 bg-zinc-950 p-1 rounded-xl border border-zinc-800">
+           <Button onClick={() => onTaxViewModeChange('T')} variant={taxViewMode === 'T' ? 'secondary' : 'ghost'} size="sm" className={cn("h-8 text-[9px] font-black uppercase tracking-widest gap-2", taxViewMode === 'T' && "bg-emerald-600 text-white hover:bg-emerald-500")}><CheckCircle2 className="w-3 h-3" /> Taxable</Button>
+           <Button onClick={() => onTaxViewModeChange('E')} variant={taxViewMode === 'E' ? 'secondary' : 'ghost'} size="sm" className={cn("h-8 text-[9px] font-black uppercase tracking-widest gap-2", taxViewMode === 'E' && "bg-blue-600 text-white hover:bg-blue-500")}><Database className="w-3 h-3" /> Exempted</Button>
+        </div>
       </div>
 
       <div className={cn(

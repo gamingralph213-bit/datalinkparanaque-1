@@ -31,17 +31,23 @@ export interface LandRecord {
   arpNo: string;
   newArpNo?: string;
   pin: string;
-  previous?: string; // Mapped from "Previous" column in source
+  previous?: string; 
   update?: string;
-  taxability?: 'T' | 'E'; // T for Taxable, E for Exempt
+  taxability?: 'T' | 'E'; 
   acctName: string;
-  address: string; // The original address from source
-  location: string; // The calibrated field for Barangay, Section
-  barangayName?: string; // Derived barangay name for filtering
+  address: string; 
+  location: string; 
+  barangayName?: string; 
   kind: string;
   au: string;
   landArea: number;
   
+  // Assessment Roll Specific Fields
+  lotNo?: string;
+  blkNo?: string;
+  tctNo?: string;
+  rollType?: string;
+
   // Year-Specific Data
   unitValue2028?: number;
   marketValue2028?: number;
@@ -53,7 +59,7 @@ export interface LandRecord {
   assessedValue2029?: number;
   yearlyTax2029?: number;
 
-  // Active mapping (Compatibility with existing UI)
+  // Active mapping
   unitValue?: number;
   marketValue: number;
   assessedValue: number;
@@ -62,19 +68,19 @@ export interface LandRecord {
   isDuplicate?: boolean;
   isCleanup?: boolean;
   isManualArchive?: boolean;
-  isComparisonInjected?: boolean; // UI-only field for comparison view
+  isComparisonInjected?: boolean; 
   cleanupReason?: string;
   isValid?: boolean;
   errors?: ValidationError[];
-  sourceFile?: string; // Track original file in batch processing
-  statusLabel?: RecordStatusType; // Specific labeling for UI
-  rawRow?: any; // CRITICAL: Stores the 1:1 original source data for recovery
-  duplicateWithReference?: string; // Internal: Link between duplicate and primary
+  sourceFile?: string; 
+  statusLabel?: RecordStatusType; 
+  rawRow?: any; 
+  duplicateWithReference?: string; 
 }
 
 export interface CalibrationRule {
   id: string;
-  pinPattern: string; // The "Target Section Identifier" (Key)
+  pinPattern: string; 
   barangay?: string;
   section?: string;
   unitValue?: number;
@@ -82,7 +88,7 @@ export interface CalibrationRule {
 }
 
 export interface ProcessingReport {
-  id: string; // Unique identifier for deletion
+  id: string; 
   timestamp: string;
   fileName: string;
   totalImported: number;
@@ -96,13 +102,9 @@ export interface ProcessingReport {
   totalMarketValue2028: number;
   totalAssessedValue2028: number;
   totalYearlyTax2028: number;
-  records?: LandRecord[]; // Stores the dataset for later export
+  records?: LandRecord[]; 
 }
 
-/**
- * Normalizes a PIN by removing all non-numeric characters.
- * Used for robust matching between raw data and exempt reference lists.
- */
 export function normalizePin(pin: string): string {
   if (!pin) return "";
   return pin.replace(/\D/g, '');
@@ -228,8 +230,6 @@ export function processRecords(
   records.forEach(r => { if (r.arpNo) arpCounts.set(r.arpNo, (arpCounts.get(r.arpNo) || 0) + 1); });
 
   let calibratedCount = 0;
-
-  // Build a set of normalized exempt pins for robust matching
   const normalizedExemptPins = new Set(Array.from(exemptPins).map(p => normalizePin(p)));
 
   let result = records.map(r => {
@@ -250,8 +250,6 @@ export function processRecords(
     let marketValue = Number(r.marketValue) || 0;
     let unitValue = Number(r.unitValue) || 0;
     const kind = r.kind?.trim().toUpperCase() || '';
-    
-    // Use robust normalization for exempt check
     const isExempt = normalizedExemptPins.has(normalizePin(r.pin));
 
     if (kind !== 'M' && kind !== 'B' && unitValue === 0 && marketValue > 0 && landArea > 0) {
@@ -265,7 +263,6 @@ export function processRecords(
     const assessedValue = calculateAssessedValue(marketValue, r.au || '', taxRates);
     const yearlyTax = isExempt ? 0 : calculateYearlyTax(assessedValue, r.au || '', taxRates);
 
-    // Initial 2028 Capture (Pre-Processor Run)
     const unitValue2028 = unitValue;
     const marketValue2028 = marketValue;
     const assessedValue2028 = assessedValue;
@@ -405,7 +402,6 @@ export function processRecords(
           updated.yearlyTax = 0;
       }
 
-      // Assign 2029 values after calibration
       updated.unitValue2029 = updated.unitValue;
       updated.marketValue2029 = updated.marketValue;
       updated.assessedValue2029 = updated.assessedValue;

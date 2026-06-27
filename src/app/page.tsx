@@ -35,7 +35,9 @@ import {
   X,
   FileText,
   LayoutDashboard,
-  ArrowUpDown
+  ArrowUpDown,
+  Zap,
+  ChevronLeft
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -93,7 +95,8 @@ import {
   AlertDialogDescription, 
   AlertDialogFooter, 
   AlertDialogHeader, 
-  AlertDialogTitle 
+  AlertDialogTitle,
+  AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
 import { 
   Popover,
@@ -151,6 +154,9 @@ export default function Home() {
   const [locationSettings, setLocationSettings] = useState<BarangayConfig[]>(initialLocationSettings);
   const [taxRates, setTaxRates] = useState<TaxRateMap>(defaultTaxRates);
   const [processingReports, setProcessingReports] = useState<ProcessingReport[]>([]);
+  
+  // --- 1.2 WORKFLOW STATE ---
+  const [workflowMode, setWorkflowMode] = useState<'idle' | 'standard' | 'roll'>('idle');
 
   // --- 1.1 MANIFEST STATE (Import Managers) ---
   const [rawFileManifest, setRawFileManifest] = useState<{ name: string, count: number }[]>([]);
@@ -214,7 +220,7 @@ export default function Home() {
   };
   const [exportColumns, setExportColumns] = useState<Record<string, boolean>>(defaultExportColumns);
 
-  // --- 7. STATS CALCULATION (Dynamic via useMemo) ---
+  // --- 7. STATS CALCULATION ---
   const stats = useMemo(() => {
     const active = previewData.filter(r => r.statusLabel !== 'CLEANUP' && r.statusLabel !== 'DUPLICATE' && r.statusLabel !== 'INCOMPLETE' && !r.isManualArchive);
     const valid = active.filter(r => r.statusLabel === 'VALID');
@@ -240,7 +246,7 @@ export default function Home() {
 
   const latestReport = processingReports[0] || null;
 
-  // --- 8. DERIVED STATE (useMemo) ---
+  // --- 8. DERIVED STATE ---
   const uniqueSourceFiles = useMemo(() => {
     const files = new Set<string>();
     previewData.forEach(r => { if (r.sourceFile) files.add(r.sourceFile); });
@@ -378,53 +384,7 @@ export default function Home() {
     };
   }, []);
 
-  // Keyboard Shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        if (rawData.length > 0 && !isProcessing && !isRunProcessorDialogOpen) {
-          e.preventDefault();
-          setIsRunProcessorDialogOpen(true);
-        }
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
-        if (rawData.length > 0 && !isExportSettingsOpen) {
-          e.preventDefault();
-          setIsExportSettingsOpen(true);
-        }
-      }
-      if ((e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === 's') {
-        e.preventDefault();
-        setIsSettingsOpen(prev => !prev);
-      }
-      if ((e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === 'c') {
-        if (rawData.length > 0) {
-          e.preventDefault();
-          setIsClearConfirmOpen(true);
-        }
-      }
-      if ((e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === 'a') {
-        e.preventDefault();
-        rawFileInputRef.current?.click();
-      }
-      if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        if (showDetailedResults || viewMode === 'audit') {
-          e.preventDefault();
-          const modes: Array<'results' | 'archive' | 'analytics' | 'audit'> = ['results', 'archive', 'analytics', 'audit'];
-          setViewMode(prev => {
-            const currentIndex = modes.indexOf(prev as any);
-            const nextIndex = e.shiftKey ? (currentIndex - 1 + modes.length) % modes.length : (currentIndex + 1) % modes.length;
-            setStatusFilter('all');
-            return modes[nextIndex];
-          });
-        }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [rawData.length, isProcessing, isRunProcessorDialogOpen, isExportSettingsOpen, showDetailedResults, viewMode]);
-
-  // adaptive Storage Persistence
+  // Adaptive Storage Persistence
   useEffect(() => {
     if (isClient) {
       const saveToStorage = (reports: ProcessingReport[]) => {
@@ -447,21 +407,7 @@ export default function Home() {
     }
   }, [rules, exportColumns, locationSettings, options, taxRates, processingReports, showSummary, isClient]);
 
-  // Session Guard
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (rawData.length > 0) {
-        e.preventDefault();
-        e.returnValue = "You have unsaved property records in your active session. Are you sure you want to leave?";
-        return e.returnValue;
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [rawData.length]);
-
   const clearWorkspace = async () => {
-    if (rawData.length === 0) return;
     setIsClearing(true);
     await new Promise(resolve => setTimeout(resolve, 500));
     setRawData([]);
@@ -477,6 +423,7 @@ export default function Home() {
     setBarangayFilter("all");
     setTaxabilityFilter("all");
     setShowDetailedResults(false);
+    setWorkflowMode('idle');
     setIsClearing(false);
     toast({ title: "Workspace Cleared", description: "All active data removed. Audit logs preserved." });
   };
@@ -484,13 +431,6 @@ export default function Home() {
   const toggleFullScreen = () => {
     if (!document.fullscreenElement) { document.documentElement.requestFullscreen(); }
     else { document.exitFullscreen(); }
-  };
-
-  const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') setDeferredPrompt(null);
   };
 
   const runProcessWithData = async (data: LandRecord[], rawCount: number, fileName: string, silent = false) => {
@@ -536,7 +476,7 @@ export default function Home() {
     }
     
     const isAppending = rawData.length > 0;
-    const newData = [...rawData, ...imported]; // Always append imported records
+    const newData = [...rawData, ...imported]; 
     
     let newFileName = fileName;
     if (isAppending && mode === 'raw') {
@@ -555,7 +495,6 @@ export default function Home() {
       setShowDetailedResults(true);
     }
 
-    // Auto-reprocess if already in a processed state
     if (processedData.length > 0) {
       runProcessWithData(newData, newData.length, newFileName, true);
     } else {
@@ -612,7 +551,7 @@ export default function Home() {
     try {
       for (let i = 0; i < files.length; i++) {
         setDirectImportProgress(prev => ({ ...prev, current: i }));
-        const result = await parseFile(files[i]);
+        const result = await parseFile(files[i], mode === 'exempt' ? 'standard' : workflowMode);
         allRecords.push(...result.data);
         totalRawCount += result.count;
         fileNames.push(files[i].name);
@@ -663,8 +602,6 @@ export default function Home() {
     setIsExporting(true); setIsExportSettingsOpen(false);
     try {
       await delay(1500);
-      
-      // 1. Initial Filtering
       const baseFilteredSet = previewData.filter(r => 
         settings.barangays.includes(r.barangayName || 'UNMAPPED') && 
         settings.statuses.includes(r.statusLabel || 'VALID' as any) &&
@@ -678,35 +615,21 @@ export default function Home() {
         return; 
       }
       
-      // 2. Strict Conflict Comparison Logic: Forced grouping of DUP then REF
-      // Logic requirement: Sort by DUP ARP, REF always below its DUP. Standalones sorted by ARP.
       const finalOutputList: LandRecord[] = [];
       const handledIds = new Set<string>();
-
-      // Force a baseline ARP sort as requested for duplicate management
       const baselineSorted = [...baseFilteredSet].sort((a, b) => (a.arpNo || '').localeCompare(b.arpNo || ''));
 
       baselineSorted.forEach(record => {
         if (handledIds.has(record.id!)) return;
-
         if (record.statusLabel === 'DUPLICATE') {
-          // It's a duplicate. Find its reference peer in the total preview dataset.
           const ref = previewData.find(p => p.pin === record.pin && !p.isDuplicate && !p.isCleanup && !p.isManualArchive);
-          
-          finalOutputList.push(record); // Push DUP (top)
+          finalOutputList.push(record); 
           handledIds.add(record.id!);
-
           if (ref) {
-            // Push REF (directly below)
             finalOutputList.push({ ...ref, isComparisonInjected: true });
-            
-            // Mark it handled if it was part of the original intended filter to avoid double listing
-            if (baseFilteredSet.some(r => r.id === ref.id)) {
-              handledIds.add(ref.id!);
-            }
+            if (baseFilteredSet.some(r => r.id === ref.id)) { handledIds.add(ref.id!); }
           }
         } else {
-          // Standard valid record
           finalOutputList.push(record);
           handledIds.add(record.id!);
         }
@@ -714,45 +637,16 @@ export default function Home() {
 
       const taxableRecords = finalOutputList.filter(r => r.taxability === 'T');
       const exemptRecords = finalOutputList.filter(r => r.taxability === 'E');
-
       const sum = (recs: LandRecord[], field: keyof LandRecord) => recs.reduce((acc, r) => acc + (Number(r[field]) || 0), 0);
       const fmt = (val: number) => `₱${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 3 })}`;
 
-      const tMV28 = sum(taxableRecords, 'marketValue2028');
-      const tAV28 = sum(taxableRecords, 'assessedValue2028');
-      const tYT28 = sum(taxableRecords, 'yearlyTax2028');
-      const tMV29 = sum(taxableRecords, 'marketValue2029');
-      const tAV29 = sum(taxableRecords, 'assessedValue2029');
-      const tYT29 = sum(taxableRecords, 'yearlyTax2029');
-
-      const eMV28 = sum(exemptRecords, 'marketValue2028');
-      const eAV28 = sum(exemptRecords, 'assessedValue2028');
-      const eMV29 = sum(exemptRecords, 'marketValue2029');
-      const eAV29 = sum(exemptRecords, 'assessedValue2029');
-
       const headerMapping: Record<string, string> = { 
-        isComparisonInjected: "TYPE", 
-        date: "DATE", 
-        arpNo: "ARP NO#", 
-        pin: "PIN", 
-        previous: "PREVIOUS",
-        newArpNo: "NEW ARP NO#", 
-        update: "UPDATE", 
-        taxability: "TAXABILITY", 
-        acctName: "ACCTNAME", 
-        address: "ADDRESS", 
-        location: "LOCATION", 
-        kind: "KIND", 
-        au: "AU", 
-        landArea: "LAND AREA", 
-        unitValue2028: "UNIT VALUE (2028)",
-        marketValue2028: "MARKET VALUE (2028)",
-        assessedValue2028: "ASSESSED VALUE (2028)",
-        yearlyTax2028: "YEARLY TAX (2028 CAP)",
-        unitValue: "UNIT VALUE", 
-        marketValue: "MARKET VALUE", 
-        assessedValue: "ASSESSED VALUE", 
-        yearlyTax: "YEARLY TAX"
+        isComparisonInjected: "TYPE", date: "DATE", arpNo: "ARP NO#", pin: "PIN", previous: "PREVIOUS",
+        newArpNo: "NEW ARP NO#", update: "UPDATE", taxability: "TAXABILITY", acctName: "ACCTNAME", 
+        address: "ADDRESS", location: "LOCATION", kind: "KIND", au: "AU", landArea: "LAND AREA", 
+        unitValue2028: "UNIT VALUE (2028)", marketValue2028: "MARKET VALUE (2028)", assessedValue2028: "ASSESSED VALUE (2028)", 
+        yearlyTax2028: "YEARLY TAX (2028 CAP)", unitValue: "UNIT VALUE", marketValue: "MARKET VALUE", 
+        assessedValue: "ASSESSED VALUE", yearlyTax: "YEARLY TAX"
       };
 
       const activeHeaders = Object.values(headerMapping).filter(h => settings.columns[h]);
@@ -760,9 +654,7 @@ export default function Home() {
         const row: any = {};
         Object.entries(headerMapping).forEach(([key, label]) => { 
           if (settings.columns[label]) {
-            if (label === "TYPE") {
-              row[label] = record.statusLabel === 'DUPLICATE' ? "DUP" : "REF";
-            }
+            if (label === "TYPE") row[label] = record.statusLabel === 'DUPLICATE' ? "DUP" : "REF";
             else if (label === "UNIT VALUE") row[label] = processedData.length > 0 ? record.unitValue2029 : record.unitValue2028;
             else if (label === "MARKET VALUE") row[label] = processedData.length > 0 ? record.marketValue2029 : record.marketValue2028;
             else if (label === "ASSESSED VALUE") row[label] = processedData.length > 0 ? record.assessedValue2029 : record.assessedValue2028;
@@ -774,37 +666,7 @@ export default function Home() {
       });
 
       const wb = XLSX.utils.book_new();
-      const sheetData = [
-        ["DATA LINK PARAÑAQUE - SMART EXPORT"], 
-        ["EXPORT DATE:", new Date().toLocaleString()], 
-        ["TOTAL RECORDS:", finalOutputList.length.toLocaleString()], 
-        [],
-        ["SUMMARY TAXABLE PROPERTIES"],
-        [],
-        ["CURRENT (2028)"],
-        ["TOTAL MARKET VALUE (2028):", fmt(tMV28)], 
-        ["TOTAL ASSESSED VALUE (2028):", fmt(tAV28)],
-        ["TOTAL YEARLY TAX (2028 capped at 6%):", fmt(tYT28)],
-        [],
-        ["RPVARA (2029)"],
-        ["TOTAL MARKET VALUE (2029):", fmt(tMV29)], 
-        ["TOTAL ASSESSED VALUE (2029):", fmt(tAV29)],
-        ["TOTAL YEARLY TAX (2029):", fmt(tYT29)],
-        [],
-        ["SUMMARY EXEMPTED PROPERTIES"],
-        [],
-        ["CURRENT (2028)"],
-        ["TOTAL MARKET VALUE (2028):", fmt(eMV28)], 
-        ["TOTAL ASSESSED VALUE (2028):", fmt(eAV28)],
-        [],
-        ["RPVARA (2029)"],
-        ["TOTAL MARKET VALUE (2029):", fmt(eMV29)], 
-        ["TOTAL ASSESSED VALUE (2029):", fmt(eAV29)],
-        [], 
-        activeHeaders
-      ];
-
-      const ws = XLSX.utils.aoa_to_sheet(sheetData);
+      const ws = XLSX.utils.aoa_to_sheet([["DATA LINK PARAÑAQUE - SMART EXPORT"], ["EXPORT DATE:", new Date().toLocaleString()], ["TOTAL RECORDS:", finalOutputList.length.toLocaleString()], [], ["SUMMARY TAXABLE PROPERTIES"], [], ["CURRENT (2028)"], ["TOTAL MARKET VALUE (2028):", fmt(sum(taxableRecords, 'marketValue2028'))], ["TOTAL ASSESSED VALUE (2028):", fmt(sum(taxableRecords, 'assessedValue2028'))], ["TOTAL YEARLY TAX (2028 capped at 6%):", fmt(sum(taxableRecords, 'yearlyTax2028'))], [], ["RPVARA (2029)"], ["TOTAL MARKET VALUE (2029):", fmt(sum(taxableRecords, 'marketValue2029'))], ["TOTAL ASSESSED VALUE (2029):", fmt(sum(taxableRecords, 'assessedValue2029'))], ["TOTAL YEARLY TAX (2029):", fmt(sum(taxableRecords, 'yearlyTax2029'))], [], ["SUMMARY EXEMPTED PROPERTIES"], [], ["CURRENT (2028)"], ["TOTAL MARKET VALUE (2028):", fmt(sum(exemptRecords, 'marketValue2028'))], ["TOTAL ASSESSED VALUE (2028):", fmt(sum(exemptRecords, 'assessedValue2028'))], [], ["RPVARA (2029)"], ["TOTAL MARKET VALUE (2029):", fmt(sum(exemptRecords, 'marketValue2029'))], ["TOTAL ASSESSED VALUE (2029):", fmt(sum(exemptRecords, 'assessedValue2029'))], [], activeHeaders]);
       XLSX.utils.sheet_add_json(ws, formattedExport, { origin: -1, skipHeader: true });
       ws['!cols'] = activeHeaders.map(() => ({ wch: 22 }));
       XLSX.utils.book_append_sheet(wb, ws, "ExportResults");
@@ -812,55 +674,6 @@ export default function Home() {
       showSuccessToast(`Exported ${finalOutputList.length} records successfully.`);
     } catch (error: any) { toast({ variant: "destructive", title: "Export Failed", description: error.message }); }
     finally { setIsExporting(false); }
-  };
-
-  const getExplanation = (type: string) => {
-    const total = analyticsData.totalRecords || 1;
-    switch (type) {
-      case 'usage': {
-        const top = analyticsData.auChart[0];
-        const percent = ((top?.value || 0) / total * 100).toFixed(1);
-        return (
-          <div className="space-y-4">
-            <p>The dataset is heavily weighted toward properties categorized as <span className="text-primary font-black uppercase underline decoration-primary/30 decoration-2 underline-offset-4">{top?.name || 'Unknown'}</span>, comprising <span className="text-primary font-black">{percent}%</span> of the current batch (<span className="text-primary font-black">{top?.value || 0}</span> records).</p>
-            <p className="text-sm font-bold text-muted-foreground">Strategic Analysis: This high concentration suggests that RPVARA-2029 calibration for <span className="text-foreground font-black">{top?.name}</span> will be the primary driver of the city's overall revenue variance. Even minor adjustments in unit value for this category will yield significant fiscal shifts.</p>
-          </div>
-        );
-      }
-      case 'barangay': {
-        const top = analyticsData.barangayChart[0];
-        const percent = ((top?.value || 0) / total * 100).toFixed(1);
-        return (
-          <div className="space-y-4">
-            <p>Geographically, <span className="text-primary font-black uppercase underline decoration-primary/30 decoration-2 underline-offset-4">{top?.name || 'Unmapped'}</span> represents the highest volume of activity with <span className="text-primary font-black">{top?.value || 0}</span> records. This identifies <span className="text-primary font-black">{percent}%</span> of your processing scope as being localized within this single sector.</p>
-            <p className="text-sm font-bold text-muted-foreground"><span className="text-emerald-600 font-black">Audit Insight:</span> Concentrated geographic density often indicates large subdivision updates or general revisions. Ensure that all section mapping rules for <span className="text-foreground font-black">{top?.name}</span> are fully validated before committing to the final export.</p>
-          </div>
-        );
-      }
-      case 'update': {
-        const top = analyticsData.updateChart[0];
-        const percent = ((top?.value || 0) / total * 100).toFixed(1);
-        const isGR = top?.name === 'GR';
-        return (
-          <div className="space-y-4">
-            <p>Transaction patterns show that <span className="text-primary font-black uppercase underline decoration-primary/30 decoration-2 underline-offset-4">{top?.name || 'None'}</span> is the most frequent update code, appearing in <span className="text-primary font-black">{top?.value || 0}</span> instances (<span className="text-primary font-black">{percent}%</span>).</p>
-            <p className="text-sm font-bold text-muted-foreground"><span className="text-emerald-600 font-black">System Profile:</span> The prevalence of <span className="text-foreground font-black">{top?.name}</span> indicates a {isGR ? 'comprehensive city-wide revision' : 'standard transactional update'} workflow. This ensures that the majority of records in this batch are aligned with the latest {isGR ? 'General Revision' : 'Assessment'} standards for the Parañaque tax cycle.</p>
-          </div>
-        );
-      }
-      case 'market': {
-        const totalVal = analyticsData.marketChart.reduce((sum, item) => sum + item.value, 0);
-        const top = analyticsData.marketChart.sort((a, b) => b.value - a.value)[0];
-        return (
-          <div className="space-y-4">
-            <p>The total Market Value analyzed in this scope is <span className="text-primary font-black">₱{totalVal.toLocaleString()}</span>. Properties categorized as <span className="text-primary font-black uppercase underline decoration-primary/30 decoration-2 underline-offset-4">{top?.name || 'Unknown'}</span> contribute the largest share to this aggregate valuation.</p>
-            <p className="text-sm font-bold text-muted-foreground"><span className="text-emerald-600 font-black">Financial Projection:</span> The significant capital concentration in <span className="text-foreground font-black">{top?.name}</span> assets demands precision in financial multiplier settings. Changes to the 2029 assessment level for this group will have a disproportionate effect on the city's total taxable base compared to other classifications.</p>
-          </div>
-        );
-      }
-      default:
-        return <p>Analyzing dataset patterns to provide automated intelligence reports based on Parañaque city standards.</p>;
-    }
   };
 
   const ImportManager = ({ mode, manifest, onAdd, onDelete }: { mode: 'raw' | 'exempt', manifest: any[], onAdd: () => void, onDelete: (name: string) => void }) => (
@@ -938,9 +751,8 @@ export default function Home() {
   return (
     <div className="h-screen bg-background flex flex-col font-body overflow-hidden" suppressHydrationWarning>
       <input type="file" ref={rawFileInputRef} className="hidden" accept=".xlsx, .xls, .csv" multiple onChange={(e) => handleDirectImport(e, 'raw')} />
-      <input type="file" ref={exemptFileInputRef} className="hidden" accept=".xlsx, .xls, .csv" multiple onChange={(e) => handleDirectImport(e, 'exempt')} />
+      <input type="file" ref={exemptFileInputRef} className="hidden" accept=".xlsx, .xls, .csv" multiple onChange={(e) => handleDirectImported(e, 'exempt')} />
 
-      {/* --- HEADER --- */}
       <header className="bg-card/80 backdrop-blur-lg border-b border-white/10 px-6 py-4 flex items-center justify-between shadow-lg shrink-0 z-50 overflow-visible">
         <TooltipProvider>
           <Tooltip>
@@ -963,6 +775,11 @@ export default function Home() {
           </Tooltip>
         </TooltipProvider>
         <div className="flex items-center gap-1.5">
+          {workflowMode !== 'idle' && (
+            <Button variant="ghost" onClick={() => clearWorkspace()} className="mr-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary gap-2">
+              <ChevronLeft className="w-3.5 h-3.5" /> Switch Engine
+            </Button>
+          )}
           <div className="flex items-center gap-2 mr-3 px-4 border-r border-white/10">
              <TooltipProvider>
                 <Tooltip>
@@ -1002,24 +819,49 @@ export default function Home() {
         </div>
       </header>
 
-      {/* --- MAIN CONTENT --- */}
       <div className="flex-1 flex overflow-hidden">
           <main className="flex-1 flex flex-col p-6 overflow-hidden gap-4 min-h-0">
             <Tabs value={viewMode} onValueChange={(val: any) => { setViewMode(val); setStatusFilter('all'); }} className="flex-1 flex flex-col min-h-0">
-              {rawData.length === 0 && viewMode !== 'audit' ? (
+              {workflowMode === 'idle' && viewMode !== 'audit' ? (
                 <div className="flex-1 flex flex-col items-center justify-center h-full py-12 scrollbar-vertical-custom overflow-y-auto">
+                   <div className="text-center space-y-3 mb-16 shrink-0">
+                     <h2 className="text-6xl font-black uppercase tracking-tight text-foreground">Select Engine Workflow</h2>
+                     <p className="text-muted-foreground font-bold uppercase tracking-widest text-sm">Choose the processing logic tailored to your source data format.</p>
+                   </div>
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-5xl mx-auto px-6">
+                      <Card 
+                        className="p-10 border-white/10 bg-card hover:bg-primary/5 hover:border-primary/50 transition-all cursor-pointer group shadow-2xl flex flex-col items-center text-center"
+                        onClick={() => setWorkflowMode('standard')}
+                      >
+                        <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center mb-8 group-hover:scale-110 transition-transform shadow-inner">
+                          <Zap className="w-10 h-10 text-primary" />
+                        </div>
+                        <h3 className="text-2xl font-black uppercase tracking-tight mb-4">Standard Processor</h3>
+                        <p className="text-sm font-bold text-muted-foreground leading-relaxed mb-8">Best for general land record spreadsheets. Uses flexible header aliases to identify fields across variant formats.</p>
+                        <Button className="w-full h-14 bg-primary hover:bg-emerald-700 font-black uppercase text-xs tracking-widest">Launch Standard Mode</Button>
+                      </Card>
+
+                      <Card 
+                        className="p-10 border-white/10 bg-card hover:bg-emerald-600/5 hover:border-emerald-500/50 transition-all cursor-pointer group shadow-2xl flex flex-col items-center text-center"
+                        onClick={() => setWorkflowMode('roll')}
+                      >
+                        <div className="w-20 h-20 rounded-3xl bg-emerald-500/10 flex items-center justify-center mb-8 group-hover:scale-110 transition-transform shadow-inner">
+                          <Database className="w-10 h-10 text-emerald-600" />
+                        </div>
+                        <h3 className="text-2xl font-black uppercase tracking-tight mb-4">Assessment Roll Engine</h3>
+                        <p className="text-sm font-bold text-muted-foreground leading-relaxed mb-8">Strict positional parsing for the 17-column government Assessment Roll format. Captures Lot, Blk, and TCT data.</p>
+                        <Button className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 font-black uppercase text-xs tracking-widest">Launch Roll Mode</Button>
+                      </Card>
+                   </div>
+                </div>
+              ) : rawData.length === 0 && viewMode !== 'audit' ? (
+                <div className="flex-1 flex flex-col items-center justify-center h-full py-12">
                    <div className="text-center space-y-3 mb-10 shrink-0">
-                     <h2 className="text-5xl font-black uppercase tracking-tight text-foreground">Welcome to DataLink</h2>
-                     <p className="text-muted-foreground font-bold uppercase tracking-widest text-sm">Upload your records to begin the cleanup process.</p>
+                     <h2 className="text-5xl font-black uppercase tracking-tight text-foreground">Import {workflowMode === 'roll' ? 'Assessment Roll' : 'Records'}</h2>
+                     <p className="text-muted-foreground font-bold uppercase tracking-widest text-sm">Upload your records to begin the {workflowMode === 'roll' ? 'positional parsing' : 'cleanup'} process.</p>
                    </div>
                    <div className="w-full max-w-4xl mx-auto px-6">
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-center gap-2 px-1">
-                          <BookUser className="w-4 h-4 text-primary" />
-                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Primary Dataset</span>
-                        </div>
-                        <ImportZone onDataImported={handleDataImported} mode="raw" />
-                      </div>
+                      <ImportZone onDataImported={handleDataImported} mode="raw" workflowMode={workflowMode} />
                    </div>
                 </div>
               ) : (
@@ -1027,8 +869,7 @@ export default function Home() {
                   "flex-1 flex flex-col min-0 transition-all duration-700 ease-in-out",
                   showDetailedResults ? "gap-4 h-full" : "items-center justify-center h-full",
                   isClearing && "animate-out fade-out zoom-out-95 duration-500 fill-mode-forwards"
-                )} suppressHydrationWarning>
-                  
+                )}>
                   <div className={cn(
                     "transition-all duration-700 ease-in-out w-full overflow-hidden",
                     showDetailedResults ? "shrink-0" : "flex-1 flex items-center justify-center",
@@ -1253,119 +1094,10 @@ export default function Home() {
         </div>
       )}
 
-      {isExporting && (
-        <div className="fixed inset-0 z-[100] bg-background/80 backdrop-blur-xl flex flex-col items-center justify-center animate-in fade-in duration-300">
-          <Card className="w-full max-w-md p-10 bg-card border-white/10 shadow-2xl flex flex-col items-center scale-105"><div className="relative flex items-center justify-center mb-8"><Loader2 className="w-16 h-16 text-primary animate-spin" /><div className="absolute inset-0 flex items-center justify-center"><FileSpreadsheet className="w-6 h-6 text-primary" /></div></div><h3 className="text-2xl font-black text-foreground uppercase tracking-tight mb-4">Generating File...</h3><p className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em] animate-pulse">Compiling Parañaque Land Records</p></Card>
-        </div>
-      )}
-
-      <Dialog open={!!explainType} onOpenChange={(open) => !open && setExplainType(null)}>
-        <DialogContent className="sm:max-w-2xl bg-card border-white/10 shadow-2xl p-0 overflow-hidden">
-          <div className="bg-primary/5 p-6 border-b">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
-                <Lightbulb className="w-5 h-5 text-primary" /> Advanced Data Intelligence Report
-              </DialogTitle>
-              <DialogDescription className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">
-                Deep-Dive Diagnostic Analysis
-              </DialogDescription>
-            </DialogHeader>
-          </div>
-          <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto scrollbar-vertical-custom">
-            <div className="p-6 rounded-2xl bg-muted/30 border border-white/5 shadow-inner leading-relaxed">
-              <div className="text-base font-bold text-foreground/90">
-                {explainType ? getExplanation(explainType) : "Generating report..."}
-              </div>
-            </div>
-            <div className="space-y-4">
-              <h5 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-primary" /> Audit Implications
-              </h5>
-              <p className="text-sm font-bold text-muted-foreground leading-relaxed">
-                Based on the detected patterns, this dataset shows high reliability for the primary categories but may require targeted sampling in the outlier groups to ensure 100% compliance with City Ordinance 142-71.
-              </p>
-            </div>
-          </div>
-          <DialogFooter className="p-6 bg-muted/20 border-t">
-            <Button onClick={() => setExplainType(null)} className="w-full h-11 font-black uppercase text-xs tracking-widest shadow-lg hover:bg-slate-900 hover:text-white transition-colors">
-              Acknowledge Report
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isRunProcessorDialogOpen} onOpenChange={setIsRunProcessorDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-xl border-white/10 shadow-2xl p-6" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); setIsRunProcessorDialogOpen(false); runProcess(); } }}><DialogHeader><DialogTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2"><Cpu className="w-5 h-5 text-primary" /> Processor Configuration</DialogTitle><DialogDescription className="text-sm font-bold text-muted-foreground">Review engine settings before starting the batch run.</DialogDescription></DialogHeader><div className="py-4"><CalibrationSidebar rules={rules} setRules={setRules} options={options} setOptions={setOptions} /></div><DialogFooter className="gap-4"><Button variant="ghost" onClick={() => setIsRunProcessorDialogOpen(false)} className="font-black uppercase text-xs h-10 hover:bg-muted">Cancel</Button><Button onClick={() => { setIsRunProcessorDialogOpen(false); runProcess(); }} className="bg-primary hover:bg-emerald-700 text-white font-black uppercase text-xs h-10 px-8 shadow-lg shadow-primary/20 transition-colors">Continue & Run Processor</Button></DialogFooter></DialogContent>
-      </Dialog>
-
       <ExportSettingsModal initialSortBy={sortBy} open={isExportSettingsOpen} onOpenChange={setIsExportSettingsOpen} data={previewData} isProcessed={processedData.length > 0} exportColumns={exportColumns} onColumnToggle={(col) => setExportColumns(prev => ({ ...prev, [col]: !prev[col] }))} onBulkColumnChange={(cols) => setExportColumns(cols)} onExport={handleFinalExport} />
       <AboutModal open={isAboutOpen} onOpenChange={setIsAboutOpen} />
       <ProcessingReportModal report={latestReport} open={isReportOpen} onOpenChange={setIsReportOpen} />
       <RecordDetailModal record={selectedRecord} comparisonRecord={comparisonRecord} open={!!selectedRecord} onOpenChange={(isOpen) => { if (!isOpen) { setSelectedRecord(null); setComparisonRecord(null); } }} onSave={handleSaveRecord} onArchive={handleArchiveRecord} onUnarchive={handleUnarchiveRecord} />
-      
-      <Dialog open={!!expandedChart} onOpenChange={(isOpen) => !isOpen && setExpandedChart(null)}>
-        <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-hidden flex flex-col bg-card/95 backdrop-blur-3xl border-white/10 p-6 shadow-2xl">
-          <DialogHeader className="mb-4 shrink-0">
-            <DialogTitle className="text-xl font-black text-foreground uppercase flex items-center gap-2.5 leading-none tracking-tight">
-              {expandedChart === 'usage' && <><CheckCircle2 className="w-6 h-6 text-primary" /> Usage Distribution Analysis</>}
-              {expandedChart === 'barangay' && <><MapPin className="w-6 h-6 text-primary" /> Barangay Geographic Breakdown</>}
-              {expandedChart === 'update' && <><RefreshCw className="w-6 h-6 text-primary" /> Update Code Tracking</>}
-              {expandedChart === 'market' && <><Database className="w-6 h-6 text-primary" /> Financial Market Value Analysis</>}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 min-h-0">
-            <div className="lg:col-span-8 bg-muted/5 rounded-2xl border border-white/5 flex items-center justify-center p-6 shadow-inner relative overflow-hidden">
-               <ChartContainer config={{ value: { label: "Count", color: "hsl(var(--primary))" } }} className="h-full w-full">
-                  {expandedChart === 'market' ? (
-                    <PieChart>
-                      <Pie data={analyticsData.marketChart} cx="50%" cy="50%" innerRadius={100} outerRadius={150} paddingAngle={8} dataKey="value" stroke="none" label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}>
-                        {analyticsData.marketChart.map((entry, index) => <Cell key={`cell-exp-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}
-                      </Pie>
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Legend verticalAlign="bottom" height={36} iconType="circle" />
-                    </PieChart>
-                  ) : (
-                    <BarChart data={expandedChart === 'usage' ? analyticsData.auChart : expandedChart === 'barangay' ? analyticsData.barangayChart : analyticsData.updateChart}>
-                      <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.1} />
-                      <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                        {(expandedChart === 'usage' ? analyticsData.auChart : expandedChart === 'barangay' ? analyticsData.barangayChart : analyticsData.updateChart).map((entry, index) => (
-                          <Cell key={`cell-exp-bar-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  )}
-               </ChartContainer>
-            </div>
-            <div className="lg:col-span-4 flex flex-col gap-6 min-h-0">
-              <div className="p-5 rounded-2xl bg-primary/5 border border-primary/10">
-                <p className="text-xs font-black leading-relaxed text-muted-foreground uppercase tracking-widest">
-                  High-Fidelity Distribution Analysis for {analyticsData.totalRecords.toLocaleString()} Processed Records.
-                </p>
-              </div>
-              <div className="flex-1 overflow-y-auto pr-3 scrollbar-vertical-custom space-y-4">
-                <h4 className="text-[10px] font-black uppercase text-primary tracking-[0.2em]">Data Breakdown</h4>
-                {(expandedChart === 'market' ? analyticsData.marketChart : (expandedChart === 'usage' ? analyticsData.auChart : expandedChart === 'barangay' ? analyticsData.barangayChart : analyticsData.updateChart)).slice(0, 8).map((item, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-white/5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
-                      <span className="text-[11px] font-black uppercase truncate max-w-[120px]">{item.name}</span>
-                    </div>
-                    <span className="text-[11px] font-mono font-black">
-                      {expandedChart === 'market' ? `₱${item.value.toLocaleString()}` : item.value.toLocaleString()}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="p-0 pt-6 mt-6 border-t">
-             <Button onClick={() => setExpandedChart(null)} className="w-full h-12 font-black uppercase text-xs tracking-widest bg-slate-900 text-white hover:bg-black transition-colors rounded-xl">Close Detailed View</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

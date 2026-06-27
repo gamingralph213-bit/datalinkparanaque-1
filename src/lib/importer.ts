@@ -59,6 +59,16 @@ export const HEADER_ALIASES = {
   ]
 };
 
+const parseNum = (val: any) => {
+  if (typeof val === 'number') return val;
+  if (typeof val === 'string') {
+    const clean = val.replace(/[^0-9.-]/g, '');
+    const parsed = parseFloat(clean);
+    return isNaN(parsed) ? 0 : parsed;
+  }
+  return 0;
+};
+
 export const mapRawToRecords = (raw: any[], fileName: string): LandRecord[] => {
   return raw.map((item, index) => {
     const norm: any = {};
@@ -75,16 +85,6 @@ export const mapRawToRecords = (raw: any[], fileName: string): LandRecord[] => {
       return "";
     };
 
-    const parseNum = (val: any) => {
-      if (typeof val === 'number') return val;
-      if (typeof val === 'string') {
-        const clean = val.replace(/[^0-9.-]/g, '');
-        const parsed = parseFloat(clean);
-        return isNaN(parsed) ? 0 : parsed;
-      }
-      return 0;
-    };
-
     let kind = String(getValue('kind')).trim();
     let au = String(getValue('au')).trim();
     
@@ -97,7 +97,6 @@ export const mapRawToRecords = (raw: any[], fileName: string): LandRecord[] => {
     
     const pin = String(getValue('pin')).trim();
     const arpNo = String(getValue('arpNo')).trim();
-
     const uniqueId = `${fileName}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     return {
@@ -126,7 +125,57 @@ export const mapRawToRecords = (raw: any[], fileName: string): LandRecord[] => {
   });
 };
 
-export const parseFile = async (file: File): Promise<{ data: LandRecord[], count: number }> => {
+/**
+ * Specialized parser for the 17-column Assessment Roll positional format.
+ */
+const parseAssessmentRollPositional = (raw: any[][], fileName: string): LandRecord[] => {
+  return raw.map((row) => {
+    // 0: Rec #, 1: Owner, 2: Address, 3: Lot #, 4: Blk #, 5: TCT #, 6: PIN, 7: Effectivity, 8: TYPE, 
+    // 9: Current(ARP), 10: Previous(ARP), 11: K-AU, 12: Area, 13: Market Value, 14: AL, 15: Current(AV), 16: Previous(AV)
+    
+    const kau = String(row[11] || '').trim();
+    let kind = '';
+    let au = '';
+    if (kau.includes('-')) {
+      const parts = kau.split('-');
+      kind = parts[0]?.trim() || '';
+      au = parts[1]?.trim() || '';
+    }
+
+    const uniqueId = `${fileName}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    return {
+      id: uniqueId,
+      date: String(row[7] || '').trim(),
+      arpNo: String(row[9] || '').trim(),
+      pin: String(row[6] || '').trim(),
+      previous: String(row[10] || '').trim(),
+      update: '', // Not explicitly in positional
+      taxability: 'T',
+      acctName: String(row[1] || '').trim(),
+      address: String(row[2] || '').trim(),
+      lotNo: String(row[3] || '').trim(),
+      blkNo: String(row[4] || '').trim(),
+      tctNo: String(row[5] || '').trim(),
+      rollType: String(row[8] || '').trim(),
+      location: '', // To be calibrated
+      kind: kind,
+      au: au,
+      landArea: parseNum(row[12]),
+      marketValue: parseNum(row[13]),
+      assessedValue: parseNum(row[15]),
+      unitValue: 0, // To be calculated
+      isCleanup: false,
+      sourceFile: fileName,
+      rawRow: row
+    };
+  });
+};
+
+export const parseFile = async (
+  file: File, 
+  mode: 'standard' | 'roll' = 'standard'
+): Promise<{ data: LandRecord[], count: number }> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -140,10 +189,20 @@ export const parseFile = async (file: File): Promise<{ data: LandRecord[], count
         });
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
-        const json = XLSX.utils.sheet_to_json(worksheet, { raw: false, defval: "" }) as any[];
-        const rawCount = json.length;
-        const mappedData = mapRawToRecords(json, file.name);
-        resolve({ data: mappedData, count: rawCount });
+
+        if (mode === 'roll') {
+          // Parse as raw arrays to maintain position
+          const json = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" }) as any[][];
+          // Filter out header rows (usually rows with no PIN)
+          const dataRows = json.filter(row => row.length >= 17 && String(row[6]).includes('-'));
+          const mappedData = parseAssessmentRollPositional(dataRows, file.name);
+          resolve({ data: mappedData, count: dataRows.length });
+        } else {
+          const json = XLSX.utils.sheet_to_json(worksheet, { raw: false, defval: "" }) as any[];
+          const rawCount = json.length;
+          const mappedData = mapRawToRecords(json, file.name);
+          resolve({ data: mappedData, count: rawCount });
+        }
       } catch (error) {
         reject(error);
       }

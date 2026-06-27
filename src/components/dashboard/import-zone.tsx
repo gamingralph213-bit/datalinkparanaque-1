@@ -17,7 +17,8 @@ import {
   Maximize2,
   Minimize2,
   BookUser,
-  ShieldOff
+  ShieldOff,
+  Database
 } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -39,9 +40,10 @@ import { parseFile, mapRawToRecords } from '@/lib/importer';
 interface ImportZoneProps {
   onDataImported: (data: LandRecord[], fileName: string, rawCount: number, mode: 'raw' | 'exempt') => void;
   mode?: 'raw' | 'exempt';
+  workflowMode?: 'standard' | 'roll';
 }
 
-export function ImportZone({ onDataImported, mode = 'raw' }: ImportZoneProps) {
+export function ImportZone({ onDataImported, mode = 'raw', workflowMode = 'standard' }: ImportZoneProps) {
   const { toast } = useToast();
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -81,7 +83,7 @@ export function ImportZone({ onDataImported, mode = 'raw' }: ImportZoneProps) {
         setFileStatuses(prev => ({ ...prev, [i]: 'processing' }));
         const file = stagedFiles[i];
         
-        const result = await parseFile(file);
+        const result = await parseFile(file, mode === 'exempt' ? 'standard' : workflowMode);
         allRecords.push(...result.data);
         totalRawCount += result.count;
         fileNames.push(file.name);
@@ -151,7 +153,7 @@ export function ImportZone({ onDataImported, mode = 'raw' }: ImportZoneProps) {
 
   const handlePaste = (e: React.ClipboardEvent) => {
     const text = e.clipboardData.getData('text');
-    if (!text) return;
+    if (!text || workflowMode === 'roll') return; // Paste disabled for roll
 
     setIsLoading(true);
 
@@ -258,8 +260,8 @@ export function ImportZone({ onDataImported, mode = 'raw' }: ImportZoneProps) {
         
         {stagedFiles.length === 0 ? (
           <>
-            <div className={cn("p-6 rounded-full mb-8", mode === 'raw' ? "bg-primary/10" : "bg-blue-500/10")}>
-              {mode === 'raw' ? <BookUser className="w-12 h-12 text-primary" /> : <ShieldOff className="w-12 h-12 text-blue-600" />}
+            <div className={cn("p-6 rounded-full mb-8", mode === 'raw' ? (workflowMode === 'roll' ? "bg-emerald-500/10" : "bg-primary/10") : "bg-blue-500/10")}>
+              {mode === 'raw' ? (workflowMode === 'roll' ? <Database className="w-12 h-12 text-emerald-600" /> : <BookUser className="w-12 h-12 text-primary" />) : <ShieldOff className="w-12 h-12 text-blue-600" />}
             </div>
             
             <div className="flex flex-col items-center gap-6">
@@ -267,12 +269,12 @@ export function ImportZone({ onDataImported, mode = 'raw' }: ImportZoneProps) {
                 size="lg" 
                 className={cn(
                   "px-12 py-7 text-base font-black shadow-xl h-auto transition-all active:scale-95", 
-                  mode === 'raw' ? "bg-primary hover:bg-emerald-800 shadow-primary/20 text-white" : "bg-blue-600 hover:bg-blue-700 shadow-blue-500/20 text-white"
+                  mode === 'raw' ? (workflowMode === 'roll' ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20 text-white" : "bg-primary hover:bg-emerald-800 shadow-primary/20 text-white") : "bg-blue-600 hover:bg-blue-700 shadow-blue-500/20 text-white"
                 )} 
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isLoading}
               >
-                <FileSpreadsheet className="mr-3 h-5 w-5" /> {mode === 'raw' ? "Select Raw Records" : "Select Exempt List"}
+                <FileSpreadsheet className="mr-3 h-5 w-5" /> {mode === 'raw' ? (workflowMode === 'roll' ? "Select Assessment Roll" : "Select Raw Records") : "Select Exempt List"}
               </Button>
 
               <Dialog onOpenChange={(open) => !open && setIsZoomed(false)}>
@@ -334,8 +336,8 @@ export function ImportZone({ onDataImported, mode = 'raw' }: ImportZoneProps) {
           <div className="w-full space-y-8 animate-in fade-in zoom-in-95 duration-300">
             <div className="flex items-center justify-between w-full border-b pb-4">
                <div className="flex items-center gap-3">
-                  <div className={cn("p-2.5 rounded-xl", mode === 'raw' ? "bg-primary/20" : "bg-blue-500/20")}>
-                    {mode === 'raw' ? <Files className="w-5 h-5 text-primary" /> : <ShieldOff className="w-5 h-5 text-blue-600" />}
+                  <div className={cn("p-2.5 rounded-xl", mode === 'raw' ? (workflowMode === 'roll' ? "bg-emerald-500/20" : "bg-primary/20") : "bg-blue-500/20")}>
+                    {mode === 'raw' ? (workflowMode === 'roll' ? <Database className="w-5 h-5 text-emerald-600" /> : <Files className="w-5 h-5 text-primary" />) : <ShieldOff className="w-5 h-5 text-blue-600" />}
                   </div>
                   <div className="text-left">
                     <h4 className="text-xl font-black uppercase tracking-tight leading-none">Ready for Import</h4>
@@ -371,7 +373,7 @@ export function ImportZone({ onDataImported, mode = 'raw' }: ImportZoneProps) {
 
             <Button 
               size="lg" 
-              className={cn("w-full h-16 text-lg font-black shadow-2xl uppercase tracking-widest transition-all", mode === 'raw' ? "bg-primary hover:bg-emerald-800 hover:text-white shadow-primary/20" : "bg-blue-600 hover:bg-blue-700 hover:text-white shadow-blue-500/20 border-none")} 
+              className={cn("w-full h-16 text-lg font-black shadow-2xl uppercase tracking-widest transition-all", mode === 'raw' ? (workflowMode === 'roll' ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20" : "bg-primary hover:bg-emerald-800 hover:text-white shadow-primary/20") : "bg-blue-600 hover:bg-blue-700 hover:text-white shadow-blue-500/20 border-none")} 
               onClick={handleStartImport}
               disabled={isLoading}
             >
@@ -389,7 +391,7 @@ export function ImportZone({ onDataImported, mode = 'raw' }: ImportZoneProps) {
           </div>
           <p className="text-sm text-muted-foreground font-semibold leading-relaxed">
             {mode === 'raw' 
-              ? "Spreadsheets must adhere to the official Parañaque City Real Property data structure. The engine identifies, validates, and cross-references critical fields using intelligent mapping." 
+              ? (workflowMode === 'roll' ? "Assessment Rolls must strictly adhere to the 17-column positional format. Ensure your PINs are accurately placed in column 7." : "Spreadsheets must adhere to the official Parañaque City Real Property data structure. The engine identifies, validates, and cross-references critical fields using intelligent mapping.")
               : "Upload a list of property records that should be treated as Exempt. The engine only needs the 'PIN' column from these files to build its cross-reference index."}
           </p>
         </div>
