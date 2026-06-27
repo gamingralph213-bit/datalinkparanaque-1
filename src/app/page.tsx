@@ -880,7 +880,7 @@ export default function Home() {
                      <h2 className="text-6xl font-black uppercase tracking-tight text-foreground">Select Engine Workflow</h2>
                      <p className="text-muted-foreground font-bold uppercase tracking-widest text-sm">Choose the processing logic tailored to your source data format.</p>
                    </div>
-                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl mx-auto px-6">
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl mx-auto px-6">
                       <Card 
                         className="p-10 border-white/10 bg-card hover:bg-primary/5 hover:border-primary/50 transition-all cursor-pointer group shadow-2xl flex flex-col items-center text-center"
                         onClick={() => setWorkflowMode('standard')}
@@ -903,18 +903,6 @@ export default function Home() {
                         <h3 className="text-2xl font-black uppercase tracking-tight mb-4">Assessment Roll Engine</h3>
                         <p className="text-sm font-bold text-muted-foreground leading-relaxed mb-8">Strict positional parsing for the 17-column government Assessment Roll format. Captures Lot, Blk, and TCT data.</p>
                         <Button className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 font-black uppercase text-xs tracking-widest">Launch Roll Mode</Button>
-                      </Card>
-
-                      <Card 
-                        className="p-10 border-white/10 bg-card hover:bg-amber-600/5 hover:border-amber-500/50 transition-all cursor-pointer group shadow-2xl flex flex-col items-center text-center"
-                        onClick={() => setWorkflowMode('journal')}
-                      >
-                        <div className="w-20 h-20 rounded-3xl bg-amber-500/10 flex items-center justify-center mb-8 group-hover:scale-110 transition-transform shadow-inner">
-                          <FileText className="w-10 h-10 text-amber-600" />
-                        </div>
-                        <h3 className="text-2xl font-black uppercase tracking-tight mb-4">Journal Engine</h3>
-                        <p className="text-sm font-bold text-muted-foreground leading-relaxed mb-8">Strict positional parsing for the 14-column Journal format. Ideal for processing transaction history logs.</p>
-                        <Button className="w-full h-14 bg-amber-600 hover:bg-amber-700 font-black uppercase text-xs tracking-widest">Launch Journal Mode</Button>
                       </Card>
                    </div>
                 </div>
