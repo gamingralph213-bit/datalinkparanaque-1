@@ -1008,7 +1008,24 @@ export default function Home() {
       ]);
 
       XLSX.utils.sheet_add_json(ws, abstractData, { origin: -1, skipHeader: true });
-      ws['!cols'] = headers.map(() => ({ wch: 25 }));
+      
+      // TAILORED COLUMN WIDTHS TO REDUCE SPACE
+      ws['!cols'] = [
+        { wch: 20 }, // ARP No.
+        { wch: 12 }, // Date of Conveyance
+        { wch: 15 }, // Ownership Transfer From (Blank)
+        { wch: 25 }, // Ownership Transfer To
+        { wch: 30 }, // Address of New Owner
+        { wch: 20 }, // Location of Property
+        { wch: 15 }, // Mode of Conveyance
+        { wch: 15 }, // Amount of Consideration
+        { wch: 4 },  // L (Marker)
+        { wch: 4 },  // B (Marker)
+        { wch: 12 }, // Area Land/Bldg.
+        { wch: 15 }, // Lot No.
+        { wch: 15 }, // Title No. Previous
+        { wch: 20 }  // Title No. New
+      ];
       
       XLSX.utils.book_append_sheet(wb, ws, "AbstractReport");
       XLSX.writeFile(wb, `AbstractReport-${new Date().toISOString().split('T')[0]}.xlsx`);
