@@ -825,8 +825,8 @@ export default function Home() {
           "col5": j.location || "", // Location of Property
           "col6": "", // Mode of Conveyance (Blank)
           "col7": "", // Amount of Consideration (Blank)
-          "col8": kind === 'L' || kind === 'LAND' ? au : "", // Property Conveyed (L)
-          "col9": kind === 'B' || kind === 'BUILDING' ? au : "", // Property Conveyed (B)
+          "col8": (kind === 'L' || kind === 'LAND') ? au : "", // Property Conveyed (L)
+          "col9": (kind === 'B' || kind === 'BUILDING') ? au : "", // Property Conveyed (B)
           "col10": j.landArea || 0, // Area Land/Bldg.
           "col11": rollMatch?.lotNo || "", // Lot No.
           "col12": "", // Title No. (Previous) (Blank)
@@ -1004,7 +1004,7 @@ export default function Home() {
              </TooltipProvider>
           </div>
           {deferredPrompt && <Button variant="ghost" size="icon" onClick={handleInstallClick} className="hover:bg-muted"><Download className="w-5 h-5" /></Button>}
-          <Button variant="ghost" size="icon" onClick={toggleFullScreen} className="hover:bg-muted">{isFullScreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}</Button>
+          <Button variant="ghost" size="icon" onClick={() => toggleFullScreen()} className="hover:bg-muted">{isFullScreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}</Button>
           <ModeToggle />
           <TooltipProvider>
             <Tooltip>
@@ -1024,7 +1024,7 @@ export default function Home() {
         </div>
       </header>
 
-      <div className-1 flex-col flex overflow-hidden>
+      <div className="flex-1 flex flex-col overflow-hidden">
           <main className="flex-1 flex flex-col p-6 overflow-hidden gap-4 min-h-0">
             <Tabs value={viewMode} onValueChange={(val: any) => { setViewMode(val); setStatusFilter('all'); }} className="flex-1 flex flex-col min-h-0">
               {workflowMode === 'idle' && viewMode !== 'audit' ? (
