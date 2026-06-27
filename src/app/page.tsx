@@ -328,10 +328,17 @@ export default function Home() {
 
     return journals.map(j => {
       const rollMatch = rollLookup.get(normalizePin(j.pin)) || null;
+      
+      const rollOwnerRaw = (rollMatch?.acctName || "").trim().toUpperCase();
+      const journalOwnerRaw = (j.acctName || "").trim().toUpperCase();
+      
+      // Ownership comparison logic: blank From if same as To
+      const ownersMatch = rollOwnerRaw !== "" && journalOwnerRaw !== "" && rollOwnerRaw === journalOwnerRaw;
+      
       return {
         ...j,
         // Enrich with roll data for preview based on corrected mapping
-        rollOwner: rollMatch?.acctName || '---',
+        rollOwner: ownersMatch ? "" : (rollMatch?.acctName || '---'),
         rollAddress: rollMatch?.address || '---',
         rollLotNo: rollMatch?.lotNo || '---',
         rollTctNo: rollMatch?.tctNo || '---',
@@ -800,12 +807,19 @@ export default function Home() {
 
       const abstractData = journals.map(j => {
         const rollMatch = rollLookup.get(normalizePin(j.pin)) || null;
+        
+        const rollOwnerRaw = (rollMatch?.acctName || "").trim().toUpperCase();
+        const journalOwnerRaw = (j.acctName || "").trim().toUpperCase();
+        
+        // Ownership comparison logic: blank From if same as To
+        const ownersMatch = rollOwnerRaw !== "" && journalOwnerRaw !== "" && rollOwnerRaw === journalOwnerRaw;
+        
         const kind = (j.kind || "").trim().toUpperCase();
         const au = (j.au || "").trim().toUpperCase();
         
         return {
           "col1": j.date || "", // Date of Conveyance/Transfer
-          "col2": rollMatch?.acctName || "", // Ownership Transfer (From)
+          "col2": ownersMatch ? "" : (rollMatch?.acctName || ""), // Ownership Transfer (From)
           "col3": j.acctName || "", // Ownership Transfer (To)
           "col4": rollMatch?.address || "", // Address of New Owner
           "col5": j.location || "", // Location of Property
