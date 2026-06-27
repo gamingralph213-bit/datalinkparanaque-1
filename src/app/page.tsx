@@ -156,7 +156,8 @@ export default function Home() {
   const [processingReports, setProcessingReports] = useState<ProcessingReport[]>([]);
   
   // --- 1.2 WORKFLOW STATE ---
-  const [workflowMode, setWorkflowMode] = useState<'idle' | 'standard' | 'roll' | 'journal' | 'abstract'>('idle');
+  const [workflowMode, setWorkflowMode] = useState<'idle' | 'standard' | 'roll' | 'abstract'>('idle');
+  const [abstractStep, setAbstractStep] = useState<'roll' | 'journal' | 'ready'>('roll');
 
   // --- 1.1 MANIFEST STATE ---
   const [rawFileManifest, setRawFileManifest] = useState<{ name: string, count: number }[]>([]);
@@ -428,6 +429,7 @@ export default function Home() {
     setTaxabilityFilter("all");
     setShowDetailedResults(false);
     setWorkflowMode('idle');
+    setAbstractStep('roll');
     setIsClearing(false);
     toast({ title: "Workspace Cleared", description: "All active data removed. Audit logs preserved." });
   };
@@ -506,15 +508,30 @@ export default function Home() {
 
     setImportedFileName(newFileName);
     
-    if (newData.length > 0 || mode === 'raw' || mode === 'journal') {
-      setShowDetailedResults(true);
-    }
-
-    if (processedData.length > 0) {
-      runProcessWithData(newData, newData.length, newFileName, true);
+    // Abstract Flow Management
+    if (workflowMode === 'abstract') {
+      if (abstractStep === 'roll') {
+        setAbstractStep('journal');
+        toast({ title: "Roll Staged", description: "Assessment Roll loaded. Now, please upload the corresponding Journal file." });
+      } else if (abstractStep === 'journal') {
+        setAbstractStep('ready');
+        setShowDetailedResults(true);
+        // In abstract mode, we just show the data, no complex processing needed yet
+        const { allWithDuplicateMarkers } = processRecords(newData, [], locationSettings, taxRates, { removeDuplicates: false, applyCalibration: false, systemCleanup: false }, newFileName, updatedExemptPins);
+        setPreviewData(allWithDuplicateMarkers);
+        toast({ title: "Data Staged", description: "Both Roll and Journal are loaded. You can now export the Abstract Report." });
+      }
     } else {
-      const { allWithDuplicateMarkers } = processRecords(newData, [], locationSettings, taxRates, { removeDuplicates: false, applyCalibration: false, systemCleanup: false }, newFileName, updatedExemptPins);
-      setPreviewData(allWithDuplicateMarkers);
+      if (newData.length > 0 || mode === 'raw' || mode === 'journal') {
+        setShowDetailedResults(true);
+      }
+
+      if (processedData.length > 0) {
+        runProcessWithData(newData, newData.length, newFileName, true);
+      } else {
+        const { allWithDuplicateMarkers } = processRecords(newData, [], locationSettings, taxRates, { removeDuplicates: false, applyCalibration: false, systemCleanup: false }, newFileName, updatedExemptPins);
+        setPreviewData(allWithDuplicateMarkers);
+      }
     }
     
     toast({ 
@@ -537,6 +554,7 @@ export default function Home() {
       if (combined.length === 0) {
         setShowDetailedResults(false);
         setImportedFileName("");
+        if (workflowMode === 'abstract') setAbstractStep('roll');
       }
     } else if (mode === 'journal') {
       const newJournalData = journalData.filter(r => r.sourceFile !== fileName);
@@ -551,6 +569,7 @@ export default function Home() {
       if (combined.length === 0) {
         setShowDetailedResults(false);
         setImportedFileName("");
+        if (workflowMode === 'abstract') setAbstractStep('journal');
       }
     } else {
       const fileToDelete = exemptFileManifest.find(f => f.name === fileName);
@@ -975,7 +994,7 @@ export default function Home() {
 
                       <Card 
                         className="p-10 border-white/10 bg-card hover:bg-blue-600/5 hover:border-blue-500/50 transition-all cursor-pointer group shadow-2xl flex flex-col items-center text-center"
-                        onClick={() => setWorkflowMode('abstract')}
+                        onClick={() => { setWorkflowMode('abstract'); setAbstractStep('roll'); }}
                       >
                         <div className="w-20 h-20 rounded-3xl bg-blue-500/10 flex items-center justify-center mb-8 group-hover:scale-110 transition-transform shadow-inner">
                           <ArrowRightLeft className="w-10 h-10 text-blue-600" />
@@ -986,14 +1005,28 @@ export default function Home() {
                       </Card>
                    </div>
                 </div>
-              ) : (rawData.length === 0 && journalData.length === 0) && viewMode !== 'audit' ? (
+              ) : (!showDetailedResults && viewMode !== 'audit') ? (
                 <div className="flex-1 flex flex-col items-center justify-center h-full py-12">
                    <div className="text-center space-y-3 mb-10 shrink-0">
-                     <h2 className="text-5xl font-black uppercase tracking-tight text-foreground">Import {workflowMode === 'roll' ? 'Assessment Roll' : workflowMode === 'journal' ? 'Journal' : workflowMode === 'abstract' ? 'Abstract Data' : 'Records'}</h2>
-                     <p className="text-muted-foreground font-bold uppercase tracking-widest text-sm">Upload your records to begin the {workflowMode === 'standard' ? 'cleanup' : 'positional parsing'} process.</p>
+                     <h2 className="text-5xl font-black uppercase tracking-tight text-foreground">
+                        {workflowMode === 'abstract' 
+                          ? (abstractStep === 'roll' ? 'Step 1: Import Assessment Roll' : 'Step 2: Import Journal Logs')
+                          : `Import ${workflowMode === 'roll' ? 'Assessment Roll' : 'Records'}`
+                        }
+                     </h2>
+                     <p className="text-muted-foreground font-bold uppercase tracking-widest text-sm">
+                        {workflowMode === 'abstract' 
+                          ? (abstractStep === 'roll' ? 'Start by uploading your current Assessment Roll reference.' : 'Now, upload the corresponding Journal transactions for the join.')
+                          : `Upload your records to begin the ${workflowMode === 'standard' ? 'cleanup' : 'positional parsing'} process.`
+                        }
+                     </p>
                    </div>
                    <div className="w-full max-w-4xl mx-auto px-6">
-                      <ImportZone onDataImported={handleDataImported} mode={workflowMode === 'journal' ? 'journal' : 'raw'} workflowMode={workflowMode === 'abstract' ? 'roll' : workflowMode} />
+                      <ImportZone 
+                        onDataImported={handleDataImported} 
+                        mode={workflowMode === 'abstract' ? (abstractStep === 'roll' ? 'raw' : 'journal') : 'raw'} 
+                        workflowMode={workflowMode === 'abstract' ? 'roll' : workflowMode} 
+                      />
                    </div>
                 </div>
               ) : (
@@ -1172,7 +1205,7 @@ export default function Home() {
                       </TooltipProvider>
                     </div>
                     <div className="flex gap-4 items-center">
-                      {viewMode !== 'analytics' && viewMode !== 'audit' && (
+                      {workflowMode !== 'abstract' && viewMode !== 'analytics' && viewMode !== 'audit' && (
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
