@@ -819,7 +819,7 @@ export default function Home() {
                 className={cn(
                   "h-9 w-9 transition-all", 
                   mode === 'raw' ? "border-primary/30 text-primary hover:bg-primary/10" : 
-                  mode === 'exempt' ? "border-blue-500/30 text-blue-600 hover:bg-blue-500/10" :
+                  mode === 'exempt' ? "border-blue-500/30 text-blue-600 hover:bg-blue-50/10" :
                   "border-amber-500/30 text-amber-600 hover:bg-amber-500/10"
                 )}
               >
@@ -1145,39 +1145,43 @@ export default function Home() {
 
                   <div className="mb-4 flex items-center justify-between bg-card p-3 rounded-3xl shadow-2xl border border-white/10 shrink-0 transition-all duration-700 ease-in-out px-6">
                     <div className="flex items-center gap-4">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button variant="outline" onClick={() => setIsExportSettingsOpen(true)} size="sm" className={cn("font-black uppercase tracking-widest border-primary/30 text-primary hover:bg-muted transition-all", showDetailedResults ? "h-10 px-5 text-[10px]" : "h-14 px-8 text-[12px]")} disabled={isExporting}>
-                              <FileDown className={cn(showDetailedResults ? "w-3.5 h-3.5 mr-2" : "w-4 h-4 mr-2")} /> 
-                              {isExporting ? "Generating..." : "Export Data"}
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Standard Report Export</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      {workflowMode === 'standard' && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="outline" onClick={() => setIsExportSettingsOpen(true)} size="sm" className={cn("font-black uppercase tracking-widest border-primary/30 text-primary hover:bg-muted transition-all", showDetailedResults ? "h-10 px-5 text-[10px]" : "h-14 px-8 text-[12px]")} disabled={isExporting}>
+                                <FileDown className={cn(showDetailedResults ? "w-3.5 h-3.5 mr-2" : "w-4 h-4 mr-2")} /> 
+                                {isExporting ? "Generating..." : "Export Data"}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Standard Report Export</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
 
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button 
-                              variant="outline" 
-                              onClick={handleAbstractExport} 
-                              size="sm" 
-                              className={cn(
-                                "font-black uppercase tracking-widest transition-all",
-                                showDetailedResults ? "h-10 px-5 text-[10px]" : "h-14 px-8 text-[12px]",
-                                canAbstractExport ? "border-blue-500/30 text-blue-600 hover:bg-blue-50" : "opacity-30 border-muted text-muted-foreground"
-                              )} 
-                              disabled={isExporting || !canAbstractExport}
-                            >
-                              <ArrowRightLeft className={cn(showDetailedResults ? "w-3.5 h-3.5 mr-2" : "w-4 h-4 mr-2")} /> 
-                              Abstract Export
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>{canAbstractExport ? "Generate Abstract of Transactions (Roll + Journal Join)" : "Requires both Assessment Roll and Journal data staged"}</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      {workflowMode === 'abstract' && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="outline" 
+                                onClick={handleAbstractExport} 
+                                size="sm" 
+                                className={cn(
+                                  "font-black uppercase tracking-widest transition-all",
+                                  showDetailedResults ? "h-10 px-5 text-[10px]" : "h-14 px-8 text-[12px]",
+                                  canAbstractExport ? "border-blue-500/30 text-blue-600 hover:bg-blue-50" : "opacity-30 border-muted text-muted-foreground"
+                                )} 
+                                disabled={isExporting || !canAbstractExport}
+                              >
+                                <ArrowRightLeft className={cn(showDetailedResults ? "w-3.5 h-3.5 mr-2" : "w-4 h-4 mr-2")} /> 
+                                Abstract Export
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>{canAbstractExport ? "Generate Abstract of Transactions (Roll + Journal Join)" : "Requires both Assessment Roll and Journal data staged"}</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
 
                       <TooltipProvider>
                         <Tooltip>
@@ -1196,7 +1200,7 @@ export default function Home() {
                       </TooltipProvider>
                     </div>
                     <div className="flex gap-4 items-center">
-                      {workflowMode !== 'abstract' && viewMode !== 'analytics' && viewMode !== 'audit' && (
+                      {workflowMode === 'standard' && viewMode !== 'analytics' && viewMode !== 'audit' && (
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
