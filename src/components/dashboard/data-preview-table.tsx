@@ -63,8 +63,8 @@ const RecordRow = memo(({
         <TableCell className="text-center font-black p-3 border-r bg-muted/5 text-muted-foreground font-mono">
           {index + 1}
         </TableCell>
-        <TableCell className="whitespace-nowrap p-3 font-bold">{abstractRow.displayDate || ''}</TableCell>
         <TableCell className="font-mono p-3 font-black text-primary">{row.arpNo || '---'}</TableCell>
+        <TableCell className="whitespace-nowrap p-3 font-bold">{abstractRow.displayDate || ''}</TableCell>
         
         {/* Relational Mapping Columns for Join Preview */}
         <TableCell className={cn(
@@ -385,8 +385,8 @@ export function DataPreviewTable({ data, isProcessed = false, onRowClick, showLa
             {workflowMode === 'abstract' ? (
               <TableRow className="hover:bg-transparent border-b-2">
                 <TableHead className="w-14 text-center font-black bg-card border-r">#</TableHead>
-                <TableHead className="min-w-[120px] font-black uppercase bg-card">Conveyance Date</TableHead>
                 <TableHead className="min-w-[150px] font-black uppercase bg-card border-l">ARP No. (NEW)</TableHead>
+                <TableHead className="min-w-[120px] font-black uppercase bg-card">Conveyance Date</TableHead>
                 <TableHead className="min-w-[200px] font-black uppercase bg-blue-50 dark:bg-blue-950 border-l border-blue-100 dark:border-blue-900">Prev. Owner (From)</TableHead>
                 <TableHead className="min-w-[200px] font-black uppercase bg-emerald-50 dark:bg-emerald-950 border-l border-emerald-100 dark:border-emerald-900">New Owner (To)</TableHead>
                 <TableHead className="min-w-[250px] font-black uppercase bg-card border-l">Registered Address</TableHead>

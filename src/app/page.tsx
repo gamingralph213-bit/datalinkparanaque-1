@@ -950,7 +950,7 @@ export default function Home() {
         return true;
       });
 
-      // Sorting is already applied in joinedAbstractData useMemo, but we re-apply just to be safe
+      // Multi-level sort: Date Ascending, then ARP Ascending
       baseData.sort((a, b) => {
          const dateA = parseRecordDate(a.date) || new Date(0);
          const dateB = parseRecordDate(b.date) || new Date(0);
@@ -976,8 +976,8 @@ export default function Home() {
         const kind = (j.kind || "").trim().toUpperCase();
         
         return {
-          "col1": dateToShow,
-          "col2": j.arpNo || "", 
+          "col1": j.arpNo || "",
+          "col2": dateToShow,
           "col3": (j as any).rollOwner || "", 
           "col4": j.acctName || "", 
           "col5": (j as any).rollAddress || "", 
@@ -994,8 +994,8 @@ export default function Home() {
       });
 
       const headers = [
-        "Date of Conveyance/Transfer",
         "ARP No.",
+        "Date of Conveyance/Transfer",
         "Ownership Transfer From",
         "Ownership Transfer To",
         "Address of New Owner",
