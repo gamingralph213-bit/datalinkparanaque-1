@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useTransition, useCallback, useRef } from 'react';
@@ -36,7 +37,8 @@ import {
   LayoutDashboard,
   ArrowUpDown,
   Zap,
-  ChevronLeft
+  ChevronLeft,
+  ArrowRightLeft
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -154,9 +156,9 @@ export default function Home() {
   const [processingReports, setProcessingReports] = useState<ProcessingReport[]>([]);
   
   // --- 1.2 WORKFLOW STATE ---
-  const [workflowMode, setWorkflowMode] = useState<'idle' | 'standard' | 'roll' | 'journal'>('idle');
+  const [workflowMode, setWorkflowMode] = useState<'idle' | 'standard' | 'roll' | 'journal' | 'abstract'>('idle');
 
-  // --- 1.1 MANIFEST STATE (Import Managers) ---
+  // --- 1.1 MANIFEST STATE ---
   const [rawFileManifest, setRawFileManifest] = useState<{ name: string, count: number }[]>([]);
   const [exemptFileManifest, setExemptFileManifest] = useState<{ name: string, count: number, pins: Set<string> }[]>([]);
   const [journalFileManifest, setJournalFileManifest] = useState<{ name: string, count: number }[]>([]);
@@ -580,7 +582,7 @@ export default function Home() {
     try {
       for (let i = 0; i < files.length; i++) {
         setDirectImportProgress(prev => ({ ...prev, current: i }));
-        const result = await parseFile(files[i], workflowMode, mode);
+        const result = await parseFile(files[i], workflowMode === 'abstract' ? 'roll' : workflowMode, mode);
         allRecords.push(...result.data);
         totalRawCount += result.count;
         fileNames.push(files[i].name);
@@ -721,6 +723,70 @@ export default function Home() {
     finally { setIsExporting(false); }
   };
 
+  const handleAbstractExport = async () => {
+    setIsExporting(true);
+    try {
+      await delay(1500);
+      
+      // Abstract Join Logic:
+      // Primary records are from Journal logs. 
+      // Secondary data (Address, Lot, TCT) comes from Assessment Roll based on PIN.
+      const journals = journalData.length > 0 ? journalData : rawData.filter(r => r.sourceFile?.toLowerCase().includes('journal'));
+      const rolls = rawData.filter(r => !r.sourceFile?.toLowerCase().includes('journal'));
+      
+      if (journals.length === 0) {
+        toast({ variant: "destructive", title: "Export Failed", description: "No Journal transactions found in the session." });
+        setIsExporting(false);
+        return;
+      }
+
+      const rollLookup = new Map<string, LandRecord>();
+      rolls.forEach(r => { if (r.pin) rollLookup.set(normalizePin(r.pin), r); });
+
+      const abstractData = journals.map(j => {
+        const rollMatch = rollLookup.get(normalizePin(j.pin)) || null;
+        return {
+          "Date of Conveyance/Transfer": j.date || "",
+          "Ownership Transfer (From)": "",
+          "Ownership Transfer (To)": j.acctName || "",
+          "Address of New Owner": rollMatch?.address || "",
+          "Location of Property": j.location || "",
+          "Mode of Conveyance": "",
+          "Amount of Consideration": "",
+          "Property Conveyed (L)": j.kind || "",
+          "Property Conveyed (B)": j.au || "",
+          "Area Land/Bldg.": j.landArea || 0,
+          "Lot No.": rollMatch?.lotNo || "",
+          "Title No. (Previous)": "",
+          "Title No. (New)": rollMatch?.tctNo || ""
+        };
+      });
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet([
+        ["ABSTRACT OF REGISTERED REAL PROPERTY TRANSACTION"],
+        ["PARAÑAQUE CITY - REAL PROPERTY DATA DIVISION"],
+        ["EXPORT DATE:", new Date().toLocaleString()],
+        [],
+        ["Date of Conveyance/", "Ownership Transfer", "", "Address of", "Location of", "Mode of", "Amount of", "Property Conveyed", "", "Area Land/", "Lot No.", "Title No.", ""],
+        ["Transfer", "From", "To", "New Owner", "Property", "Conveyance", "Consideration", "L", "B", "Bldg.", "", "Previous", "New"]
+      ]);
+
+      XLSX.utils.sheet_add_json(ws, abstractData, { origin: -1, skipHeader: true });
+      
+      // Dynamic column width
+      ws['!cols'] = Array(13).fill({ wch: 22 });
+      
+      XLSX.utils.book_append_sheet(wb, ws, "AbstractReport");
+      XLSX.writeFile(wb, `AbstractReport-${new Date().toISOString().split('T')[0]}.xlsx`);
+      showSuccessToast(`Exported ${abstractData.length} Abstract entries successfully.`);
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Abstract Export Failed", description: error.message });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const ImportManager = ({ mode, manifest, onAdd, onDelete }: { mode: 'raw' | 'exempt' | 'journal', manifest: any[], onAdd: () => void, onDelete: (name: string) => void }) => (
     <Popover>
       <TooltipProvider>
@@ -798,6 +864,8 @@ export default function Home() {
   );
 
   if (!isClient) return null;
+
+  const canAbstractExport = (journalData.length > 0 && rawData.length > 0) || workflowMode === 'abstract';
 
   return (
     <div className="h-screen bg-background flex flex-col font-body overflow-hidden" suppressHydrationWarning>
@@ -880,7 +948,7 @@ export default function Home() {
                      <h2 className="text-6xl font-black uppercase tracking-tight text-foreground">Select Engine Workflow</h2>
                      <p className="text-muted-foreground font-bold uppercase tracking-widest text-sm">Choose the processing logic tailored to your source data format.</p>
                    </div>
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl mx-auto px-6">
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl mx-auto px-6">
                       <Card 
                         className="p-10 border-white/10 bg-card hover:bg-primary/5 hover:border-primary/50 transition-all cursor-pointer group shadow-2xl flex flex-col items-center text-center"
                         onClick={() => setWorkflowMode('standard')}
@@ -889,8 +957,8 @@ export default function Home() {
                           <Zap className="w-10 h-10 text-primary" />
                         </div>
                         <h3 className="text-2xl font-black uppercase tracking-tight mb-4">Standard Processor</h3>
-                        <p className="text-sm font-bold text-muted-foreground leading-relaxed mb-8">Best for general land record spreadsheets. Uses flexible header aliases to identify fields across variant formats.</p>
-                        <Button className="w-full h-14 bg-primary hover:bg-emerald-700 font-black uppercase text-xs tracking-widest">Launch Standard Mode</Button>
+                        <p className="text-sm font-bold text-muted-foreground leading-relaxed mb-8">Best for general land record spreadsheets. Uses flexible header aliases.</p>
+                        <Button className="w-full h-14 bg-primary hover:bg-emerald-700 font-black uppercase text-xs tracking-widest">Launch Standard</Button>
                       </Card>
 
                       <Card 
@@ -900,20 +968,32 @@ export default function Home() {
                         <div className="w-20 h-20 rounded-3xl bg-emerald-500/10 flex items-center justify-center mb-8 group-hover:scale-110 transition-transform shadow-inner">
                           <Database className="w-10 h-10 text-emerald-600" />
                         </div>
-                        <h3 className="text-2xl font-black uppercase tracking-tight mb-4">Assessment Roll Engine</h3>
-                        <p className="text-sm font-bold text-muted-foreground leading-relaxed mb-8">Strict positional parsing for the 17-column government Assessment Roll format. Captures Lot, Blk, and TCT data.</p>
+                        <h3 className="text-2xl font-black uppercase tracking-tight mb-4">Assessment Roll</h3>
+                        <p className="text-sm font-bold text-muted-foreground leading-relaxed mb-8">Strict positional parsing for the 17-column government Assessment Roll format.</p>
                         <Button className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 font-black uppercase text-xs tracking-widest">Launch Roll Mode</Button>
+                      </Card>
+
+                      <Card 
+                        className="p-10 border-white/10 bg-card hover:bg-blue-600/5 hover:border-blue-500/50 transition-all cursor-pointer group shadow-2xl flex flex-col items-center text-center"
+                        onClick={() => setWorkflowMode('abstract')}
+                      >
+                        <div className="w-20 h-20 rounded-3xl bg-blue-500/10 flex items-center justify-center mb-8 group-hover:scale-110 transition-transform shadow-inner">
+                          <ArrowRightLeft className="w-10 h-10 text-blue-600" />
+                        </div>
+                        <h3 className="text-2xl font-black uppercase tracking-tight mb-4">Abstract of Transactions</h3>
+                        <p className="text-sm font-bold text-muted-foreground leading-relaxed mb-8">Specialized mode for joining Journals with Assessment Rolls for transfer reports.</p>
+                        <Button className="w-full h-14 bg-blue-600 hover:bg-blue-700 font-black uppercase text-xs tracking-widest">Launch Abstract</Button>
                       </Card>
                    </div>
                 </div>
               ) : (rawData.length === 0 && journalData.length === 0) && viewMode !== 'audit' ? (
                 <div className="flex-1 flex flex-col items-center justify-center h-full py-12">
                    <div className="text-center space-y-3 mb-10 shrink-0">
-                     <h2 className="text-5xl font-black uppercase tracking-tight text-foreground">Import {workflowMode === 'roll' ? 'Assessment Roll' : workflowMode === 'journal' ? 'Journal' : 'Records'}</h2>
+                     <h2 className="text-5xl font-black uppercase tracking-tight text-foreground">Import {workflowMode === 'roll' ? 'Assessment Roll' : workflowMode === 'journal' ? 'Journal' : workflowMode === 'abstract' ? 'Abstract Data' : 'Records'}</h2>
                      <p className="text-muted-foreground font-bold uppercase tracking-widest text-sm">Upload your records to begin the {workflowMode === 'standard' ? 'cleanup' : 'positional parsing'} process.</p>
                    </div>
                    <div className="w-full max-w-4xl mx-auto px-6">
-                      <ImportZone onDataImported={handleDataImported} mode={workflowMode === 'journal' ? 'journal' : 'raw'} workflowMode={workflowMode} />
+                      <ImportZone onDataImported={handleDataImported} mode={workflowMode === 'journal' ? 'journal' : 'raw'} workflowMode={workflowMode === 'abstract' ? 'roll' : workflowMode} />
                    </div>
                 </div>
               ) : (
@@ -1049,9 +1129,32 @@ export default function Home() {
                               {isExporting ? "Generating..." : "Export Data"}
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Shortcut: Ctrl + E</TooltipContent>
+                          <TooltipContent>Standard Report Export</TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
+
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              onClick={handleAbstractExport} 
+                              size="sm" 
+                              className={cn(
+                                "font-black uppercase tracking-widest transition-all",
+                                showDetailedResults ? "h-10 px-5 text-[10px]" : "h-14 px-8 text-[12px]",
+                                canAbstractExport ? "border-blue-500/30 text-blue-600 hover:bg-blue-50" : "opacity-30 border-muted text-muted-foreground"
+                              )} 
+                              disabled={isExporting || !canAbstractExport}
+                            >
+                              <ArrowRightLeft className={cn(showDetailedResults ? "w-3.5 h-3.5 mr-2" : "w-4 h-4 mr-2")} /> 
+                              Abstract Export
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>{canAbstractExport ? "Generate Abstract of Transactions (Roll + Journal Join)" : "Requires both Assessment Roll and Journal data staged"}</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -1064,7 +1167,7 @@ export default function Home() {
                               <Trash2 className="w-4 h-4" /> Clear Session
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Shortcut: Ctrl + Alt + C</TooltipContent>
+                          <TooltipContent>Reset Session Data</TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                     </div>
@@ -1077,7 +1180,7 @@ export default function Home() {
                                 {isProcessing ? "Processing Batch..." : "Run Batch Processor"}
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent>Shortcut: Ctrl + Enter</TooltipContent>
+                            <TooltipContent>Run engine analysis sequence</TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
                       )}
