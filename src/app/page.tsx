@@ -353,12 +353,11 @@ export default function Home() {
         systemCleanup: 0,
         totalImported: journals.length,
         duplicatesRemoved: 0,
-        finalCount: joined.reduce((sum, r) => sum + (r.landArea || 0), 0), // Use area as primary metric if needed or just count
+        finalCount: joined.reduce((sum, r) => sum + (r.landArea || 0), 0), 
         totalMarketValue: joined.reduce((sum, r) => sum + (r.marketValue || 0), 0),
         totalAssessedValue: joined.reduce((sum, r) => sum + (r.assessedValue || 0), 0),
         totalYearlyTax: 0,
         totalErrors: unlinkedCount,
-        // Mode Specific
         linkedCount,
         unlinkedCount,
         rollCount: rolls.length,
@@ -1364,14 +1363,6 @@ export default function Home() {
               )}
             </Tabs>
           </main>
-      </div>
-
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <main className="flex-1 flex flex-col p-6 overflow-hidden gap-4 min-h-0">
-          <Tabs value={viewMode} onValueChange={(val: any) => { setViewMode(val); setStatusFilter('all'); }} className="flex-1 flex flex-col min-h-0">
-          {/* Workflow selection view stays as is */}
-          </Tabs>
-        </main>
       </div>
 
       <Dialog open={isRunProcessorDialogOpen} onOpenChange={setIsRunProcessorDialogOpen}>
