@@ -24,7 +24,8 @@ import {
   Shapes,
   ShieldCheck,
   ArrowUpDown,
-  Percent
+  Percent,
+  RefreshCw
 } from 'lucide-react';
 import { LandRecord, RecordStatusType } from '@/lib/processor';
 import { Badge } from '@/components/ui/badge';
@@ -54,6 +55,7 @@ export interface ExportFinalSettings {
   statuses: RecordStatusType[];
   kinds: string[];
   taxabilities: ('T' | 'E')[];
+  updateCodes: string[];
   sortBy: 'pin' | 'arpNo';
 }
 
@@ -85,6 +87,7 @@ export function ExportSettingsModal({
   const [selectedStatuses, setSelectedStatuses] = useState<RecordStatusType[]>([]);
   const [selectedKinds, setSelectedKinds] = useState<string[]>([]);
   const [selectedTaxabilities, setSelectedTaxabilities] = useState<('T' | 'E')[]>([]);
+  const [selectedUpdateCodes, setSelectedUpdateCodes] = useState<string[]>([]);
   const [localSortBy, setLocalSortBy] = useState<'pin' | 'arpNo'>(initialSortBy);
 
   const availableBarangays = useMemo(() => {
@@ -114,6 +117,12 @@ export function ExportSettingsModal({
     return Array.from(set).sort();
   }, [data]);
 
+  const availableUpdateCodes = useMemo(() => {
+    const set = new Set<string>();
+    data.forEach(r => { if (r.update) set.add(r.update.trim().toUpperCase()); });
+    return Array.from(set).sort();
+  }, [data]);
+
   const approvedStatuses = useMemo(() => 
     availableStatuses.filter(s => s !== 'DUPLICATE' && s !== 'INCOMPLETE' && s !== 'CLEANUP'),
     [availableStatuses]
@@ -129,6 +138,7 @@ export function ExportSettingsModal({
       setSelectedBarangays(availableBarangays);
       setSelectedKinds(availableKinds);
       setSelectedTaxabilities(availableTaxabilities);
+      setSelectedUpdateCodes(availableUpdateCodes);
       setLocalSortBy(initialSortBy);
       if (onBulkColumnChange) {
         const allCols = { ...exportColumns };
@@ -137,7 +147,7 @@ export function ExportSettingsModal({
       }
       setSelectedStatuses([]);
     }
-  }, [open, availableBarangays, availableKinds, availableTaxabilities, initialSortBy]);
+  }, [open, availableBarangays, availableKinds, availableTaxabilities, availableUpdateCodes, initialSortBy]);
 
   const toggleBarangay = (brgy: string) => {
     setSelectedBarangays(prev => 
@@ -160,6 +170,12 @@ export function ExportSettingsModal({
   const toggleTaxability = (tax: 'T' | 'E') => {
     setSelectedTaxabilities(prev => 
       prev.includes(tax) ? prev.filter(t => t !== tax) : [...prev, tax]
+    );
+  };
+
+  const toggleUpdateCode = (code: string) => {
+    setSelectedUpdateCodes(prev => 
+      prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]
     );
   };
 
@@ -210,6 +226,7 @@ export function ExportSettingsModal({
       statuses: selectedStatuses,
       kinds: selectedKinds,
       taxabilities: selectedTaxabilities,
+      updateCodes: selectedUpdateCodes,
       sortBy: localSortBy
     });
   };
@@ -219,9 +236,10 @@ export function ExportSettingsModal({
       selectedBarangays.includes(r.barangayName || 'UNMAPPED') && 
       selectedStatuses.includes(r.statusLabel || 'VALID' as any) &&
       selectedKinds.includes(r.kind?.trim().toUpperCase() || '') &&
-      selectedTaxabilities.includes(r.taxability || 'T')
+      selectedTaxabilities.includes(r.taxability || 'T') &&
+      selectedUpdateCodes.includes(r.update?.trim().toUpperCase() || '')
     ).length;
-  }, [data, selectedBarangays, selectedStatuses, selectedKinds, selectedTaxabilities]);
+  }, [data, selectedBarangays, selectedStatuses, selectedKinds, selectedTaxabilities, selectedUpdateCodes]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -328,82 +346,111 @@ export function ExportSettingsModal({
               </Card>
             </section>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <section className="space-y-4">
-                <h3 className="text-sm font-black uppercase text-primary tracking-[0.15em] flex items-center gap-2">
-                  <Shapes className="w-4 h-4" /> Property Kind
-                </h3>
-                <Card className="bg-muted/10 p-5 shadow-inner border-white/5 h-full">
-                  <div className="space-y-3">
-                    {availableKinds.map(kind => (
-                      <div key={kind} className="flex items-center gap-3 group">
-                        <Checkbox 
-                          id={`exp-kind-${kind}`} 
-                          checked={selectedKinds.includes(kind)} 
-                          onCheckedChange={() => toggleKind(kind)}
-                          className="w-4.5 h-4.5"
-                        />
-                        <label htmlFor={`exp-kind-${kind}`} className="text-[11px] font-black cursor-pointer truncate uppercase select-none text-foreground/80 group-hover:text-primary transition-colors">
-                          {KIND_LABELS[kind] || kind}
-                        </label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+               <div className="space-y-8">
+                  <section className="space-y-4">
+                    <h3 className="text-sm font-black uppercase text-primary tracking-[0.15em] flex items-center gap-2">
+                      <Shapes className="w-4 h-4" /> Property Kind
+                    </h3>
+                    <Card className="bg-muted/10 p-5 shadow-inner border-white/5">
+                      <div className="space-y-3">
+                        {availableKinds.map(kind => (
+                          <div key={kind} className="flex items-center gap-3 group">
+                            <Checkbox 
+                              id={`exp-kind-${kind}`} 
+                              checked={selectedKinds.includes(kind)} 
+                              onCheckedChange={() => toggleKind(kind)}
+                              className="w-4.5 h-4.5"
+                            />
+                            <label htmlFor={`exp-kind-${kind}`} className="text-[11px] font-black cursor-pointer truncate uppercase select-none text-foreground/80 group-hover:text-primary transition-colors">
+                              {KIND_LABELS[kind] || kind}
+                            </label>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </Card>
-              </section>
+                    </Card>
+                  </section>
 
-              <section className="space-y-4">
-                <h3 className="text-sm font-black uppercase text-primary tracking-[0.15em] flex items-center gap-2">
-                  <Percent className="w-4 h-4" /> Financial Status
-                </h3>
-                <Card className="bg-muted/10 p-5 shadow-inner border-white/5 h-full">
-                  <div className="space-y-3">
-                    {availableTaxabilities.map(tax => (
-                      <div key={tax} className="flex items-center gap-3 group">
-                        <Checkbox 
-                          id={`exp-tax-${tax}`} 
-                          checked={selectedTaxabilities.includes(tax)} 
-                          onCheckedChange={() => toggleTaxability(tax)}
-                          className="w-4.5 h-4.5"
-                        />
-                        <label htmlFor={`exp-tax-${tax}`} className="text-[11px] font-black cursor-pointer truncate uppercase select-none text-foreground/80 group-hover:text-primary transition-colors">
-                          {tax === 'T' ? 'Taxable (T)' : 'Exempted (E)'}
-                        </label>
+                  <section className="space-y-4">
+                    <h3 className="text-sm font-black uppercase text-primary tracking-[0.15em] flex items-center gap-2">
+                      <Percent className="w-4 h-4" /> Financial Status
+                    </h3>
+                    <Card className="bg-muted/10 p-5 shadow-inner border-white/5">
+                      <div className="space-y-3">
+                        {availableTaxabilities.map(tax => (
+                          <div key={tax} className="flex items-center gap-3 group">
+                            <Checkbox 
+                              id={`exp-tax-${tax}`} 
+                              checked={selectedTaxabilities.includes(tax)} 
+                              onCheckedChange={() => toggleTaxability(tax)}
+                              className="w-4.5 h-4.5"
+                            />
+                            <label htmlFor={`exp-tax-${tax}`} className="text-[11px] font-black cursor-pointer truncate uppercase select-none text-foreground/80 group-hover:text-primary transition-colors">
+                              {tax === 'T' ? 'Taxable (T)' : 'Exempted (E)'}
+                            </label>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </Card>
-              </section>
+                    </Card>
+                  </section>
+               </div>
 
-              <section className="space-y-4">
-                <h3 className="text-sm font-black uppercase text-primary tracking-[0.15em] flex items-center gap-2">
-                  <ArrowUpDown className="w-4 h-4" /> Record Arrangement
-                </h3>
-                <Card className="bg-muted/10 p-5 shadow-inner border-white/5 h-full flex flex-col justify-center gap-4">
-                  <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setLocalSortBy('pin')}>
-                    <div className={cn(
-                      "w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all",
-                      localSortBy === 'pin' ? "border-primary bg-primary" : "border-primary/40"
-                    )}>
-                      {localSortBy === 'pin' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                    </div>
-                    <span className={cn("text-[11px] font-black uppercase transition-colors", localSortBy === 'pin' ? "text-primary" : "text-foreground/70 group-hover:text-primary")}>
-                      Arrange by PIN (Geographic)
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setLocalSortBy('arpNo')}>
-                    <div className={cn(
-                      "w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all",
-                      localSortBy === 'arpNo' ? "border-primary bg-primary" : "border-primary/40"
-                    )}>
-                      {localSortBy === 'arpNo' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                    </div>
-                    <span className={cn("text-[11px] font-black uppercase transition-colors", localSortBy === 'arpNo' ? "text-primary" : "text-foreground/70 group-hover:text-primary")}>
-                      Arrange by ARP No# (Admin)
-                    </span>
-                  </div>
-                </Card>
-              </section>
+               <div className="space-y-8">
+                  <section className="space-y-4">
+                    <h3 className="text-sm font-black uppercase text-primary tracking-[0.15em] flex items-center gap-2">
+                      <RefreshCw className="w-4 h-4" /> Update Code
+                    </h3>
+                    <Card className="bg-muted/10 p-5 shadow-inner border-white/5">
+                      <ScrollArea className="h-[120px] pr-4">
+                        <div className="space-y-3">
+                          {availableUpdateCodes.map(code => (
+                            <div key={code} className="flex items-center gap-3 group">
+                              <Checkbox 
+                                id={`exp-upd-${code}`} 
+                                checked={selectedUpdateCodes.includes(code)} 
+                                onCheckedChange={() => toggleUpdateCode(code)}
+                                className="w-4.5 h-4.5"
+                              />
+                              <label htmlFor={`exp-upd-${code}`} className="text-[11px] font-black cursor-pointer truncate uppercase select-none text-foreground/80 group-hover:text-primary transition-colors">
+                                {code || 'NONE'}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </Card>
+                  </section>
+
+                  <section className="space-y-4">
+                    <h3 className="text-sm font-black uppercase text-primary tracking-[0.15em] flex items-center gap-2">
+                      <ArrowUpDown className="w-4 h-4" /> Record Arrangement
+                    </h3>
+                    <Card className="bg-muted/10 p-5 shadow-inner border-white/5 flex flex-col justify-center gap-4">
+                      <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setLocalSortBy('pin')}>
+                        <div className={cn(
+                          "w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all",
+                          localSortBy === 'pin' ? "border-primary bg-primary" : "border-primary/40"
+                        )}>
+                          {localSortBy === 'pin' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </div>
+                        <span className={cn("text-[11px] font-black uppercase transition-colors", localSortBy === 'pin' ? "text-primary" : "text-foreground/70 group-hover:text-primary")}>
+                          Arrange by PIN (Geographic)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setLocalSortBy('arpNo')}>
+                        <div className={cn(
+                          "w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all",
+                          localSortBy === 'arpNo' ? "border-primary bg-primary" : "border-primary/40"
+                        )}>
+                          {localSortBy === 'arpNo' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </div>
+                        <span className={cn("text-[11px] font-black uppercase transition-colors", localSortBy === 'arpNo' ? "text-primary" : "text-foreground/70 group-hover:text-primary")}>
+                          Arrange by ARP No# (Admin)
+                        </span>
+                      </div>
+                    </Card>
+                  </section>
+               </div>
             </div>
 
             <section className="space-y-6">
@@ -434,7 +481,7 @@ export function ExportSettingsModal({
                         <label htmlFor={`exp-stat-${status}`} className="text-[11px] font-black uppercase cursor-pointer flex items-center justify-between w-full select-none group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">
                           <span className="truncate mr-2">{status}</span>
                           <Badge variant="outline" className="h-4.5 px-1.5 text-[9px] font-black bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-800 shadow-none shrink-0">
-                            {data.filter(r => r.statusLabel === status && selectedBarangays.includes(r.barangayName || 'UNMAPPED') && selectedKinds.includes(r.kind?.trim().toUpperCase() || '') && selectedTaxabilities.includes(r.taxability || 'T')).length}
+                            {data.filter(r => r.statusLabel === status && selectedBarangays.includes(r.barangayName || 'UNMAPPED') && selectedKinds.includes(r.kind?.trim().toUpperCase() || '') && selectedTaxabilities.includes(r.taxability || 'T') && selectedUpdateCodes.includes(r.update?.trim().toUpperCase() || '')).length}
                           </Badge>
                         </label>
                       </div>
@@ -464,7 +511,7 @@ export function ExportSettingsModal({
                         <label htmlFor={`exp-stat-${status}`} className="text-[11px] font-black uppercase cursor-pointer flex items-center justify-between w-full select-none group-hover:text-orange-700 dark:group-hover:text-orange-400 transition-colors">
                           <span className="truncate mr-2">{status}</span>
                           <Badge variant="outline" className="h-4.5 px-1.5 text-[9px] font-black bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-950 dark:text-orange-400 dark:border-orange-800 shadow-none shrink-0">
-                            {data.filter(r => r.statusLabel === status && selectedBarangays.includes(r.barangayName || 'UNMAPPED') && selectedKinds.includes(r.kind?.trim().toUpperCase() || '') && selectedTaxabilities.includes(r.taxability || 'T')).length}
+                            {data.filter(r => r.statusLabel === status && selectedBarangays.includes(r.barangayName || 'UNMAPPED') && selectedKinds.includes(r.kind?.trim().toUpperCase() || '') && selectedTaxabilities.includes(r.taxability || 'T') && selectedUpdateCodes.includes(r.update?.trim().toUpperCase() || '')).length}
                           </Badge>
                         </label>
                       </div>
@@ -487,7 +534,7 @@ export function ExportSettingsModal({
             <Button variant="ghost" onClick={() => onOpenChange(false)} className="font-black uppercase text-xs tracking-widest px-8 h-12 flex-1 sm:flex-none hover:bg-muted hover:text-foreground">Discard</Button>
             <Button 
               onClick={handleExport} 
-              disabled={selectedBarangays.length === 0 || selectedStatuses.length === 0 || selectedKinds.length === 0 || selectedTaxabilities.length === 0 || estimatedRecordCount === 0}
+              disabled={selectedBarangays.length === 0 || selectedStatuses.length === 0 || selectedKinds.length === 0 || selectedTaxabilities.length === 0 || selectedUpdateCodes.length === 0 || estimatedRecordCount === 0}
               className="bg-primary hover:bg-emerald-700 text-white font-black uppercase text-xs tracking-widest px-12 h-12 shadow-2xl shadow-primary/20 flex-1 sm:flex-none transition-colors"
             >
               <FileDown className="w-4 h-4 mr-2" /> Generate File

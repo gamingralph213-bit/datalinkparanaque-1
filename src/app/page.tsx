@@ -932,7 +932,8 @@ export default function Home() {
         settings.barangays.includes(r.barangayName || 'UNMAPPED') && 
         settings.statuses.includes(r.statusLabel || 'VALID' as any) &&
         settings.kinds.includes(r.kind?.trim().toUpperCase() || '') &&
-        settings.taxabilities.includes(r.taxability || 'T')
+        settings.taxabilities.includes(r.taxability || 'T') &&
+        settings.updateCodes.includes(r.update?.trim().toUpperCase() || '')
       );
 
       if (baseFilteredSet.length === 0) { 
