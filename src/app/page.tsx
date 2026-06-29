@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useTransition, useCallback, useRef } from 'react';
@@ -1025,6 +1024,8 @@ export default function Home() {
         const kind = (record.kind || '').trim().toUpperCase();
         if (!settings.kinds.includes(kind)) return false;
         if (!settings.taxabilities.includes(record.taxability)) return false;
+        const code = (record.update || '').trim().toUpperCase();
+        if (!settings.updateCodes.includes(code)) return false;
         return true;
       });
 
