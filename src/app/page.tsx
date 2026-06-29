@@ -1253,7 +1253,7 @@ export default function Home() {
                         }
                      </p>
                    </div>
-                   <div className="w-full max-w-4xl mx-auto px-6">
+                   <div className="grid grid-cols-1 gap-8 w-full max-w-4xl mx-auto px-6">
                       <ImportZone 
                         onDataImported={handleDataImported} 
                         mode={workflowMode === 'abstract' ? (abstractStep === 'roll' ? 'raw' : 'journal') : 'raw'} 
@@ -1630,7 +1630,7 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isRunProcessorDialogOpen} onOpenChange={isRunProcessorDialogOpen}>
+      <Dialog open={isRunProcessorDialogOpen} onOpenChange={setIsRunProcessorDialogOpen}>
         <DialogContent className="sm:max-w-md bg-card/95 backdrop-blur-xl border-white/10 shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
