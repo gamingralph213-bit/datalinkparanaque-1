@@ -667,6 +667,18 @@ export default function Home() {
     }
   }, [rules, exportColumns, locationSettings, options, taxRates, processingReports, showSummary, isClient]);
 
+  // Prevent accidental closure
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (rawData.length > 0 || journalData.length > 0) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [rawData.length, journalData.length]);
+
   const clearWorkspace = async () => {
     setIsClearing(true);
     await new Promise(resolve => setTimeout(resolve, 500));
