@@ -788,9 +788,14 @@ export default function Home() {
       const wb = XLSX.utils.book_new(); 
       const ws = XLSX.utils.aoa_to_sheet([["DATA LINK PARAÑAQUE - SMART EXPORT"], ["EXPORT DATE:", new Date().toLocaleString()], ["TOTAL RECORDS:", finalOutputList.length.toLocaleString()], [], ["SUMMARY TAXABLE PROPERTIES"], [], ["CURRENT (2028)"], ["TOTAL MARKET VALUE (2028):", fmt(sum(taxableRecords, 'marketValue2028'))], ["TOTAL ASSESSED VALUE (2028):", fmt(sum(taxableRecords, 'assessedValue2028'))], ["TOTAL YEARLY TAX (2028 capped at 6%):", fmt(sum(taxableRecords, 'yearlyTax2028'))], [], ["RPVARA (2029)"], ["TOTAL MARKET VALUE (2029):", fmt(sum(taxableRecords, 'marketValue2029'))], ["TOTAL ASSESSED VALUE (2029):", fmt(sum(taxableRecords, 'assessedValue2029'))], ["TOTAL YEARLY TAX (2029):", fmt(sum(taxableRecords, 'yearlyTax2029'))], [], ["SUMMARY EXEMPTED PROPERTIES"], [], ["CURRENT (2028)"], ["TOTAL MARKET VALUE (2028):", fmt(sum(exemptRecords, 'marketValue2028'))], ["TOTAL ASSESSED VALUE (2028):", fmt(sum(exemptRecords, 'assessedValue2028'))], [], ["RPVARA (2029)"], ["TOTAL MARKET VALUE (2029):", fmt(sum(exemptRecords, 'marketValue2029'))], ["TOTAL ASSESSED VALUE (2029):", fmt(sum(exemptRecords, 'assessedValue2029'))], [], activeHeaders]);
       XLSX.utils.sheet_add_json(ws, formattedExport, { origin: -1, skipHeader: true }); ws['!cols'] = activeHeaders.map(() => ({ wch: 22 })); XLSX.utils.book_append_sheet(wb, ws, "ExportResults");
+      
       const allAvailableCodes = Array.from(new Set(previewData.map(r => r.update?.trim().toUpperCase() || 'NONE'))).filter(Boolean);
       const codesPart = settings.updateCodes.length === allAvailableCodes.length ? "ALL" : settings.updateCodes.join("-");
-      XLSX.writeFile(wb, `DataLink-SmartExport-${codesPart}-${new Date().toISOString().split('T')[0]}.xlsx`);
+      
+      const allAvailableStatuses = Array.from(new Set(previewData.map(r => r.statusLabel))).filter(Boolean);
+      const statusPart = settings.statuses.length === allAvailableStatuses.length ? "ALL-STATUS" : settings.statuses.join("-").replace(/\s+/g, '_');
+      
+      XLSX.writeFile(wb, `DataLink-SmartExport-${statusPart}-${codesPart}-${new Date().toISOString().split('T')[0]}.xlsx`);
       showSuccessToast(`Exported ${finalOutputList.length} records successfully.`);
     } catch (error: any) { toast({ variant: "destructive", title: "Export Failed", description: error.message }); }
     finally { setIsExporting(false); }
