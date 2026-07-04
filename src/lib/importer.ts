@@ -83,14 +83,49 @@ const deepClean = (s: string): string => {
 };
 
 /**
+ * Expands complex Tax Dec strings like E-003-52121/22/23 into individual TD numbers.
+ */
+function expandTdNumbers(tdString: string): string[] {
+  if (!tdString || !tdString.includes('/')) return [String(tdString).trim()];
+  
+  const segments = tdString.split('/').map(s => s.trim());
+  const first = segments[0];
+  const results = [first];
+  
+  // Extract base prefix and the numeric part
+  // e.g. E-003-52121 -> prefix: E-003-, numeric: 52121
+  const match = first.match(/^(.*-)(\d+)$/);
+  if (!match) return segments;
+  
+  const prefix = match[1];
+  const baseNumStr = match[2];
+  
+  for (let i = 1; i < segments.length; i++) {
+    const part = segments[i];
+    if (part.match(/^\d+$/)) {
+      if (part.length === baseNumStr.length) {
+        results.push(`${prefix}${part}`);
+      } else if (part.length < baseNumStr.length) {
+        const newNum = baseNumStr.slice(0, baseNumStr.length - part.length) + part;
+        results.push(`${prefix}${newNum}`);
+      } else {
+        results.push(`${prefix}${part}`);
+      }
+    } else {
+      results.push(part.includes('-') ? part : `${prefix}${part}`);
+    }
+  }
+  return results;
+}
+
+/**
  * Maps JSON data to LandRecord objects using robust fuzzy header detection.
- * Supports Date Carry-Forward for Journal-style logs.
+ * Supports Date Carry-Forward and Multi-TD Sales Expansion.
  */
 export const mapRawToRecords = (raw: any[], fileName: string, mode: 'raw' | 'exempt' | 'journal' | 'sales' = 'raw'): LandRecord[] => {
   let lastSeenDate = "";
 
-  return raw.map((item) => {
-    // 1. Create a lookup map of [deepCleanedHeader] -> [originalValue]
+  return raw.flatMap((item) => {
     const deepLookup: Record<string, any> = {};
     Object.keys(item).forEach(key => {
       const cleanedKey = deepClean(key);
@@ -99,10 +134,6 @@ export const mapRawToRecords = (raw: any[], fileName: string, mode: 'raw' | 'exe
       }
     });
 
-    /**
-     * Attempts to find a value by iterating through aliases for a field.
-     * Uses deep cleaning for maximum reliability (strips punctuation/spaces).
-     */
     const getValue = (field: keyof typeof HEADER_ALIASES) => {
       const aliases = HEADER_ALIASES[field];
       for (const alias of aliases) {
@@ -114,7 +145,6 @@ export const mapRawToRecords = (raw: any[], fileName: string, mode: 'raw' | 'exe
       return "";
     };
 
-    // Date Carry-Forward Logic for Journals
     let dateValue = getValue('date');
     if (mode === 'journal' || fileName.toLowerCase().includes('journal')) {
       if (dateValue !== "") {
@@ -124,10 +154,11 @@ export const mapRawToRecords = (raw: any[], fileName: string, mode: 'raw' | 'exe
       }
     }
 
+    const arpRaw = getValue('arpNo');
+    const expandedArps = mode === 'sales' ? expandTdNumbers(arpRaw) : [arpRaw];
+    
     let kind = getValue('kind');
     let au = getValue('au');
-    
-    // Handle combined K-AU format (e.g. "L-RESI")
     const kauKey = Object.keys(deepLookup).find(k => k === 'kau');
     if (kauKey) {
       const kauValue = String(deepLookup[kauKey]).trim();
@@ -137,21 +168,13 @@ export const mapRawToRecords = (raw: any[], fileName: string, mode: 'raw' | 'exe
         au = parts[1]?.trim() || au;
       }
     }
-    
-    const pin = getValue('pin');
-    const arpNo = getValue('arpNo');
-    const specificNewArp = getValue('newArpNo');
-    const uniqueId = `${fileName}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    return {
-      id: uniqueId,
+    const baseRecord = {
       date: dateValue,
-      arpNo: arpNo,
-      newArpNo: specificNewArp || "",
-      pin: pin,
+      pin: getValue('pin'),
       previous: getValue('previous'),
       update: getValue('update'),
-      taxability: mode === 'exempt' ? 'E' : 'T',
+      taxability: mode === 'exempt' ? 'E' : ('T' as const),
       acctName: getValue('acctName'),
       address: getValue('address'),
       location: deepLookup['location'] || '', 
@@ -159,14 +182,13 @@ export const mapRawToRecords = (raw: any[], fileName: string, mode: 'raw' | 'exe
       blkNo: getValue('blkNo'),
       tctNo: getValue('tctNo'),
       rollType: getValue('rollType'),
-      kind: kind,
-      au: au,
+      kind,
+      au,
       landArea: parseNum(getValue('landArea')),
       unitValue: parseNum(getValue('unitValue')),
       marketValue: parseNum(getValue('marketValue')),
       assessedValue: parseNum(getValue('assessedValue')),
       yearlyTax: parseNum(getValue('yearlyTax')),
-      // Sales fields
       sellingPrice: parseNum(getValue('sellingPrice')),
       salesValue: parseNum(getValue('salesValue')),
       docFileNo: getValue('docFileNo'),
@@ -176,6 +198,19 @@ export const mapRawToRecords = (raw: any[], fileName: string, mode: 'raw' | 'exe
       sourceFile: fileName,
       rawRow: item
     };
+
+    return expandedArps.map((arp, index) => {
+      const uniqueId = `${fileName}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${index}`;
+      return {
+        ...baseRecord,
+        id: uniqueId,
+        arpNo: arp,
+        newArpNo: index === 0 ? getValue('newArpNo') : "",
+        // Price linking logic: First gets price, others get reference TD
+        sellingPrice: index === 0 ? baseRecord.sellingPrice : 0,
+        sellingPriceRef: index === 0 ? "" : expandedArps[0]
+      };
+    });
   });
 };
 

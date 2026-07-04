@@ -323,15 +323,27 @@ export default function Home() {
   const saveSession = useCallback(() => {
     if (!isClient) return;
     try {
-      const payload = {
-        rules, exportColumns, locationSettings, options, taxRates, showSummary,
-        rawFileManifest, exemptFileManifest, journalFileManifest, salesFileManifest,
-        workflowMode, abstractStep, viewMode, sortBy, importedFileName,
-        processingReports: processingReports.slice(0, 10).map(r => ({ ...r, records: undefined }))
+      // Tiered storage attempt to prevent QuotaExceededError
+      const attemptSave = (options: { skipReports?: boolean; skipRawRow?: boolean } = {}) => {
+        const payload = {
+          rules, exportColumns, locationSettings, options, taxRates, showSummary,
+          rawFileManifest, exemptFileManifest, journalFileManifest, salesFileManifest,
+          workflowMode, abstractStep, viewMode, sortBy, importedFileName,
+          processingReports: options.skipReports ? [] : processingReports.slice(0, 10).map(r => ({ ...r, records: undefined }))
+        };
+
+        const slimPayload = JSON.stringify(payload);
+        localStorage.setItem(LOCAL_STORAGE_KEY, slimPayload);
       };
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(payload));
+
+      try {
+        attemptSave();
+      } catch (err) {
+        // Attempt 2: Minimalist save - drop original source row objects
+        attemptSave({ skipReports: false, skipRawRow: true });
+      }
     } catch (err) {
-      console.warn("Storage warning: Workspace context saved, but data arrays excluded to protect browser memory.");
+      console.warn("Storage warning: Workspace context saved, but large data arrays excluded to protect browser memory.");
     }
   }, [isClient, rules, exportColumns, locationSettings, options, taxRates, showSummary, rawFileManifest, exemptFileManifest, journalFileManifest, salesFileManifest, workflowMode, abstractStep, viewMode, sortBy, importedFileName, processingReports]);
 
@@ -355,7 +367,7 @@ export default function Home() {
         if (parsed.abstractStep) setAbstractStep(parsed.abstractStep);
         if (parsed.importedFileName) setImportedFileName(parsed.importedFileName);
         
-        const hasWork = (parsed.rawFileManifest?.length > 0) || (parsed.journalFileManifest?.length > 0);
+        const hasWork = (parsed.rawFileManifest?.length > 0) || (parsed.journalFileManifest?.length > 0) || (parsed.salesFileManifest?.length > 0);
         return hasWork;
       }
     } catch (error) { console.warn("Session load error:", error); }
@@ -402,6 +414,11 @@ export default function Home() {
       const ownersMatch = rollOwnerRaw !== "" && journalOwnerRaw !== "" && rollOwnerRaw === journalOwnerRaw;
       const isExempt = normalizedExemptPins.has(pinNorm);
 
+      let considerationValue: string | number = 0;
+      if (salesMatch) {
+        considerationValue = salesMatch.sellingPriceRef ? `REF: ${salesMatch.sellingPriceRef}` : (salesMatch.sellingPrice || 0);
+      }
+
       return {
         ...j,
         taxability: isExempt ? 'E' : 'T',
@@ -410,7 +427,7 @@ export default function Home() {
         rollLotNo: rollMatch?.lotNo || '---',
         rollTctNo: rollMatch?.tctNo || '---',
         isJoined: !!rollMatch,
-        sellingPrice: salesMatch?.sellingPrice || 0,
+        sellingPrice: considerationValue,
         notarialDate: salesMatch?.notarialDate || ''
       };
     });

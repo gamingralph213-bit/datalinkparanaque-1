@@ -50,6 +50,7 @@ export interface LandRecord {
 
   // Sales Data Specific Fields
   sellingPrice?: number;
+  sellingPriceRef?: string; // New: References the primary TD for multi-item sales
   salesValue?: number;
   docFileNo?: string;
   notarialDate?: string;
