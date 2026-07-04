@@ -753,7 +753,7 @@ export default function Home() {
           "OWNERSHIP TRANSFER TO": j.acctName || "", 
           "ADDRESS OF NEW OWNER": (j as any).rollAddress || "", 
           "LOCATION OF PROPERTY": j.location || "", 
-          "MODE OF CONVEYANCE": "", 
+          "MODE OF CONVEYANCE": "DEED OF SALE", 
           "AMOUNT OF CONSIDERATION": j.sellingPrice || "", 
           "PROPERTY CONVEYED (L)": (kind === 'L' || kind === 'LAND') ? 'x' : "", 
           "PROPERTY CONVEYED (B)": (kind === 'B' || kind === 'BUILDING') ? 'x' : "", 
