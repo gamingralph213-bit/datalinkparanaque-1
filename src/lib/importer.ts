@@ -1,70 +1,61 @@
 import * as XLSX from 'xlsx';
 import { LandRecord } from './processor';
 
+/**
+ * Standardizes header detection by providing a wide range of common aliases.
+ * These are processed using "Deep Matching" (ignoring casing, spaces, and punctuation).
+ */
 export const HEADER_ALIASES = {
   pin: [
-    'pin', 'pin #', 'pin no', 'pin no.', 'property index no', 
-    'property index number', 'property identification number', 
-    'td pin', 'p.i.n.', 'property index', 'id pin'
+    'pin', 'pinno', 'propertyindexno', 'propertyindexnumber', 'propertyidentificationnumber', 
+    'tdpin', 'propertyindex', 'idpin', 'propertyindexno'
   ],
   arpNo: [
-    'arp no#', 'arp no', 'arp', 'arp number', 'current arp', 
-    'current', 'td no', 'td number', 'td no.', 'arp. no.', 
-    'tax declaration', 'tax declaration no', 'current td',
-    'arp no. new', 'new arp no', 'new arp no#', 'new arp', 'new td', 'new td no.', 'arp no (new)'
+    'arpno', 'arp', 'arpnumber', 'currentarp', 'current', 'tdno', 'tdnumber', 'taxdeclaration', 
+    'taxdeclarationno', 'currenttd', 'oldarp', 'previousarp'
   ],
   newArpNo: [
-    'new arp no', 'arp no new', 'new arp', 'new td no', 'f-arp', 'new arp no#', 'new td'
+    'newarpno', 'arpnonew', 'newarp', 'newtdno', 'farp', 'newtd', 'arpno(new)', 'targetarp'
   ],
   acctName: [
-    'acctname', 'account name', 'owner', 'owner name', 
-    'owners name', 'acct name', 'account', 'taxpayer name', 
-    'taxpayer', 'tax payer', 'declared owner'
+    'acctname', 'accountname', 'owner', 'ownername', 'ownersname', 'acctname', 'account', 
+    'taxpayername', 'taxpayer', 'taxpayer', 'declaredowner'
   ],
   address: [
-    'address', 'location', 'property address', 'location of property', 
-    'addr', 'situs', 'site address'
+    'address', 'location', 'propertyaddress', 'locationofproperty', 'addr', 'situs', 'siteaddress'
   ],
   landArea: [
-    'land area', 'area', 'area (sqm)', 'sqm', 'sq.m.', 'sq.m', 
-    'lot area', 'total area', 'sq m', 'sq meters', 'total sqm'
+    'landarea', 'area', 'areasqm', 'sqm', 'sqm', 'lotarea', 'totalarea', 'sqm', 'sqmeters', 'totalsqm'
   ],
   unitValue: [
-    'unit value', 'uv', 'unit cost', 'market value per sqm', 
-    'unit price', 'market unit value'
+    'unitvalue', 'uv', 'unitcost', 'marketvaluepersqm', 'unitprice', 'marketunitvalue'
   ],
   marketValue: [
-    'market value', 'mv', 'total market value', 'market val', 
-    'total mv', 'market value total'
+    'marketvalue', 'mv', 'totalmarketvalue', 'marketval', 'totalmv', 'marketvaluetotal'
   ],
   assessedValue: [
-    'assessed value', 'av', 'al', 'assessed val', 'total av', 
-    'assessed level amount', 'total assessed'
+    'assessedvalue', 'av', 'al', 'assessedval', 'totalav', 'assessedlevelamount', 'totalassessed'
   ],
   yearlyTax: [
-    'yearly tax', 'tax', 'annual tax', 'tax due', 'yearly tax due', 
-    'annual tax due', 'total tax'
+    'yearlytax', 'tax', 'annualtax', 'taxdue', 'yearlytaxdue', 'annualtaxdue', 'totaltax'
   ],
   previous: [
-    'previous', 'prev', 'prev arp', 'old arp', 'previous pin', 'prev.', 'previous record'
+    'previous', 'prev', 'prevarp', 'oldarp', 'previouspin', 'previousrecord'
   ],
   update: [
-    'update', 'upd', 'update code', 'type', 'upd code', 'u', 
-    'revision', 'transaction code'
+    'update', 'upd', 'updatecode', 'type', 'updcode', 'revision', 'transactioncode'
   ],
-  kind: ['kind', 'k', 'property kind', 'classification'],
+  kind: ['kind', 'propertykind', 'classification'],
   au: [
-    'au', 'actual use', 'use', 'a.u.', 'actual usage', 
-    'usage code'
+    'au', 'actualuse', 'use', 'actualusage', 'usagecode'
   ],
   date: [
-    'date', 'effectivity', 'date effectivity', 'eff date', 
-    'revision date', 'date of effectivity'
+    'date', 'effectivity', 'dateeffectivity', 'effdate', 'revisiondate', 'dateofeffectivity'
   ],
-  lotNo: ['lot no', 'lot #', 'lot no.', 'lot', 'lot number'],
-  blkNo: ['blk no', 'blk #', 'blk no.', 'block', 'blk', 'block number'],
-  tctNo: ['tct no', 'tct #', 'tct no.', 'tct', 'title no', 'title #', 'title number', 't.c.t.'],
-  rollType: ['roll type', 'roll', 'type', 'status']
+  lotNo: ['lotno', 'lot', 'lotnumber'],
+  blkNo: ['blkno', 'block', 'blk', 'blocknumber'],
+  tctNo: ['tctno', 'tct', 'titleno', 'titlenumber'],
+  rollType: ['rolltype', 'roll', 'status']
 };
 
 const parseNum = (val: any) => {
@@ -78,30 +69,48 @@ const parseNum = (val: any) => {
 };
 
 /**
- * Maps JSON data to LandRecord objects using header aliases.
+ * Removes all non-alphanumeric characters and lowercases the string.
+ * Used to match "ARP NO." with "arpno" reliably.
+ */
+const deepClean = (s: string): string => {
+  if (!s) return "";
+  return String(s).toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+};
+
+/**
+ * Maps JSON data to LandRecord objects using robust header detection.
  * Supports Date Carry-Forward for Journal-style logs.
  */
 export const mapRawToRecords = (raw: any[], fileName: string, mode: 'raw' | 'exempt' | 'journal' = 'raw'): LandRecord[] => {
   let lastSeenDate = "";
 
   return raw.map((item) => {
-    const norm: any = {};
+    // 1. Create a lookup map of [deepCleanedHeader] -> [originalValue]
+    const deepLookup: Record<string, any> = {};
     Object.keys(item).forEach(key => {
-      const cleanKey = key.trim().toLowerCase();
-      const rawValue = item[key];
-      norm[cleanKey] = (rawValue === null || rawValue === undefined) ? "" : String(rawValue).trim();
+      const cleanedKey = deepClean(key);
+      if (cleanedKey) {
+        deepLookup[cleanedKey] = item[key];
+      }
     });
 
+    /**
+     * Attempts to find a value by iterating through aliases for a field.
+     * Uses deep cleaning for maximum reliability.
+     */
     const getValue = (field: keyof typeof HEADER_ALIASES) => {
       const aliases = HEADER_ALIASES[field];
       for (const alias of aliases) {
-        if (norm[alias] !== undefined && norm[alias] !== "") return norm[alias];
+        const cleanedAlias = deepClean(alias);
+        if (deepLookup[cleanedAlias] !== undefined && deepLookup[cleanedAlias] !== null && deepLookup[cleanedAlias] !== "") {
+          return String(deepLookup[cleanedAlias]).trim();
+        }
       }
       return "";
     };
 
     // Date Carry-Forward Logic for Journals
-    let dateValue = String(getValue('date')).trim();
+    let dateValue = getValue('date');
     if (mode === 'journal' || fileName.toLowerCase().includes('journal')) {
       if (dateValue !== "") {
         lastSeenDate = dateValue;
@@ -110,20 +119,24 @@ export const mapRawToRecords = (raw: any[], fileName: string, mode: 'raw' | 'exe
       }
     }
 
-    let kind = String(getValue('kind')).trim();
-    let au = String(getValue('au')).trim();
+    let kind = getValue('kind');
+    let au = getValue('au');
     
     // Handle combined K-AU format (e.g. "L-RESI")
-    const kau = String(norm['k-au'] || norm['k/au'] || '').trim();
-    if (kau && kau.includes('-')) {
-      const parts = kau.split('-');
-      kind = parts[0]?.trim() || kind;
-      au = parts[1]?.trim() || au;
+    // Use deep match for "k-au" or "k/au"
+    const kauKey = Object.keys(deepLookup).find(k => k === 'kau');
+    if (kauKey) {
+      const kauValue = String(deepLookup[kauKey]).trim();
+      if (kauValue.includes('-')) {
+        const parts = kauValue.split('-');
+        kind = parts[0]?.trim() || kind;
+        au = parts[1]?.trim() || au;
+      }
     }
     
-    const pin = String(getValue('pin')).trim();
-    const arpNo = String(getValue('arpNo')).trim();
-    const specificNewArp = String(getValue('newArpNo')).trim();
+    const pin = getValue('pin');
+    const arpNo = getValue('arpNo');
+    const specificNewArp = getValue('newArpNo');
     const uniqueId = `${fileName}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     return {
@@ -132,16 +145,16 @@ export const mapRawToRecords = (raw: any[], fileName: string, mode: 'raw' | 'exe
       arpNo: arpNo,
       newArpNo: specificNewArp || "",
       pin: pin,
-      previous: String(getValue('previous')).trim(),
-      update: String(getValue('update')).trim(),
+      previous: getValue('previous'),
+      update: getValue('update'),
       taxability: mode === 'exempt' ? 'E' : 'T',
-      acctName: String(getValue('acctName')).trim(),
-      address: String(getValue('address')).trim(),
-      location: String(norm['location'] || '').trim(),
-      lotNo: String(getValue('lotNo')).trim(),
-      blkNo: String(getValue('blkNo')).trim(),
-      tctNo: String(getValue('tctNo')).trim(),
-      rollType: String(getValue('rollType')).trim(),
+      acctName: getValue('acctName'),
+      address: getValue('address'),
+      location: deepLookup['location'] || '', // Fallback for raw location string
+      lotNo: getValue('lotNo'),
+      blkNo: getValue('blkNo'),
+      tctNo: getValue('tctNo'),
+      rollType: getValue('rollType'),
       kind: kind,
       au: au,
       landArea: parseNum(getValue('landArea')),
@@ -179,7 +192,7 @@ export const parseFile = async (
         // Using sheet_to_json with defval ensures we get a consistent object array for header detection
         const json = XLSX.utils.sheet_to_json(worksheet, { raw: false, defval: "" }) as any[];
         
-        // Filter out rows that are completely empty or represent noise (must have PIN or ARP to be valid)
+        // Filter out rows that are completely empty or represent noise
         const validJson = json.filter(row => {
           const rowValues = Object.values(row).join('').trim();
           return rowValues.length > 0;
