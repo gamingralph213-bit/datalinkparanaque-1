@@ -15,6 +15,7 @@ import {
   FileDown, 
   Calendar,
   Link2,
+  Unlink2,
   Building2,
   Database,
   Percent,
@@ -37,7 +38,7 @@ import { parse, isValid, startOfDay, endOfDay } from 'date-fns';
 export interface AbstractExportSettings {
   startDate: string;
   endDate: string;
-  linkedOnly: boolean;
+  matchRules: ('Linked' | 'Unlinked')[];
   kinds: string[];
   taxabilities: ('T' | 'E')[];
   updateCodes: string[];
@@ -58,7 +59,7 @@ export function AbstractExportModal({
 }: AbstractExportModalProps) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [linkedOnly, setLinkedOnly] = useState(false);
+  const [selectedMatchRules, setSelectedMatchRules] = useState<('Linked' | 'Unlinked')[]>(['Linked', 'Unlinked']);
   const [selectedKinds, setSelectedKinds] = useState<string[]>(['L', 'B']);
   const [selectedTaxabilities, setSelectedTaxabilities] = useState<('T' | 'E')[]>([]);
   const [selectedUpdateCodes, setSelectedUpdateCodes] = useState<string[]>([]);
@@ -76,6 +77,7 @@ export function AbstractExportModal({
   useEffect(() => {
     if (open) {
       setSelectedUpdateCodes(availableUpdateCodes);
+      setSelectedTaxabilities(['T', 'E']);
     }
   }, [open, availableUpdateCodes]);
 
@@ -96,7 +98,9 @@ export function AbstractExportModal({
     const end = endDate ? endOfDay(new Date(endDate)) : null;
 
     return data.filter(record => {
-      if (linkedOnly && !record.isJoined) return false;
+      const matchStatus = record.isJoined ? 'Linked' : 'Unlinked';
+      if (!selectedMatchRules.includes(matchStatus)) return false;
+      
       if (start || end) {
         const recDate = parseRecordDate(record.date);
         if (!recDate) return false;
@@ -110,13 +114,13 @@ export function AbstractExportModal({
       if (!selectedUpdateCodes.includes(code)) return false;
       return true;
     }).length;
-  }, [data, startDate, endDate, linkedOnly, selectedKinds, selectedTaxabilities, selectedUpdateCodes]);
+  }, [data, startDate, endDate, selectedMatchRules, selectedKinds, selectedTaxabilities, selectedUpdateCodes]);
 
   const handleExportClick = () => {
     onExport({
       startDate,
       endDate,
-      linkedOnly,
+      matchRules: selectedMatchRules,
       kinds: selectedKinds,
       taxabilities: selectedTaxabilities,
       updateCodes: selectedUpdateCodes
@@ -134,6 +138,10 @@ export function AbstractExportModal({
 
   const toggleUpdateCode = (c: string) => {
     setSelectedUpdateCodes(prev => prev.includes(c) ? prev.filter(item => item !== c) : [...prev, c]);
+  };
+
+  const toggleMatchRule = (rule: 'Linked' | 'Unlinked') => {
+    setSelectedMatchRules(prev => prev.includes(rule) ? prev.filter(r => r !== rule) : [...prev, rule]);
   };
 
   return (
@@ -247,7 +255,7 @@ export function AbstractExportModal({
                   <div className="flex items-center gap-3">
                     <Checkbox id="abs-t-exempt" checked={selectedTaxabilities.includes('E')} onCheckedChange={() => toggleTaxability('E')} />
                     <Label htmlFor="abs-t-exempt" className="text-xs font-bold uppercase cursor-pointer flex items-center gap-2">
-                      <Badge variant="outline" className="h-4 px-1 text-[8px] bg-blue-600 text-white border-none">E</Badge> Exempt
+                      <Badge variant="outline" className="h-4 px-1.5 text-[8px] bg-blue-600 text-white border-none">E</Badge> Exempt
                     </Label>
                   </div>
                 </Card>
@@ -290,16 +298,27 @@ export function AbstractExportModal({
                 <h3 className="text-sm font-black uppercase text-blue-600 tracking-[0.15em] flex items-center gap-2">
                   <Link2 className="w-4 h-4" /> Match Rule
                 </h3>
-                <Card className="p-5 bg-muted/10 border-white/5 shadow-inner rounded-2xl flex items-center justify-between">
+                <Card className="p-5 bg-muted/10 border-white/5 shadow-inner rounded-2xl grid grid-cols-2 gap-4">
                   <div className="flex items-center gap-3">
                     <Checkbox 
-                      id="abs-linked-only" 
-                      checked={linkedOnly} 
-                      onCheckedChange={(checked) => setLinkedOnly(!!checked)}
+                      id="abs-match-linked" 
+                      checked={selectedMatchRules.includes('Linked')} 
+                      onCheckedChange={() => toggleMatchRule('Linked')}
                     />
-                    <Label htmlFor="abs-linked-only" className="text-[10px] font-black uppercase cursor-pointer">Linked Only (Roll Match)</Label>
+                    <Label htmlFor="abs-match-linked" className="text-xs font-bold uppercase cursor-pointer flex items-center gap-2">
+                      <Link2 className="w-3.5 h-3.5 text-emerald-600" /> Linked
+                    </Label>
                   </div>
-                  {linkedOnly && <Badge className="bg-emerald-600 text-white font-black text-[8px] uppercase h-4">Strict</Badge>}
+                  <div className="flex items-center gap-3">
+                    <Checkbox 
+                      id="abs-match-unlinked" 
+                      checked={selectedMatchRules.includes('Unlinked')} 
+                      onCheckedChange={() => toggleMatchRule('Unlinked')}
+                    />
+                    <Label htmlFor="abs-match-unlinked" className="text-xs font-bold uppercase cursor-pointer flex items-center gap-2">
+                      <Unlink2 className="w-3.5 h-3.5 text-red-500" /> Unlinked
+                    </Label>
+                  </div>
                 </Card>
               </section>
             </div>
@@ -317,7 +336,7 @@ export function AbstractExportModal({
             <Button variant="ghost" onClick={() => onOpenChange(false)} className="font-black uppercase text-xs tracking-widest px-8 h-12 hover:bg-muted">Discard</Button>
             <Button 
               onClick={handleExportClick} 
-              disabled={filteredCount === 0 || selectedTaxabilities.length === 0 || selectedKinds.length === 0 || selectedUpdateCodes.length === 0}
+              disabled={filteredCount === 0 || selectedTaxabilities.length === 0 || selectedKinds.length === 0 || selectedUpdateCodes.length === 0 || selectedMatchRules.length === 0}
               className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-xs tracking-widest px-12 h-12 shadow-2xl shadow-blue-500/20"
             >
               <FileDown className="w-4 h-4 mr-2" /> Generate Report

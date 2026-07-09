@@ -592,7 +592,7 @@ export default function Home() {
     window.addEventListener('appinstalled', handleAppInstalled);
     document.addEventListener('fullscreenchange', handleFullScreenChange);
     return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('beforeinstallprompt', handleBeforeinstallprompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
       document.removeEventListener('fullscreenchange', handleFullScreenChange);
     };
@@ -803,8 +803,15 @@ export default function Home() {
     try {
       await delay(1500);
       let baseData = [...joinedAbstractData].filter(record => {
-        if (settings.linkedOnly && !record.isJoined) return false;
-        if (settings.startDate || settings.endDate) { const recDate = parseRecordDate(record.date); if (!recDate) return false; if (settings.startDate && recDate < startOfDay(new Date(settings.startDate))) return false; if (settings.endDate && recDate > endOfDay(new Date(settings.endDate))) return false; }
+        const matchStatus = record.isJoined ? 'Linked' : 'Unlinked';
+        if (!settings.matchRules.includes(matchStatus)) return false;
+        
+        if (settings.startDate || settings.endDate) { 
+          const recDate = parseRecordDate(record.date); 
+          if (!recDate) return false; 
+          if (settings.startDate && recDate < startOfDay(new Date(settings.startDate))) return false; 
+          if (settings.endDate && recDate > endOfDay(new Date(settings.endDate))) return false; 
+        }
         if (!settings.kinds.includes((record.kind || '').trim().toUpperCase())) return false;
         if (!settings.taxabilities.includes(record.taxability)) return false;
         if (!settings.updateCodes.includes((record.update || '').trim().toUpperCase())) return false;
