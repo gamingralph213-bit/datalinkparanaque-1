@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useTransition, useCallback, useRef } from 'react';
@@ -41,7 +40,8 @@ import {
   Tag,
   Unlink2,
   FileX,
-  Construction
+  Construction,
+  HardHat
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -143,7 +143,7 @@ const defaultTaxRates: TaxRateMap = {
 type ProcessingStep = 'idle' | 'cleanup' | 'dedupe' | 'calibrate' | 'complete';
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-const ImportManager = ({ mode, manifest, onAdd, onDelete }: { mode: 'raw' | 'exempt' | 'journal' | 'sales' | 'roll' | 'cancelled', manifest: any[], onAdd: () => void, onDelete: (name: string) => void }) => (
+const ImportManager = ({ mode, manifest, onAdd, onDelete }: { mode: 'raw' | 'exempt' | 'journal' | 'sales' | 'roll' | 'cancelled' | 'permits', manifest: any[], onAdd: () => void, onDelete: (name: string) => void }) => (
   <Popover>
     <TooltipProvider>
       <Tooltip>
@@ -158,6 +158,7 @@ const ImportManager = ({ mode, manifest, onAdd, onDelete }: { mode: 'raw' | 'exe
                 mode === 'exempt' ? "border-blue-500/30 text-blue-600 hover:bg-blue-50/10" :
                 mode === 'journal' ? "border-amber-500/30 text-amber-600 hover:bg-amber-500/10" :
                 mode === 'sales' ? "border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10" :
+                mode === 'permits' ? "border-orange-500/30 text-orange-600 hover:bg-orange-500/10" :
                 "border-red-500/30 text-red-600 hover:bg-red-500/10"
               )}
             >
@@ -165,12 +166,13 @@ const ImportManager = ({ mode, manifest, onAdd, onDelete }: { mode: 'raw' | 'exe
                mode === 'exempt' ? <ShieldOff className="w-4 h-4" /> :
                mode === 'journal' ? <FileText className="w-4 h-4" /> :
                mode === 'sales' ? <Tag className="w-4 h-4" /> :
+               mode === 'permits' ? <HardHat className="w-4 h-4" /> :
                <FileX className="w-4 h-4" />}
             </Button>
           </PopoverTrigger>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="font-black uppercase text-[10px] tracking-widest">
-          {mode === 'raw' ? "Manage Raw Records" : mode === 'exempt' ? "Manage Exempt Reference" : mode === 'journal' ? "Manage Journal Files" : mode === 'sales' ? "Manage Sales Data" : "Manage Cancelled File"}
+          {mode === 'raw' ? "Manage Raw Records" : mode === 'exempt' ? "Manage Exempt Reference" : mode === 'journal' ? "Manage Journal Files" : mode === 'sales' ? "Manage Sales Data" : mode === 'permits' ? "Manage Permit Log" : "Manage Cancelled File"}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -181,8 +183,9 @@ const ImportManager = ({ mode, manifest, onAdd, onDelete }: { mode: 'raw' | 'exe
            mode === 'exempt' ? <ShieldOff className="w-4 h-4 text-blue-600" /> :
            mode === 'journal' ? <FileText className="w-4 h-4 text-amber-600" /> :
            mode === 'sales' ? <Tag className="w-4 h-4 text-emerald-600" /> :
+           mode === 'permits' ? <HardHat className="w-4 h-4 text-orange-600" /> :
            <FileX className="w-4 h-4 text-red-600" />}
-          <span className="text-[10px] font-black uppercase tracking-widest">{mode === 'raw' ? "Raw File Manager" : mode === 'exempt' ? "Exempt File Manager" : mode === 'journal' ? "Journal File Manager" : mode === 'sales' ? "Sales File Manager" : "Cancelled File Manager"}</span>
+          <span className="text-[10px] font-black uppercase tracking-widest">{mode === 'raw' ? "Raw File Manager" : mode === 'exempt' ? "Exempt File Manager" : mode === 'journal' ? "Journal File Manager" : mode === 'sales' ? "Sales File Manager" : mode === 'permits' ? "Permit File Manager" : "Cancelled File Manager"}</span>
         </div>
         <Button variant="ghost" size="sm" onClick={onAdd} className="h-7 px-2 text-[9px] font-black uppercase tracking-widest bg-primary/10 text-primary hover:bg-primary hover:text-white">
           <Plus className="w-3 shadow-sm h-3 mr-1" /> Add File
@@ -237,6 +240,7 @@ export default function Home() {
   const [journalData, setJournalData] = useState<LandRecord[]>([]);
   const [salesData, setSalesData] = useState<LandRecord[]>([]);
   const [cancelledData, setCancelledData] = useState<LandRecord[]>([]);
+  const [permitData, setPermitData] = useState<LandRecord[]>([]);
   const [exemptPins, setExemptPins] = useState<Set<string>>(new Set());
   const [rules, setRules] = useState<CalibrationRule[]>([]);
   const [locationSettings, setLocationSettings] = useState<BarangayConfig[]>(initialLocationSettings);
@@ -256,6 +260,7 @@ export default function Home() {
   const [journalFileManifest, setJournalFileManifest] = useState<{ name: string, count: number }[]>([]);
   const [salesFileManifest, setSalesFileManifest] = useState<{ name: string, count: number }[]>([]);
   const [cancelledFileManifest, setCancelledFileManifest] = useState<{ name: string, count: number }[]>([]);
+  const [permitFileManifest, setPermitFileManifest] = useState<{ name: string, count: number }[]>([]);
 
   // --- 2. UI & MODAL STATE ---
   const [isClient, setIsClient] = useState(false);
@@ -289,6 +294,7 @@ export default function Home() {
   const journalFileInputRef = useRef<HTMLInputElement>(null);
   const salesFileInputRef = useRef<HTMLInputElement>(null);
   const cancelledFileInputRef = useRef<HTMLInputElement>(null);
+  const permitFileInputRef = useRef<HTMLInputElement>(null);
 
   // --- 4. FILTER & SEARCH STATE ---
   const [searchQuery, setSearchQuery] = useState("");
@@ -450,9 +456,9 @@ export default function Home() {
     const ytField = isProcessed ? 'yearlyTax2029' : 'yearlyTax2028';
 
     return { 
-      totalRawRows: rawData.length + journalData.length,
+      totalRawRows: rawData.length + journalData.length + permitData.length,
       systemCleanup: previewData.filter(r => r.statusLabel === 'CLEANUP' || r.statusLabel === 'INCOMPLETE' || r.statusLabel === 'DUPLICATE' || r.isManualArchive).length,
-      totalImported: rawData.length + journalData.length, 
+      totalImported: rawData.length + journalData.length + permitData.length, 
       duplicatesRemoved: previewData.filter(r => r.statusLabel === 'DUPLICATE').length, 
       finalCount: active.length,
       totalMarketValue: filteredValid.reduce((sum, r) => sum + (r[mvField as keyof LandRecord] as number || 0), 0),
@@ -460,7 +466,7 @@ export default function Home() {
       totalYearlyTax: filteredValid.reduce((sum, r) => sum + (r[ytField as keyof LandRecord] as number || 0), 0),
       totalErrors: errors
     };
-  }, [previewData, rawData.length, journalData.length, taxViewMode, processedData.length, workflowMode, joinedAbstractData]);
+  }, [previewData, rawData.length, journalData.length, permitData.length, taxViewMode, processedData.length, workflowMode, joinedAbstractData]);
 
   const latestReport = processingReports[0] || null;
 
@@ -617,8 +623,8 @@ export default function Home() {
   const clearWorkspace = async () => {
     setIsClearing(true);
     await delay(500);
-    setRawData([]); setProcessedData([]); setPreviewData([]); setJournalData([]); setSalesData([]); setCancelledData([]); setExemptPins(new Set());
-    setRawFileManifest([]); setExemptFileManifest([]); setJournalFileManifest([]); setSalesFileManifest([]); setCancelledFileManifest([]);
+    setRawData([]); setProcessedData([]); setPreviewData([]); setJournalData([]); setSalesData([]); setCancelledData([]); setPermitData([]); setExemptPins(new Set());
+    setRawFileManifest([]); setExemptFileManifest([]); setJournalFileManifest([]); setSalesFileManifest([]); setCancelledFileManifest([]); setPermitFileManifest([]);
     setSearchQuery(""); setImportedFileName(""); setShowDetailedResults(false);
     setWorkflowMode('idle'); setAbstractStep('roll'); setPermitStep('roll'); setViewMode('results');
     setIsClearing(false);
@@ -654,7 +660,7 @@ export default function Home() {
     });
   };
 
-  const handleDataImported = (imported: LandRecord[], fileName: string, rawCount: number, mode: 'raw' | 'exempt' | 'journal' | 'sales' | 'roll' | 'cancelled' = 'raw') => {
+  const handleDataImported = (imported: LandRecord[], fileName: string, rawCount: number, mode: 'raw' | 'exempt' | 'journal' | 'sales' | 'roll' | 'cancelled' | 'permits' = 'raw') => {
     const updatedExemptPins = new Set(exemptPins);
     if (mode === 'exempt') {
       const pinsFromThisFile = new Set<string>();
@@ -670,12 +676,15 @@ export default function Home() {
     } else if (mode === 'cancelled') {
       setCancelledFileManifest(prev => [...prev, { name: fileName, count: rawCount }]);
       setCancelledData(prev => [...prev, ...imported]);
+    } else if (mode === 'permits') {
+      setPermitFileManifest(prev => [...prev, { name: fileName, count: rawCount }]);
+      setPermitData(prev => [...prev, ...imported]);
     } else {
       setRawFileManifest(prev => [...prev, { name: fileName, count: rawCount }]);
       setRawData(prev => [...prev, ...imported]);
     }
     
-    const combined = [...rawData, ...journalData, ...salesData, ...cancelledData, ...imported];
+    const combined = [...rawData, ...journalData, ...salesData, ...cancelledData, ...permitData, ...imported];
     if (mode !== 'exempt') setImportedFileName(fileName);
     
     if (workflowMode === 'abstract') {
@@ -683,25 +692,26 @@ export default function Home() {
       else if (abstractStep === 'journal' && mode === 'journal') { setAbstractStep('ready'); setShowDetailedResults(true); const { allWithDuplicateMarkers } = processRecords(combined, [], locationSettings, taxRates, { removeDuplicates: false, applyCalibration: false, systemCleanup: false }, fileName, updatedExemptPins); setPreviewData(allWithDuplicateMarkers); toast({ title: "Data Staged", description: "Roll and Journal joined. Report ready for Abstract Export." }); }
     } else if (workflowMode === 'building-permit') {
       if (permitStep === 'roll' && (mode === 'raw' || mode === 'roll')) { setPermitStep('permits'); toast({ title: "Roll Staged", description: "Assessment Roll loaded. Now, please upload the Building Permit log." }); }
-      else if (permitStep === 'permits' && mode === 'journal') { setPermitStep('ready'); setShowDetailedResults(true); const { allWithDuplicateMarkers } = processRecords(combined, [], locationSettings, taxRates, { removeDuplicates: false, applyCalibration: false, systemCleanup: false }, fileName, updatedExemptPins); setPreviewData(allWithDuplicateMarkers); toast({ title: "Permit Data Staged", description: "Assessment Roll and Permit Log linked successfully." }); }
+      else if (permitStep === 'permits' && mode === 'permits') { setPermitStep('ready'); setShowDetailedResults(true); const { allWithDuplicateMarkers } = processRecords(combined, [], locationSettings, taxRates, { removeDuplicates: false, applyCalibration: false, systemCleanup: false }, fileName, updatedExemptPins); setPreviewData(allWithDuplicateMarkers); toast({ title: "Permit Data Staged", description: "Assessment Roll and Permit Log linked successfully." }); }
     } else {
       if (mode !== 'exempt') setShowDetailedResults(true);
       if (processedData.length > 0) { runProcessWithData(combined, combined.length, fileName, true); }
       else { const { allWithDuplicateMarkers } = processRecords(combined, [], locationSettings, taxRates, { removeDuplicates: false, applyCalibration: false, systemCleanup: false }, fileName, updatedExemptPins); setPreviewData(allWithDuplicateMarkers); if (mode !== 'exempt' && mode !== 'cancelled') setShowDetailedResults(true); }
     }
-    toast({ title: mode === 'exempt' ? "Exempt Data Integrated" : mode === 'journal' ? "Journal Data Integrated" : mode === 'sales' ? "Sales Data Integrated" : mode === 'cancelled' ? "Cancelled Reference Integrated" : "Data Loaded", description: mode === 'exempt' ? `${imported.length} records integrated and indexed as Exempt reference.` : `${rawCount} records from ${fileName} imported successfully.` });
+    toast({ title: mode === 'exempt' ? "Exempt Data Integrated" : mode === 'journal' ? "Journal Data Integrated" : mode === 'sales' ? "Sales Data Integrated" : mode === 'cancelled' ? "Cancelled Reference Integrated" : mode === 'permits' ? "Permit Data Integrated" : "Data Loaded", description: mode === 'exempt' ? `${imported.length} records integrated and indexed as Exempt reference.` : `${rawCount} records from ${fileName} imported successfully.` });
   };
 
-  const deleteFile = (fileName: string, mode: 'raw' | 'exempt' | 'journal' | 'sales' | 'roll' | 'cancelled') => {
+  const deleteFile = (fileName: string, mode: 'raw' | 'exempt' | 'journal' | 'sales' | 'roll' | 'cancelled' | 'permits') => {
     if (mode === 'raw' || mode === 'roll') { setRawData(prev => prev.filter(r => r.sourceFile !== fileName)); setRawFileManifest(prev => prev.filter(f => f.name !== fileName)); }
     else if (mode === 'journal') { setJournalData(prev => prev.filter(r => r.sourceFile !== fileName)); setJournalFileManifest(prev => prev.filter(f => f.name !== fileName)); }
     else if (mode === 'sales') { setSalesData(prev => prev.filter(r => r.sourceFile !== fileName)); setSalesFileManifest(prev => prev.filter(f => f.name !== fileName)); }
     else if (mode === 'cancelled') { setCancelledData(prev => prev.filter(r => r.sourceFile !== fileName)); setCancelledFileManifest(prev => prev.filter(f => f.name !== fileName)); }
+    else if (mode === 'permits') { setPermitData(prev => prev.filter(r => r.sourceFile !== fileName)); setPermitFileManifest(prev => prev.filter(f => f.name !== fileName)); }
     else { const newExemptFiles = exemptFileManifest.filter(f => f.name !== fileName); setExemptFileManifest(newExemptFiles); const newExemptPins = new Set<string>(); newExemptFiles.forEach(f => f.pins.forEach(pin => newExemptPins.add(pin))); setExemptPins(newExemptPins); }
     setProcessedData([]); toast({ title: "File Removed", description: `${fileName} has been removed from the session.` });
   };
 
-  const handleDirectImport = async (e: React.ChangeEvent<HTMLInputElement>, mode: 'raw' | 'exempt' | 'journal' | 'sales' | 'roll' | 'cancelled') => {
+  const handleDirectImport = async (e: React.ChangeEvent<HTMLInputElement>, mode: 'raw' | 'exempt' | 'journal' | 'sales' | 'roll' | 'cancelled' | 'permits') => {
     const files = e.target.files; if (!files || files.length === 0) return;
     setIsDirectImporting(true); setDirectImportProgress({ current: 0, total: files.length, mode });
     const allRecords: LandRecord[] = []; let totalRawCount = 0; const fileNames: string[] = [];
@@ -709,9 +719,9 @@ export default function Home() {
       for (let i = 0; i < files.length; i++) {
         setDirectImportProgress(prev => ({ ...prev, current: i }));
         const workflow = workflowMode === 'abstract' ? (mode === 'journal' ? 'journal' : mode === 'sales' ? 'sales' : mode === 'cancelled' ? 'cancelled' : 'roll') : 
-                        workflowMode === 'building-permit' ? (mode === 'journal' ? 'journal' : 'roll') :
+                        workflowMode === 'building-permit' ? (mode === 'permits' ? 'permits' : 'roll') :
                         workflowMode;
-        const result = await parseFile(files[i], workflow, mode as any);
+        const result = await parseFile(files[i], workflow as any, mode as any);
         allRecords.push(...result.data); totalRawCount += result.count; fileNames.push(files[i].name); await delay(400);
       }
       handleDataImported(allRecords, fileNames.length > 1 ? `Batch (${fileNames.length} Files)` : fileNames[0], totalRawCount, mode as any);
@@ -719,7 +729,7 @@ export default function Home() {
     finally { setIsDirectImporting(false); if (e.target) e.target.value = ''; }
   };
 
-  const runProcess = async () => { const combined = [...rawData, ...journalData, ...salesData, ...cancelledData]; if (combined.length === 0) return; runProcessWithData(combined, combined.length, importedFileName); };
+  const runProcess = async () => { const combined = [...rawData, ...journalData, ...salesData, ...cancelledData, ...permitData]; if (combined.length === 0) return; runProcessWithData(combined, combined.length, importedFileName); };
 
   const handleSaveRecord = useCallback((updatedRecord: LandRecord, silent = false) => {
     setSelectedRecord(null); setComparisonRecord(null); if (!silent) setIsProcessing(true);
@@ -728,18 +738,19 @@ export default function Home() {
       setJournalData(prev => prev.map(r => r.id === updatedRecord.id ? updatedRecord : r));
       setSalesData(prev => prev.map(r => r.id === updatedRecord.id ? updatedRecord : r));
       setCancelledData(prev => prev.map(r => r.id === updatedRecord.id ? updatedRecord : r));
+      setPermitData(prev => prev.map(r => r.id === updatedRecord.id ? updatedRecord : r));
       setTimeout(() => {
-        const combined = [...rawData, ...journalData, ...salesData, ...cancelledData];
+        const combined = [...rawData, ...journalData, ...salesData, ...cancelledData, ...permitData];
         if (processedData.length > 0) { runProcessWithData(combined, combined.length, importedFileName, silent); }
         else { const { allWithDuplicateMarkers } = processRecords(combined, [], locationSettings, taxRates, { removeDuplicates: false, applyCalibration: false, systemCleanup: false }, importedFileName, exemptPins); setPreviewData(allWithDuplicateMarkers); if (!silent) setIsProcessing(false); }
       }, silent ? 0 : 10);
     });
-  }, [rawData, journalData, salesData, cancelledData, processedData.length, importedFileName, locationSettings, taxRates, exemptPins]);
+  }, [rawData, journalData, salesData, cancelledData, permitData, processedData.length, importedFileName, locationSettings, taxRates, exemptPins]);
 
   const handleArchiveRecord = useCallback((record: LandRecord) => { handleSaveRecord({ ...record, isManualArchive: true }, true); toast({ title: "Record Archived", description: "The record has been moved to the Archive tab." }); }, [handleSaveRecord]);
   const handleUnarchiveRecord = useCallback((record: LandRecord) => { handleSaveRecord({ ...record, isManualArchive: false }, true); toast({ title: "Record Restored", description: "The record has been moved back to the Results tab." }); }, [handleSaveRecord]);
 
-  const handleRowClick = useCallback((record: LandRecord) => { if (workflowMode === 'abstract') return; setSelectedRecord(record); if (record.statusLabel === 'DUPLICATE') { const validPeer = previewData.find(p => p.pin === record.pin && !p.isDuplicate && !p.isCleanup && !p.isManualArchive); setSelectedRecord({ ...record, duplicateWithReference: validPeer?.arpNo || "N/A" }); setComparisonRecord(validPeer || null); } else { setComparisonRecord(null); } }, [previewData, workflowMode]);
+  const handleRowClick = useCallback((record: LandRecord) => { if (workflowMode === 'abstract' || workflowMode === 'building-permit') return; setSelectedRecord(record); if (record.statusLabel === 'DUPLICATE') { const validPeer = previewData.find(p => p.pin === record.pin && !p.isDuplicate && !p.isCleanup && !p.isManualArchive); setSelectedRecord({ ...record, duplicateWithReference: validPeer?.arpNo || "N/A" }); setComparisonRecord(validPeer || null); } else { setComparisonRecord(null); } }, [previewData, workflowMode]);
 
   const handleFinalExport = async (settings: ExportFinalSettings) => {
     setIsExporting(true); setIsExportSettingsOpen(false);
@@ -898,6 +909,7 @@ export default function Home() {
       <input type="file" ref={journalFileInputRef} className="hidden" accept=".xlsx, .xls, .csv" multiple onChange={(e) => handleDirectImport(e, 'journal')} />
       <input type="file" ref={salesFileInputRef} className="hidden" accept=".xlsx, .xls, .csv" multiple onChange={(e) => handleDirectImport(e, 'sales')} />
       <input type="file" ref={cancelledFileInputRef} className="hidden" accept=".xlsx, .xls, .csv" multiple onChange={(e) => handleDirectImport(e, 'cancelled')} />
+      <input type="file" ref={permitFileInputRef} className="hidden" accept=".xlsx, .xls, .csv" multiple onChange={(e) => handleDirectImport(e, 'permits')} />
 
       <header className="bg-card/80 backdrop-blur-lg border-b border-white/10 px-6 py-4 flex items-center justify-between shadow-lg shrink-0 z-50">
         <TooltipProvider>
@@ -952,12 +964,12 @@ export default function Home() {
                         onDataImported={handleDataImported} 
                         mode={
                           workflowMode === 'abstract' ? (abstractStep === 'roll' ? 'raw' : 'journal') : 
-                          workflowMode === 'building-permit' ? (permitStep === 'roll' ? 'raw' : 'journal') :
+                          workflowMode === 'building-permit' ? (permitStep === 'roll' ? 'raw' : 'permits') :
                           'raw'
                         } 
                         workflowMode={
                           workflowMode === 'abstract' ? (abstractStep === 'roll' ? 'roll' : 'journal') : 
-                          workflowMode === 'building-permit' ? (permitStep === 'roll' ? 'roll' : 'journal') :
+                          workflowMode === 'building-permit' ? (permitStep === 'roll' ? 'roll' : 'permits') :
                           workflowMode
                         } 
                       />
@@ -971,13 +983,13 @@ export default function Home() {
                   ) : (
                     <Card className="flex-1 overflow-hidden flex flex-col min-h-0 shadow-xl border-white/5 animate-in fade-in slide-in-from-bottom-4 duration-500">
                       <div className="p-3 bg-muted/30 border-b flex flex-col xl:flex-row items-center justify-between gap-4 shrink-0">
-                        <TabsList className="bg-background border"><TabsTrigger value="results" className="data-[state=active]:bg-primary data-[state=active]:text-white h-9 text-xs font-bold px-4"><TableIcon className="w-3.5 h-3.5 mr-2" /> {workflowMode === 'abstract' ? 'Joined Preview' : 'Results'}</TabsTrigger>{workflowMode !== 'abstract' ? (<><TabsTrigger value="archive" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white h-9 text-xs font-bold px-4"><Archive className="w-3.5 h-3.5 mr-2" /> Archive</TabsTrigger><TabsTrigger value="analytics" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white h-9 text-xs font-bold px-4"><BarChart3 className="w-3.5 h-3.5 mr-2" /> Analytics</TabsTrigger><TabsTrigger value="audit" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white h-9 text-xs font-bold px-4"><ShieldCheck className="w-3.5 h-3.5 mr-2" /> Audit Log</TabsTrigger></>) : (<TabsTrigger value="analytics" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white h-9 text-xs font-bold px-4"><BarChart3 className="w-3.5 h-3.5 mr-2" /> Relational Analytics</TabsTrigger>)}</TabsList>
+                        <TabsList className="bg-background border"><TabsTrigger value="results" className="data-[state=active]:bg-primary data-[state=active]:text-white h-9 text-xs font-bold px-4"><TableIcon className="w-3.5 h-3.5 mr-2" /> {workflowMode === 'abstract' ? 'Joined Preview' : 'Results'}</TabsTrigger>{workflowMode !== 'abstract' && workflowMode !== 'building-permit' ? (<><TabsTrigger value="archive" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white h-9 text-xs font-bold px-4"><Archive className="w-3.5 h-3.5 mr-2" /> Archive</TabsTrigger><TabsTrigger value="analytics" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white h-9 text-xs font-bold px-4"><BarChart3 className="w-3.5 h-3.5 mr-2" /> Analytics</TabsTrigger><TabsTrigger value="audit" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white h-9 text-xs font-bold px-4"><ShieldCheck className="w-3.5 h-3.5 mr-2" /> Audit Log</TabsTrigger></>) : (<TabsTrigger value="analytics" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white h-9 text-xs font-bold px-4"><BarChart3 className="w-3.5 h-3.5 mr-2" /> Relational Analytics</TabsTrigger>)}</TabsList>
                         {viewMode !== 'analytics' && viewMode !== 'audit' && (
                           <div className="flex flex-1 items-center gap-2 w-full max-w-[1400px]">
                             <div className="flex items-center gap-2 flex-1 min-w-0"><Select value={searchField} onValueChange={setSearchField}><SelectTrigger className="w-[120px] h-9 text-xs font-bold uppercase shrink-0"><SelectValue placeholder="In" /></SelectTrigger><SelectContent>{workflowMode === 'abstract' ? (<><SelectItem value="all">All Fields</SelectItem><SelectItem value="arpNo">ARP No.</SelectItem><SelectItem value="date">Date</SelectItem><SelectItem value="acctName">Transfer (To)</SelectItem><SelectItem value="rollAddress">Reg. Address</SelectItem><SelectItem value="location">Location</SelectItem><SelectItem value="pin">PIN</SelectItem><SelectItem value="rollTctNo">TCT No.</SelectItem></>) : (<><SelectItem value="all">All Fields</SelectItem><SelectItem value="date">Date</SelectItem><SelectItem value="arpNo">ARP No#</SelectItem><SelectItem value="pin">PIN</SelectItem><SelectItem value="acctName">Account</SelectItem><SelectItem value="address">Address</SelectItem><SelectItem value="update">Update</SelectItem><SelectItem value="taxability">Taxability</SelectItem><SelectItem value="kind">Kind</SelectItem><SelectItem value="au">AU</SelectItem></>)}</SelectContent></Select><div className="relative flex-1 min-w-0"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input placeholder={`Search property records...`} className="pl-9 text-sm h-9 w-full" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /></div></div>
                             {uniqueBarangays.length > 1 && (<Select value={barangayFilter} onValueChange={setBarangayFilter}><SelectTrigger className="w-[180px] h-9 text-xs font-bold uppercase shrink-0"><MapPin className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="Barangay" /></SelectTrigger><SelectContent><SelectItem value="all">All Barangays</SelectItem>{uniqueBarangays.map(brgy => (<SelectItem key={brgy} value={brgy}>{brgy}</SelectItem>))}</SelectContent></Select>)}
                             {uniqueSourceFiles.length > 1 && (<Select value={sourceFileFilter} onValueChange={setSourceFileFilter}><SelectTrigger className="w-[150px] h-9 text-xs font-bold uppercase shrink-0"><Files className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="File Source" /></SelectTrigger><SelectContent><SelectItem value="all">All Files</SelectItem>{uniqueSourceFiles.map(file => (<SelectItem key={file} value={file}>{file}</SelectItem>))}</SelectContent></Select>)}
-                            {workflowMode !== 'abstract' && (<Select value={sortBy} onValueChange={(val: any) => { setSortBy(val); setStatusFilter('all'); }}><SelectTrigger className="w-[160px] h-9 text-xs font-bold uppercase shrink-0"><ArrowUpDown className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="Sort By" /></SelectTrigger><SelectContent><SelectItem value="pin">Sort by PIN</SelectItem><SelectItem value="arpNo">Sort by ARP No#</SelectItem></SelectContent></Select>)}
+                            {workflowMode !== 'abstract' && workflowMode !== 'building-permit' && (<Select value={sortBy} onValueChange={(val: any) => { setSortBy(val); setStatusFilter('all'); }}><SelectTrigger className="w-[160px] h-9 text-xs font-bold uppercase shrink-0"><ArrowUpDown className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="Sort By" /></SelectTrigger><SelectContent><SelectItem value="pin">Sort by PIN</SelectItem><SelectItem value="arpNo">Sort by ARP No#</SelectItem></SelectContent></Select>)}
                             <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-[160px] h-9 text-xs font-bold uppercase shrink-0"><Filter className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="all">All</SelectItem>{workflowMode === 'abstract' ? (<><SelectItem value="Linked">Linked Records</SelectItem><SelectItem value="No Match">Unlinked Records</SelectItem></>) : (dynamicStatusOptions.sort().map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>)))}</SelectContent></Select>
                             <div className="flex gap-2 items-center shrink-0">
                               <ImportManager mode="raw" manifest={rawFileManifest} onAdd={() => rawFileInputRef.current?.click()} onDelete={(name) => deleteFile(name, 'raw')} />
@@ -985,14 +997,15 @@ export default function Home() {
                               {workflowMode === 'abstract' && <ImportManager mode="journal" manifest={journalFileManifest} onAdd={() => journalFileInputRef.current?.click()} onDelete={(name) => deleteFile(name, 'journal')} />}
                               {workflowMode === 'abstract' && <ImportManager mode="sales" manifest={salesFileManifest} onAdd={() => salesFileInputRef.current?.click()} onDelete={(name) => deleteFile(name, 'sales')} />}
                               {workflowMode === 'abstract' && <ImportManager mode="cancelled" manifest={cancelledFileManifest} onAdd={() => cancelledFileInputRef.current?.click()} onDelete={(name) => deleteFile(name, 'cancelled')} />}
+                              {workflowMode === 'building-permit' && <ImportManager mode="permits" manifest={permitFileManifest} onAdd={() => permitFileInputRef.current?.click()} onDelete={(name) => deleteFile(name, 'permits')} />}
                             </div>
                           </div>
                         )}
                       </div>
                       <div className="flex-1 overflow-hidden min-h-0">
-                        <TabsContent value="results" className="m-0 h-full data-[state=active]:flex data-[state=active]:flex-col"><DataPreviewTable data={filteredDisplayData} isProcessed={processedData.length > 0} onRowClick={handleRowClick} workflowMode={workflowMode} /></TabsContent>
-                        {workflowMode !== 'abstract' && (<TabsContent value="archive" className="m-0 h-full data-[state=active]:flex data-[state=active]:flex-col"><DataPreviewTable data={filteredDisplayData} isProcessed={true} onRowClick={handleRowClick} showLabels /></TabsContent>)}
-                        <TabsContent value="analytics" className="m-0 h-full p-6 overflow-y-auto scrollbar-vertical-custom bg-muted/5 data-[state=active]:flex data-[state=active]:flex-col"><AnalyticsView analyticsData={analyticsData} onExplain={setExplainType} onExpand={setExpandedChart} taxabilityFilter={taxabilityFilter} onTaxabilityFilterChange={setTaxabilityFilter} workflowMode={workflowMode} /></TabsContent>
+                        <TabsContent value="results" className="m-0 h-full data-[state=active]:flex data-[state=active]:flex-col"><DataPreviewTable data={filteredDisplayData} isProcessed={processedData.length > 0} onRowClick={handleRowClick} workflowMode={workflowMode === 'building-permit' ? 'standard' : workflowMode} /></TabsContent>
+                        {workflowMode !== 'abstract' && workflowMode !== 'building-permit' && (<TabsContent value="archive" className="m-0 h-full data-[state=active]:flex data-[state=active]:flex-col"><DataPreviewTable data={filteredDisplayData} isProcessed={true} onRowClick={handleRowClick} showLabels /></TabsContent>)}
+                        <TabsContent value="analytics" className="m-0 h-full p-6 overflow-y-auto scrollbar-vertical-custom bg-muted/5 data-[state=active]:flex data-[state=active]:flex-col"><AnalyticsView analyticsData={analyticsData} onExplain={setExplainType} onExpand={setExpandedChart} taxabilityFilter={taxabilityFilter} onTaxabilityFilterChange={setTaxabilityFilter} workflowMode={workflowMode === 'building-permit' ? 'standard' : workflowMode} /></TabsContent>
                         <TabsContent value="audit" className="m-0 h-full data-[state=active]:flex data-[state=active]:flex-col"><AuditLogTab reports={processingReports} onClearHistory={() => { setProcessingReports([]); toast({ title: "History Purged", description: "Audit logs cleared permanently." }); }} onDeleteReport={(id) => { setProcessingReports(prev => prev.filter(r => r.id !== id)); toast({ title: "Log Deleted", description: "Audit entry has been removed." }); }} /></TabsContent>
                       </div>
                     </Card>
@@ -1027,7 +1040,7 @@ export default function Home() {
                       <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="sm" onClick={() => setIsClearConfirmOpen(true)} className="font-black uppercase text-[10px] tracking-widest text-muted-foreground hover:text-red-600 hover:bg-muted transition-all flex items-center gap-2"><Trash2 className="w-4 h-4" /> Clear Session</Button></TooltipTrigger><TooltipContent>Reset Session Data</TooltipContent></Tooltip></TooltipProvider>
                     </div>
                     <div className="flex gap-4 items-center">
-                      {workflowMode === 'standard' && viewMode !== 'analytics' && viewMode !== 'audit' && (<TooltipProvider><Tooltip><TooltipTrigger asChild><Button size="lg" className={cn("bg-primary hover:bg-emerald-700 text-white font-black uppercase tracking-widest shadow-2xl transition-all active:scale-95", showDetailedResults ? "h-10 px-6 text-[10px]" : "h-14 px-10 text-[12px]")} disabled={isProcessing} onClick={() => setIsRunProcessorDialogOpen(true)}>{isProcessing ? "Processing Batch..." : "Run Batch Processor"}</Button></TooltipTrigger><TooltipContent>Run engine analysis sequence</TooltipContent></Tooltip></TooltipProvider>)}
+                      {(workflowMode === 'standard' || workflowMode === 'building-permit') && viewMode !== 'analytics' && viewMode !== 'audit' && (<TooltipProvider><Tooltip><TooltipTrigger asChild><Button size="lg" className={cn("bg-primary hover:bg-emerald-700 text-white font-black uppercase tracking-widest shadow-2xl transition-all active:scale-95", showDetailedResults ? "h-10 px-6 text-[10px]" : "h-14 px-10 text-[12px]")} disabled={isProcessing} onClick={() => setIsRunProcessorDialogOpen(true)}>{isProcessing ? "Processing Batch..." : "Run Batch Processor"}</Button></TooltipTrigger><TooltipContent>Run engine analysis sequence</TooltipContent></Tooltip></TooltipProvider>)}
                     </div>
                   </div>
                 </div>
@@ -1073,10 +1086,10 @@ export default function Home() {
       {isDirectImporting && (
         <div className="fixed inset-0 z-[110] bg-background/95 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in duration-300">
           <Card className="w-full max-w-md p-12 bg-card border-white/10 shadow-2xl flex flex-col items-center scale-105">
-            <div className="relative flex items-center justify-center mb-8"><Loader2 className={cn("w-16 h-16 animate-spin", directImportProgress.mode === 'raw' ? "text-primary" : directImportProgress.mode === 'journal' ? "text-amber-600" : directImportProgress.mode === 'sales' ? "text-emerald-600" : directImportProgress.mode === 'cancelled' ? "text-red-600" : "text-blue-600")} /><div className="absolute inset-0 flex items-center justify-center">{directImportProgress.mode === 'raw' ? <BookUser className="w-6 h-6 text-primary" /> : directImportProgress.mode === 'journal' ? <FileText className="w-6 h-6 text-amber-600" /> : directImportProgress.mode === 'sales' ? <Tag className="w-6 h-6 text-emerald-600" /> : directImportProgress.mode === 'cancelled' ? <FileX className="w-6 h-6 text-red-600" /> : <ShieldOff className="w-6 h-6 text-blue-600" />}</div></div>
-            <h3 className="text-2xl font-black text-foreground uppercase tracking-tight mb-2 text-center">{directImportProgress.mode === 'raw' ? "Analyzing Records" : directImportProgress.mode === 'journal' ? "Parsing Journal Logs" : directImportProgress.mode === 'sales' ? "Ingesting Sales Data" : directImportProgress.mode === 'cancelled' ? "Indexing Cancelled Data" : "Indexing PIN Reference"}</h3>
+            <div className="relative flex items-center justify-center mb-8"><Loader2 className={cn("w-16 h-16 animate-spin", directImportProgress.mode === 'raw' ? "text-primary" : directImportProgress.mode === 'journal' ? "text-amber-600" : directImportProgress.mode === 'sales' ? "text-emerald-600" : directImportProgress.mode === 'cancelled' ? "text-red-600" : directImportProgress.mode === 'permits' ? "text-orange-600" : "text-blue-600")} /><div className="absolute inset-0 flex items-center justify-center">{directImportProgress.mode === 'raw' ? <BookUser className="w-6 h-6 text-primary" /> : directImportProgress.mode === 'journal' ? <FileText className="w-6 h-6 text-amber-600" /> : directImportProgress.mode === 'sales' ? <Tag className="w-6 h-6 text-emerald-600" /> : directImportProgress.mode === 'cancelled' ? <FileX className="w-6 h-6 text-red-600" /> : directImportProgress.mode === 'permits' ? <HardHat className="w-6 h-6 text-orange-600" /> : <ShieldOff className="w-6 h-6 text-blue-600" />}</div></div>
+            <h3 className="text-2xl font-black text-foreground uppercase tracking-tight mb-2 text-center">{directImportProgress.mode === 'raw' ? "Analyzing Records" : directImportProgress.mode === 'journal' ? "Parsing Journal Logs" : directImportProgress.mode === 'sales' ? "Ingesting Sales Data" : directImportProgress.mode === 'cancelled' ? "Indexing Cancelled Data" : directImportProgress.mode === 'permits' ? "Ingesting Permit Log" : "Indexing PIN Reference"}</h3>
             <p className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.3em] mb-8 animate-pulse text-center">INITIALIZING ENGINE...</p>
-            <div className="w-full pt-6 border-t flex flex-col items-center gap-2"><span className={cn("text-[10px] font-black uppercase tracking-widest", directImportProgress.mode === 'raw' ? "text-primary" : directImportProgress.mode === 'journal' ? "text-amber-600" : directImportProgress.mode === 'sales' ? "text-emerald-600" : directImportProgress.mode === 'cancelled' ? "text-red-600" : "text-blue-600")}>Batch Progress: {directImportProgress.current + 1} / {directImportProgress.total}</span></div>
+            <div className="w-full pt-6 border-t flex flex-col items-center gap-2"><span className={cn("text-[10px] font-black uppercase tracking-widest", directImportProgress.mode === 'raw' ? "text-primary" : directImportProgress.mode === 'journal' ? "text-amber-600" : directImportProgress.mode === 'sales' ? "text-emerald-600" : directImportProgress.mode === 'cancelled' ? "text-red-600" : directImportProgress.mode === 'permits' ? "text-orange-600" : "text-blue-600")}>Batch Progress: {directImportProgress.current + 1} / {directImportProgress.total}</span></div>
             <p className="mt-10 text-[9px] font-black text-muted-foreground/50 uppercase tracking-[0.2em]">System working • Do not refresh session</p>
           </Card>
         </div>

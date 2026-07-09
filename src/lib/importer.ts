@@ -67,7 +67,13 @@ export const HEADER_ALIASES = {
     'notary', 'notarypublic', 'notaryname', 'atty', 'agent', 'notaryagent', 
     'attyagent', 'documentfileno1', 'documentfilenumber1' // Fallback for dual-column headers
   ],
-  notarialDate: ['notarialdate', 'notarizeddate']
+  notarialDate: ['notarialdate', 'notarizeddate'],
+  // Building Permit specific
+  barangayName: ['barangay', 'brgy', 'bgy'],
+  buildingPermitNo: ['buildpermitno', 'permitno', 'bpno', 'buildingpermitno', 'buildingpermitnumber'],
+  dateIssued: ['dateissued', 'issueddate', 'permitdate'],
+  estimatedCost: ['estcost', 'estimatedcost', 'cost', 'estimatedconstructioncost'],
+  useOfOccupancy: ['useorcharacterofoccupancy', 'occupancy', 'useofoccupancy', 'characterofoccupancy']
 };
 
 const parseNum = (val: any) => {
@@ -126,7 +132,7 @@ function expandTdNumbers(tdString: string): string[] {
 /**
  * Maps JSON data to LandRecord objects using robust fuzzy header detection.
  */
-export const mapRawToRecords = (raw: any[], fileName: string, mode: 'raw' | 'exempt' | 'journal' | 'sales' | 'cancelled' = 'raw'): LandRecord[] => {
+export const mapRawToRecords = (raw: any[], fileName: string, mode: 'raw' | 'exempt' | 'journal' | 'sales' | 'cancelled' | 'permits' = 'raw'): LandRecord[] => {
   let lastSeenDate = "";
 
   return raw.flatMap((item) => {
@@ -182,13 +188,14 @@ export const mapRawToRecords = (raw: any[], fileName: string, mode: 'raw' | 'exe
       taxability: mode === 'exempt' ? 'E' : ('T' as const),
       acctName: getValue('acctName'),
       address: getValue('address'),
-      location: deepLookup['location'] || '', 
+      location: getValue('address') || deepLookup['location'] || '', 
+      barangayName: getValue('barangayName'),
       lotNo: getValue('lotNo'),
       blkNo: getValue('blkNo'),
       tctNo: getValue('tctNo'),
       rollType: getValue('rollType'),
       kind,
-      au,
+      au: getValue('au') || getValue('useOfOccupancy') || au,
       landArea: parseNum(getValue('landArea')),
       unitValue: parseNum(getValue('unitValue')),
       marketValue: parseNum(getValue('marketValue')),
@@ -199,6 +206,10 @@ export const mapRawToRecords = (raw: any[], fileName: string, mode: 'raw' | 'exe
       docFileNo: getValue('docFileNo'),
       notary: getValue('notary'),
       notarialDate: getValue('notarialDate'),
+      buildingPermitNo: getValue('buildingPermitNo'),
+      dateIssued: getValue('dateIssued'),
+      estimatedCost: parseNum(getValue('estimatedCost')),
+      useOfOccupancy: getValue('useOfOccupancy'),
       isCleanup: false,
       cleanupReason: "",
       sourceFile: fileName,
@@ -221,8 +232,8 @@ export const mapRawToRecords = (raw: any[], fileName: string, mode: 'raw' | 'exe
 
 export const parseFile = async (
   file: File, 
-  workflowMode: 'standard' | 'roll' | 'journal' | 'sales' | 'cancelled' = 'standard',
-  importMode: 'raw' | 'exempt' | 'journal' | 'sales' | 'cancelled' = 'raw'
+  workflowMode: 'standard' | 'roll' | 'journal' | 'sales' | 'cancelled' | 'permits' = 'standard',
+  importMode: 'raw' | 'exempt' | 'journal' | 'sales' | 'cancelled' | 'permits' = 'raw'
 ): Promise<{ data: LandRecord[], count: number }> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -251,7 +262,8 @@ export const parseFile = async (
           (r.pin && r.pin.includes('-')) || 
           (r.arpNo && r.arpNo.length > 5) ||
           (importMode === 'sales' && r.arpNo) ||
-          (importMode === 'cancelled' && r.pin)
+          (importMode === 'cancelled' && r.pin) ||
+          (importMode === 'permits' && (r.buildingPermitNo || r.acctName))
         );
 
         resolve({ data: finalRecords, count: finalRecords.length });

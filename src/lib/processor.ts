@@ -57,6 +57,12 @@ export interface LandRecord {
   notary?: string;
   notarialDate?: string;
 
+  // Building Permit Specific Fields
+  buildingPermitNo?: string;
+  dateIssued?: string;
+  estimatedCost?: number;
+  useOfOccupancy?: string;
+
   // Year-Specific Data
   unitValue2028?: number;
   marketValue2028?: number;
@@ -85,6 +91,7 @@ export interface LandRecord {
   statusLabel?: RecordStatusType; 
   rawRow?: any; 
   duplicateWithReference?: string; 
+  isJoined?: boolean;
 }
 
 export interface CalibrationRule {
@@ -304,7 +311,7 @@ export function processRecords(
       location: r.location?.trim().toUpperCase() || "",
       kind: kind,
       au: r.au?.trim().toUpperCase() || '',
-      barangayName: "UNMAPPED",
+      barangayName: r.barangayName || "UNMAPPED",
       landArea,
       unitValue,
       marketValue,
