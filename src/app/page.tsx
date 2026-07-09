@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useTransition, useCallback, useRef } from 'react';
@@ -245,6 +246,7 @@ export default function Home() {
   // --- 1.2 WORKFLOW STATE ---
   const [workflowMode, setWorkflowMode] = useState<'idle' | 'standard' | 'abstract' | 'building-permit'>('idle');
   const [abstractStep, setAbstractStep] = useState<'roll' | 'journal' | 'ready'>('roll');
+  const [permitStep, setPermitStep] = useState<'roll' | 'permits' | 'ready'>('roll');
 
   const isAbstract = workflowMode === 'abstract';
 
@@ -618,7 +620,7 @@ export default function Home() {
     setRawData([]); setProcessedData([]); setPreviewData([]); setJournalData([]); setSalesData([]); setCancelledData([]); setExemptPins(new Set());
     setRawFileManifest([]); setExemptFileManifest([]); setJournalFileManifest([]); setSalesFileManifest([]); setCancelledFileManifest([]);
     setSearchQuery(""); setImportedFileName(""); setShowDetailedResults(false);
-    setWorkflowMode('idle'); setAbstractStep('roll'); setViewMode('results');
+    setWorkflowMode('idle'); setAbstractStep('roll'); setPermitStep('roll'); setViewMode('results');
     setIsClearing(false);
     toast({ title: "Workspace Cleared", description: "All active data removed. Audit logs preserved." });
   };
@@ -679,6 +681,9 @@ export default function Home() {
     if (workflowMode === 'abstract') {
       if (abstractStep === 'roll' && (mode === 'raw' || mode === 'roll')) { setAbstractStep('journal'); toast({ title: "Roll Staged", description: "Assessment Roll loaded. Now, please upload the corresponding Journal file." }); }
       else if (abstractStep === 'journal' && mode === 'journal') { setAbstractStep('ready'); setShowDetailedResults(true); const { allWithDuplicateMarkers } = processRecords(combined, [], locationSettings, taxRates, { removeDuplicates: false, applyCalibration: false, systemCleanup: false }, fileName, updatedExemptPins); setPreviewData(allWithDuplicateMarkers); toast({ title: "Data Staged", description: "Roll and Journal joined. Report ready for Abstract Export." }); }
+    } else if (workflowMode === 'building-permit') {
+      if (permitStep === 'roll' && (mode === 'raw' || mode === 'roll')) { setPermitStep('permits'); toast({ title: "Roll Staged", description: "Assessment Roll loaded. Now, please upload the Building Permit log." }); }
+      else if (permitStep === 'permits' && mode === 'journal') { setPermitStep('ready'); setShowDetailedResults(true); const { allWithDuplicateMarkers } = processRecords(combined, [], locationSettings, taxRates, { removeDuplicates: false, applyCalibration: false, systemCleanup: false }, fileName, updatedExemptPins); setPreviewData(allWithDuplicateMarkers); toast({ title: "Permit Data Staged", description: "Assessment Roll and Permit Log linked successfully." }); }
     } else {
       if (mode !== 'exempt') setShowDetailedResults(true);
       if (processedData.length > 0) { runProcessWithData(combined, combined.length, fileName, true); }
@@ -703,7 +708,9 @@ export default function Home() {
     try {
       for (let i = 0; i < files.length; i++) {
         setDirectImportProgress(prev => ({ ...prev, current: i }));
-        const workflow = workflowMode === 'abstract' ? (mode === 'journal' ? 'journal' : mode === 'sales' ? 'sales' : mode === 'cancelled' ? 'cancelled' : 'roll') : workflowMode;
+        const workflow = workflowMode === 'abstract' ? (mode === 'journal' ? 'journal' : mode === 'sales' ? 'sales' : mode === 'cancelled' ? 'cancelled' : 'roll') : 
+                        workflowMode === 'building-permit' ? (mode === 'journal' ? 'journal' : 'roll') :
+                        workflowMode;
         const result = await parseFile(files[i], workflow, mode as any);
         allRecords.push(...result.data); totalRawCount += result.count; fileNames.push(files[i].name); await delay(400);
       }
@@ -923,13 +930,38 @@ export default function Home() {
                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-6xl mx-auto px-6 items-stretch">
                       <Card className="p-10 border-white/10 bg-card hover:bg-primary/5 hover:border-primary/50 transition-all cursor-pointer group shadow-2xl flex flex-col items-center text-center h-full" onClick={() => setWorkflowMode('standard')}><div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center mb-8 group-hover:scale-110 transition-transform shadow-inner"><Zap className="w-10 h-10 text-primary" /></div><h3 className="text-2xl font-black uppercase tracking-tight mb-4">Standard Processor</h3><p className="text-sm font-bold text-muted-foreground leading-relaxed mb-8">Best for general land record spreadsheets. Uses flexible header aliases.</p><Button className="w-full h-14 bg-primary hover:bg-emerald-700 font-black uppercase text-xs tracking-widest mt-auto">Launch Standard</Button></Card>
                       <Card className="p-10 border-white/10 bg-card hover:bg-blue-600/5 hover:border-blue-500/50 transition-all cursor-pointer group shadow-2xl flex flex-col items-center text-center h-full" onClick={() => { setWorkflowMode('abstract'); setAbstractStep('roll'); }}><div className="w-20 h-20 rounded-3xl bg-blue-500/10 flex items-center justify-center mb-8 group-hover:scale-110 transition-transform shadow-inner"><ArrowRightLeft className="w-10 h-10 text-blue-600" /></div><h3 className="text-2xl font-black uppercase tracking-tight mb-4">Abstract of Transactions</h3><p className="text-sm font-bold text-muted-foreground leading-relaxed mb-8">Specialized mode for joining Journals with Assessment Rolls for transfer reports.</p><Button className="w-full h-14 bg-blue-600 hover:bg-blue-700 font-black uppercase text-xs tracking-widest mt-auto">Launch Abstract</Button></Card>
-                      <Card className="p-10 border-white/10 bg-card hover:bg-orange-600/5 hover:border-orange-500/50 transition-all cursor-pointer group shadow-2xl flex flex-col items-center text-center h-full" onClick={() => setWorkflowMode('building-permit')}><div className="w-20 h-20 rounded-3xl bg-orange-500/10 flex items-center justify-center mb-8 group-hover:scale-110 transition-transform shadow-inner"><Construction className="w-10 h-10 text-orange-600" /></div><h3 className="text-2xl font-black uppercase tracking-tight mb-4">Abstract of Building Permit</h3><p className="text-sm font-bold text-muted-foreground leading-relaxed mb-8">Specialized mode for processing building permit logs and assessments.</p><Button className="w-full h-14 bg-orange-600 hover:bg-orange-700 font-black uppercase text-xs tracking-widest mt-auto">Launch Permit Engine</Button></Card>
+                      <Card className="p-10 border-white/10 bg-card hover:bg-orange-600/5 hover:border-orange-500/50 transition-all cursor-pointer group shadow-2xl flex flex-col items-center text-center h-full" onClick={() => { setWorkflowMode('building-permit'); setPermitStep('roll'); }}><div className="w-20 h-20 rounded-3xl bg-orange-500/10 flex items-center justify-center mb-8 group-hover:scale-110 transition-transform shadow-inner"><Construction className="w-10 h-10 text-orange-600" /></div><h3 className="text-2xl font-black uppercase tracking-tight mb-4">Abstract of Building Permit</h3><p className="text-sm font-bold text-muted-foreground leading-relaxed mb-8">Specialized mode for processing building permit logs and assessments.</p><Button className="w-full h-14 bg-orange-600 hover:bg-orange-700 font-black uppercase text-xs tracking-widest mt-auto">Launch Permit Engine</Button></Card>
                    </div>
                 </div>
               ) : (!showDetailedResults && viewMode !== 'audit') ? (
                 <div className="flex-1 flex flex-col items-center justify-center h-full py-12">
-                   <div className="text-center space-y-3 mb-10 shrink-0"><h2 className="text-5xl font-black uppercase tracking-tight text-foreground">{workflowMode === 'abstract' ? (abstractStep === 'roll' ? 'Step 1: Import Assessment Roll' : 'Step 2: Import Journal Logs') : `Import ${workflowMode === 'standard' ? 'Records' : 'Assessment Roll'}`}</h2><p className="text-muted-foreground font-bold uppercase tracking-widest text-sm">{workflowMode === 'abstract' ? (abstractStep === 'roll' ? 'Start by uploading your current Assessment Roll reference.' : 'Now, upload the corresponding Journal transactions for the join.') : `Upload your records to begin the ${workflowMode === 'standard' ? 'cleanup' : 'positional parsing'} process.`}</p></div>
-                   <div className="grid grid-cols-1 gap-8 w-full max-w-4xl mx-auto px-6"><ImportZone onDataImported={handleDataImported} mode={workflowMode === 'abstract' ? (abstractStep === 'roll' ? 'raw' : 'journal') : 'raw'} workflowMode={workflowMode === 'abstract' ? (abstractStep === 'roll' ? 'roll' : 'journal') : workflowMode} /></div>
+                   <div className="text-center space-y-3 mb-10 shrink-0">
+                      <h2 className="text-5xl font-black uppercase tracking-tight text-foreground">
+                        {workflowMode === 'abstract' ? (abstractStep === 'roll' ? 'Step 1: Import Assessment Roll' : 'Step 2: Import Journal Logs') : 
+                         workflowMode === 'building-permit' ? (permitStep === 'roll' ? 'Step 1: Import Assessment Roll' : 'Step 2: Import Building Permit Log') :
+                         `Import ${workflowMode === 'standard' ? 'Records' : 'Assessment Roll'}`}
+                      </h2>
+                      <p className="text-muted-foreground font-bold uppercase tracking-widest text-sm">
+                        {workflowMode === 'abstract' ? (abstractStep === 'roll' ? 'Start by uploading your current Assessment Roll reference.' : 'Now, upload the corresponding Journal transactions for the join.') : 
+                         workflowMode === 'building-permit' ? (permitStep === 'roll' ? 'Upload the official Assessment Roll as a relational reference.' : 'Upload your Building Permit log to link with the Assessment Roll.') :
+                         `Upload your records to begin the ${workflowMode === 'standard' ? 'cleanup' : 'positional parsing'} process.`}
+                      </p>
+                   </div>
+                   <div className="grid grid-cols-1 gap-8 w-full max-w-4xl mx-auto px-6">
+                      <ImportZone 
+                        onDataImported={handleDataImported} 
+                        mode={
+                          workflowMode === 'abstract' ? (abstractStep === 'roll' ? 'raw' : 'journal') : 
+                          workflowMode === 'building-permit' ? (permitStep === 'roll' ? 'raw' : 'journal') :
+                          'raw'
+                        } 
+                        workflowMode={
+                          workflowMode === 'abstract' ? (abstractStep === 'roll' ? 'roll' : 'journal') : 
+                          workflowMode === 'building-permit' ? (permitStep === 'roll' ? 'roll' : 'journal') :
+                          workflowMode
+                        } 
+                      />
+                   </div>
                 </div>
               ) : (
                 <div className={cn("flex-1 flex flex-col min-h-0 transition-all duration-700 ease-in-out", showDetailedResults ? "gap-4 h-full" : "items-center justify-center h-full", isClearing && "animate-out fade-out zoom-out-95 duration-500 fill-mode-forwards")}>
@@ -1023,7 +1055,7 @@ export default function Home() {
             </DialogHeader>
             <Button variant="ghost" size="icon" onClick={() => setExpandedChart(null)} className="rounded-full"><X className="w-5 h-5" /></Button>
           </div>
-          <div className="flex-1 p-10 flex flex-col items-center justify-center overflow-hidden"><ChartContainer config={expandedChart === 'market' ? { value: { label: "Value", color: "hsl(var(--primary))" } } : { value: { label: "Count", color: "hsl(var(--primary))" } }} className="w-full h-full max-h-[500px]">{expandedChart === 'market' ? (<PieChart><Pie data={analyticsData.marketChart} cx="50%" cy="50%" innerRadius={100} outerRadius={160} paddingAngle={8} dataKey="value" stroke="none" label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}>{analyticsData.marketChart.map((entry, index) => <Cell key={`cell-exp-m-${index}`} fill={COLORS[index % COLORS.length]} />)}</Pie><ChartTooltip content={<ChartTooltipContent />} /><Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ paddingTop: '40px', fontSize: '12px', fontWeight: 'bold' }}/></PieChart>) : (<BarChart data={expandedChart === 'usage' ? analyticsData.auChart : expandedChart === 'barangay' ? analyticsData.barangayChart : analyticsData.updateChart} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}><CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.05} /><XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} angle={-45} textAnchor="end" interval={0} tick={{ fill: 'hsl(var(--muted-foreground))', fontWeight: 'bold' }} /><YAxis fontSize={12} tickLine={false} axisLine={false} tick={{ fill: 'hsl(var(--muted-foreground))' }} /><ChartTooltip content={<ChartTooltipContent />} /><Bar dataKey="value" radius={[8, 8, 0, 0]}>{(expandedChart === 'usage' ? analyticsData.auChart : expandedChart === 'barangay' ? analyticsData.barangayChart : analyticsData.updateChart).map((entry, index) => (<Cell key={`cell-exp-${index}`} fill={COLORS[(index + (expandedChart === 'barangay' ? 4 : expandedChart === 'update' ? 2 : 0)) % COLORS.length]} />))}</Bar></BarChart>)}</ChartContainer></div>
+          <div className="flex-1 p-10 flex flex-col items-center justify-center overflow-hidden"><ChartContainer config={expandedChart === 'market' ? { value: { label: "Value", color: "hsl(var(--primary))" } } : { value: { label: "Count", color: "hsl(var(--primary))" } }} className="w-full h-full max-h-[500px]">{expandedChart === 'market' ? (<PieChart><PieChart><Pie data={analyticsData.marketChart} cx="50%" cy="50%" innerRadius={100} outerRadius={160} paddingAngle={8} dataKey="value" stroke="none" label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}>{analyticsData.marketChart.map((entry, index) => <Cell key={`cell-exp-m-${index}`} fill={COLORS[index % COLORS.length]} />)}</Pie><ChartTooltip content={<ChartTooltipContent />} /><Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ paddingTop: '40px', fontSize: '12px', fontWeight: 'bold' }}/></PieChart></PieChart>) : (<BarChart data={expandedChart === 'usage' ? analyticsData.auChart : expandedChart === 'barangay' ? analyticsData.barangayChart : analyticsData.updateChart} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}><CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.05} /><XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} angle={-45} textAnchor="end" interval={0} tick={{ fill: 'hsl(var(--muted-foreground))', fontWeight: 'bold' }} /><YAxis fontSize={12} tickLine={false} axisLine={false} tick={{ fill: 'hsl(var(--muted-foreground))' }} /><ChartTooltip content={<ChartTooltipContent />} /><Bar dataKey="value" radius={[8, 8, 0, 0]}>{(expandedChart === 'usage' ? analyticsData.auChart : expandedChart === 'barangay' ? analyticsData.barangayChart : analyticsData.updateChart).map((entry, index) => (<Cell key={`cell-exp-${index}`} fill={COLORS[(index + (expandedChart === 'barangay' ? 4 : expandedChart === 'update' ? 2 : 0)) % COLORS.length]} />))}</Bar></BarChart>)}</ChartContainer></div>
           <div className="p-6 border-t bg-muted/20 flex justify-center shrink-0"><Button onClick={() => setExpandedChart(null)} className="font-black uppercase text-xs tracking-widest bg-slate-800 hover:bg-slate-900 h-12 px-12">Close Visualization</Button></div>
         </DialogContent>
       </Dialog>
