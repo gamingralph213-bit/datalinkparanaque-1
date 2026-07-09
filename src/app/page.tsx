@@ -67,7 +67,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ImportZone } from '@/components/dashboard/import-zone';
 import { CalibrationSidebar } from '@/components/dashboard/calibration-sidebar';
 import { DataPreviewTable } from '@/components/dashboard/data-preview-table';
-import { LandRecord, CalibrationRule, processRecords, TaxRateMap, ProcessingReport, RecordStatusType, normalizePin, getModeOfConveyance } from '@/lib/processor';
+import { LandRecord, CalibrationRule, processRecords, TaxRateMap, ProcessingReport, RecordStatusType, normalizePin, getModeOfConveyance, normalizeNameForMatch } from '@/lib/processor';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import * as XLSX from 'xlsx';
 import { BarangayConfig, initialLocationSettings } from '@/lib/locations';
@@ -421,20 +421,41 @@ export default function Home() {
     });
   }, [workflowMode, journalData, rawData, exemptPins, salesData, cancelledData]);
 
-  // Joined data for Building Permits
+  // Joined data for Building Permits with improved fuzzy name matching
   const joinedPermitData = useMemo(() => {
     if (workflowMode !== 'building-permit') return [];
     
     const rolls = rawData;
-    const rollLookup = new Map<string, LandRecord>();
+    const pinLookup = new Map<string, LandRecord>();
+    const arpLookup = new Map<string, LandRecord>();
+    const nameLookup = new Map<string, LandRecord>();
+
     rolls.forEach(r => { 
-      if (r.pin) rollLookup.set(normalizePin(r.pin), r); 
+      if (r.pin) pinLookup.set(normalizePin(r.pin), r); 
+      if (r.arpNo) {
+        const cleanArp = r.arpNo.trim();
+        if (cleanArp) arpLookup.set(cleanArp, r);
+      }
+      if (r.acctName) {
+        const normName = normalizeNameForMatch(r.acctName);
+        if (normName) {
+          // If multiple parcels share an owner, the lookup maps to the last seen
+          nameLookup.set(normName, r);
+        }
+      }
     });
 
     return permitData.map(p => {
-      // Find match by PIN or ARP if available
       const pinNorm = normalizePin(p.pin);
-      const match = rollLookup.get(pinNorm) || rolls.find(r => r.arpNo === p.arpNo) || null;
+      const cleanPermitArp = (p.arpNo || "").trim();
+      const normPermitOwner = normalizeNameForMatch(p.barangayName || ""); // BARANGAY in permit log = Owner name
+      
+      // Attempt matches in hierarchy: PIN -> ARP -> Fuzzy Name
+      const match = 
+        (pinNorm ? pinLookup.get(pinNorm) : null) || 
+        (cleanPermitArp ? arpLookup.get(cleanPermitArp) : null) || 
+        (normPermitOwner ? nameLookup.get(normPermitOwner) : null) || 
+        null;
       
       return {
         ...p,

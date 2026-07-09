@@ -127,6 +127,24 @@ export function normalizePin(pin: string): string {
 }
 
 /**
+ * Normalizes a name string for comparison by:
+ * 1. Converting to uppercase
+ * 2. Removing non-alphanumeric characters
+ * 3. Sorting individual words alphabetically to handle different name orders
+ * 4. Joining words without spaces to ignore spacing inconsistencies
+ */
+export function normalizeNameForMatch(name: string): string {
+  if (!name) return "";
+  return name
+    .toUpperCase()
+    .replace(/[^A-Z0-9 ]/g, ' ')
+    .split(' ')
+    .filter(word => word.length > 0)
+    .sort()
+    .join('');
+}
+
+/**
  * Determines the Mode of Conveyance based on the Update Code.
  * - TR or TRANSFER -> DEED OF SALE
  * - DC -> NEW
