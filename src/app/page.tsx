@@ -834,8 +834,8 @@ export default function Home() {
           "PROPERTY CONVEYED (B)": (kind === 'B' || kind === 'BUILDING') ? 'x' : "", 
           "AREA (LAND/BLDG.)": j.landArea || 0, 
           "LOT NO.": (j as any).rollLotNo || "", 
-          "TITLE NO. (PREVIOUS)": (j as any).rollTctNo || "", 
-          "TITLE NO. (NEW)": "", 
+          "TITLE NO. (PREVIOUS)": "", 
+          "TITLE NO. (NEW)": (j as any).rollTctNo || "", 
           "NOTARIAL DATE": j.notarialDate || "", 
           "DOCUMENT FILE NO.": j.docFileNo || "",
           "NOTARY / AGENT": (j as any).notary || ""

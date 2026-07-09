@@ -117,6 +117,9 @@ const RecordRow = memo(({
           {abstractRow.rollLotNo || '---'}
         </TableCell>
 
+        {/* TITLE NO. (PREVIOUS) - BLANK */}
+        <TableCell className="p-3 bg-muted/5 border-l"></TableCell>
+
         <TableCell className={cn(
           "p-3 font-mono text-center border-l",
           abstractRow.isJoined ? "text-blue-600 font-black" : "text-muted-foreground opacity-30"
@@ -404,8 +407,9 @@ export function DataPreviewTable({ data, isProcessed = false, onRowClick, showLa
                 <TableHead className="min-w-[50px] text-center font-black uppercase bg-card border-l">L</TableHead>
                 <TableHead className="min-w-[50px] text-center font-black uppercase bg-card border-l">B</TableHead>
                 <TableHead className="min-w-[120px] text-right font-black uppercase bg-card border-l">AREA (sqm)</TableHead>
-                <TableHead className="min-w-[100px] text-center font-black uppercase bg-emerald-50 dark:bg-emerald-950 border-l border-emerald-100 dark:border-blue-900">LOT #</TableHead>
-                <TableHead className="min-w-[120px] text-center font-black uppercase bg-emerald-50 dark:bg-emerald-950 border-l border-emerald-100 dark:border-blue-900">TCT #</TableHead>
+                <TableHead className="min-w-[100px] text-center font-black uppercase bg-emerald-50 dark:bg-emerald-950 border-l border-emerald-100 dark:border-blue-900">LOT NO.</TableHead>
+                <TableHead className="min-w-[120px] text-center font-black uppercase bg-card border-l">TITLE NO. (PREV)</TableHead>
+                <TableHead className="min-w-[120px] text-center font-black uppercase bg-emerald-50 dark:bg-emerald-950 border-l border-emerald-100 dark:border-blue-900">TITLE NO. (NEW)</TableHead>
                 <TableHead className="min-w-[140px] font-black uppercase bg-card border-l">NOTARIAL DATE</TableHead>
                 <TableHead className="min-w-[180px] font-black uppercase bg-card border-l">DOCUMENT FILE NO.</TableHead>
                 <TableHead className="min-w-[220px] font-black uppercase bg-card border-l">NOTARY / AGENT</TableHead>
