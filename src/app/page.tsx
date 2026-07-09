@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useTransition, useCallback, useRef } from 'react';
@@ -712,10 +713,11 @@ export default function Home() {
     if (outcome === 'accepted') { setDeferredPrompt(null); }
   };
 
-  const runProcessWithData = async (data: LandRecord[], rawCount: number, fileName: string, silent = false) => {
+  const runProcessWithData = async (data: LandRecord[], rawCount: number, fileName: string, silent = false, overrideExemptPins?: Set<string>) => {
     if (!silent) { setIsProcessing(true); setProcessingStep('cleanup'); await delay(1200); setProcessingStep('dedupe'); await delay(1000); setProcessingStep('calibrate'); await delay(800); }
     startTransition(() => {
-      const { processed, allWithDuplicateMarkers, report } = processRecords(data, rules, locationSettings, taxRates, options, fileName, exemptPins);
+      const activeExemptPins = overrideExemptPins || exemptPins;
+      const { processed, allWithDuplicateMarkers, report } = processRecords(data, rules, locationSettings, taxRates, options, fileName, activeExemptPins);
       setProcessedData(processed);
       setPreviewData(allWithDuplicateMarkers);
       setProcessingReports(prev => [report, ...prev]);
@@ -730,42 +732,63 @@ export default function Home() {
   };
 
   const handleDataImported = (imported: LandRecord[], fileName: string, rawCount: number, mode: 'raw' | 'exempt' | 'journal' | 'sales' | 'roll' | 'cancelled' | 'permits' = 'raw') => {
-    const updatedExemptPins = new Set(exemptPins);
+    let latestRawData = rawData;
+    let latestJournalData = journalData;
+    let latestSalesData = salesData;
+    let latestCancelledData = cancelledData;
+    let latestPermitData = permitData;
+    let latestExemptPins = new Set(exemptPins);
+
     if (mode === 'exempt') {
       const pinsFromThisFile = new Set<string>();
-      imported.forEach(r => { if (r.pin) { const pin = r.pin.trim(); updatedExemptPins.add(pin); pinsFromThisFile.add(pin); } });
-      setExemptPins(updatedExemptPins);
+      imported.forEach(r => { if (r.pin) { const pin = r.pin.trim(); latestExemptPins.add(pin); pinsFromThisFile.add(pin); } });
+      setExemptPins(new Set(latestExemptPins));
       setExemptFileManifest(prev => [...prev, { name: fileName, count: imported.length, pins: Array.from(pinsFromThisFile) }]);
     } else if (mode === 'journal') {
-      setJournalFileManifest(prev => [...prev, { name: fileName, count: rawCount }]);
-      setJournalData(prev => [...prev, ...imported]);
+      latestJournalData = [...journalData.filter(r => r.sourceFile !== fileName), ...imported];
+      setJournalFileManifest(prev => [...prev.filter(f => f.name !== fileName), { name: fileName, count: rawCount }]);
+      setJournalData(latestJournalData);
     } else if (mode === 'sales') {
-      setSalesFileManifest(prev => [...prev, { name: fileName, count: rawCount }]);
-      setSalesData(prev => [...prev, ...imported]);
+      latestSalesData = [...salesData.filter(r => r.sourceFile !== fileName), ...imported];
+      setSalesFileManifest(prev => [...prev.filter(f => f.name !== fileName), { name: fileName, count: rawCount }]);
+      setSalesData(latestSalesData);
     } else if (mode === 'cancelled') {
-      setCancelledFileManifest(prev => [...prev, { name: fileName, count: rawCount }]);
-      setCancelledData(prev => [...prev, ...imported]);
+      latestCancelledData = [...cancelledData.filter(r => r.sourceFile !== fileName), ...imported];
+      setCancelledFileManifest(prev => [...prev.filter(f => f.name !== fileName), { name: fileName, count: rawCount }]);
+      setCancelledData(latestCancelledData);
     } else if (mode === 'permits') {
-      setPermitFileManifest(prev => [...prev, { name: fileName, count: rawCount }]);
-      setPermitData(prev => [...prev, ...imported]);
+      latestPermitData = [...permitData.filter(r => r.sourceFile !== fileName), ...imported];
+      setPermitFileManifest(prev => [...prev.filter(f => f.name !== fileName), { name: fileName, count: rawCount }]);
+      setPermitData(latestPermitData);
     } else {
-      setRawFileManifest(prev => [...prev, { name: fileName, count: rawCount }]);
-      setRawData(prev => [...prev, ...imported]);
+      latestRawData = [...rawData.filter(r => r.sourceFile !== fileName), ...imported];
+      setRawFileManifest(prev => [...prev.filter(f => f.name !== fileName), { name: fileName, count: rawCount }]);
+      setRawData(latestRawData);
     }
     
-    const combined = [...rawData, ...journalData, ...salesData, ...cancelledData, ...permitData, ...imported];
+    const combined = [...latestRawData, ...latestJournalData, ...latestSalesData, ...latestCancelledData, ...latestPermitData];
     if (mode !== 'exempt') setImportedFileName(fileName);
     
     if (workflowMode === 'abstract') {
       if (abstractStep === 'roll' && (mode === 'raw' || mode === 'roll')) { setAbstractStep('journal'); toast({ title: "Roll Staged", description: "Assessment Roll loaded. Now, please upload the corresponding Journal file." }); }
-      else if (abstractStep === 'journal' && mode === 'journal') { setAbstractStep('ready'); setShowDetailedResults(true); const { allWithDuplicateMarkers } = processRecords(combined, [], locationSettings, taxRates, { removeDuplicates: false, applyCalibration: false, systemCleanup: false }, fileName, updatedExemptPins); setPreviewData(allWithDuplicateMarkers); toast({ title: "Data Staged", description: "Roll and Journal joined. Report ready for Abstract Export." }); }
+      else if (abstractStep === 'journal' && mode === 'journal') { setAbstractStep('ready'); setShowDetailedResults(true); const { allWithDuplicateMarkers } = processRecords(combined, [], locationSettings, taxRates, { removeDuplicates: false, applyCalibration: false, systemCleanup: false }, fileName, latestExemptPins); setPreviewData(allWithDuplicateMarkers); toast({ title: "Data Staged", description: "Roll and Journal joined. Report ready for Abstract Export." }); }
+      else if (abstractStep === 'ready' || (isAbstract && (mode === 'exempt' || mode === 'sales' || mode === 'cancelled'))) {
+        setShowDetailedResults(true);
+        const { allWithDuplicateMarkers } = processRecords(combined, [], locationSettings, taxRates, { removeDuplicates: false, applyCalibration: false, systemCleanup: false }, fileName, latestExemptPins);
+        setPreviewData(allWithDuplicateMarkers);
+      }
     } else if (workflowMode === 'building-permit') {
       if (permitStep === 'roll' && (mode === 'raw' || mode === 'roll')) { setPermitStep('permits'); toast({ title: "Roll Staged", description: "Assessment Roll loaded. Now, please upload the Building Permit log." }); }
-      else if (permitStep === 'permits' && mode === 'permits') { setPermitStep('ready'); setShowDetailedResults(true); const { allWithDuplicateMarkers } = processRecords(combined, [], locationSettings, taxRates, { removeDuplicates: false, applyCalibration: false, systemCleanup: false }, fileName, updatedExemptPins); setPreviewData(allWithDuplicateMarkers); toast({ title: "Permit Data Staged", description: "Assessment Roll and Permit Log linked successfully." }); }
+      else if (permitStep === 'permits' && mode === 'permits') { setPermitStep('ready'); setShowDetailedResults(true); const { allWithDuplicateMarkers } = processRecords(combined, [], locationSettings, taxRates, { removeDuplicates: false, applyCalibration: false, systemCleanup: false }, fileName, latestExemptPins); setPreviewData(allWithDuplicateMarkers); toast({ title: "Permit Data Staged", description: "Assessment Roll and Permit Log linked successfully." }); }
+      else if (permitStep === 'ready') {
+        setShowDetailedResults(true);
+        const { allWithDuplicateMarkers } = processRecords(combined, [], locationSettings, taxRates, { removeDuplicates: false, applyCalibration: false, systemCleanup: false }, fileName, latestExemptPins);
+        setPreviewData(allWithDuplicateMarkers);
+      }
     } else {
       if (mode !== 'exempt') setShowDetailedResults(true);
-      if (processedData.length > 0) { runProcessWithData(combined, combined.length, fileName, true); }
-      else { const { allWithDuplicateMarkers } = processRecords(combined, [], locationSettings, taxRates, { removeDuplicates: false, applyCalibration: false, systemCleanup: false }, fileName, updatedExemptPins); setPreviewData(allWithDuplicateMarkers); if (mode !== 'exempt' && mode !== 'cancelled') setShowDetailedResults(true); }
+      if (processedData.length > 0) { runProcessWithData(combined, combined.length, fileName, true, latestExemptPins); }
+      else { const { allWithDuplicateMarkers } = processRecords(combined, [], locationSettings, taxRates, { removeDuplicates: false, applyCalibration: false, systemCleanup: false }, fileName, latestExemptPins); setPreviewData(allWithDuplicateMarkers); if (mode !== 'exempt' && mode !== 'cancelled') setShowDetailedResults(true); }
     }
     toast({ title: mode === 'exempt' ? "Exempt Data Integrated" : mode === 'journal' ? "Journal Data Integrated" : mode === 'sales' ? "Sales Data Integrated" : mode === 'cancelled' ? "Cancelled Reference Integrated" : mode === 'permits' ? "Permit Data Integrated" : "Data Loaded", description: mode === 'exempt' ? `${imported.length} records integrated and indexed as Exempt reference.` : `${rawCount} records from ${fileName} imported successfully.` });
   };
