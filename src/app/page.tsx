@@ -422,14 +422,14 @@ export default function Home() {
     });
   }, [workflowMode, journalData, rawData, exemptPins, salesData, cancelledData]);
 
-  // Joined data for Building Permits with improved fuzzy name matching
+  // Joined data for Building Permits with improved fuzzy name matching and ONE-TO-MANY expansion
   const joinedPermitData = useMemo(() => {
     if (workflowMode !== 'building-permit') return [];
     
     const rolls = rawData;
     const pinLookup = new Map<string, LandRecord>();
     const arpLookup = new Map<string, LandRecord>();
-    const nameLookup = new Map<string, LandRecord>();
+    const nameLookup = new Map<string, LandRecord[]>();
 
     rolls.forEach(r => { 
       if (r.pin) pinLookup.set(normalizePin(r.pin), r); 
@@ -440,33 +440,57 @@ export default function Home() {
       if (r.acctName) {
         const normName = normalizeNameForMatch(r.acctName);
         if (normName) {
-          // If multiple parcels share an owner, the lookup maps to the last seen
-          nameLookup.set(normName, r);
+          const existing = nameLookup.get(normName) || [];
+          existing.push(r);
+          nameLookup.set(normName, existing);
         }
       }
     });
 
-    return permitData.map(p => {
+    return permitData.flatMap(p => {
       const pinNorm = normalizePin(p.pin);
       const cleanPermitArp = (p.arpNo || "").trim();
       const normPermitOwner = normalizeNameForMatch(p.barangayName || ""); // BARANGAY in permit log = Owner name
       
-      // Attempt matches in hierarchy: PIN -> ARP -> Fuzzy Name
-      const match = 
-        (pinNorm ? pinLookup.get(pinNorm) : null) || 
-        (cleanPermitArp ? arpLookup.get(cleanPermitArp) : null) || 
-        (normPermitOwner ? nameLookup.get(normPermitOwner) : null) || 
-        null;
+      // Attempt matches in hierarchy: PIN -> ARP -> Fuzzy Name (Multiple)
+      const exactMatch = (pinNorm ? pinLookup.get(pinNorm) : null) || 
+                         (cleanPermitArp ? arpLookup.get(cleanPermitArp) : null);
       
-      return {
+      if (exactMatch) {
+        return [{
+          ...p,
+          isJoined: true,
+          rollArp: exactMatch.arpNo || '---',
+          rollAddress: exactMatch.address || '---',
+          rollArea: exactMatch.landArea || 0,
+          rollUpdate: exactMatch.update || '---'
+        }];
+      }
+
+      const nameMatches = normPermitOwner ? nameLookup.get(normPermitOwner) : null;
+      
+      if (nameMatches && nameMatches.length > 0) {
+        // EXPORT ALL MATCHING RECORDS if multiple are found for the same owner
+        return nameMatches.map(match => ({
+          ...p,
+          id: `${p.id}-${match.arpNo}`, // Unique key for expansion
+          isJoined: true,
+          // Enriched fields from Roll
+          rollArp: match.arpNo || '---',
+          rollAddress: match.address || '---',
+          rollArea: match.landArea || 0,
+          rollUpdate: match.update || '---'
+        }));
+      }
+      
+      return [{
         ...p,
-        isJoined: !!match,
-        // Enriched fields from Roll
-        rollArp: match?.arpNo || '---',
-        rollAddress: match?.address || '---',
-        rollArea: match?.landArea || 0,
-        rollUpdate: match?.update || '---'
-      };
+        isJoined: false,
+        rollArp: '---',
+        rollAddress: '---',
+        rollArea: 0,
+        rollUpdate: '---'
+      }];
     });
   }, [workflowMode, permitData, rawData]);
 
