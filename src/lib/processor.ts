@@ -129,26 +129,74 @@ export function normalizePin(pin: string): string {
 /**
  * Normalizes a name string for comparison by:
  * 1. Converting to uppercase
- * 2. Removing non-alphanumeric characters
- * 3. Sorting individual words alphabetically to handle different name orders
- * 4. Joining words without spaces to ignore spacing inconsistencies
+ * 2. Removing titles and common prefixes (SPS, DR, MR, etc.)
+ * 3. Stripping punctuation
+ * 4. Removing single-letter middle initials
+ * 5. Deduplicating and sorting words alphabetically to handle reordering
  */
 export function normalizeNameForMatch(name: string): string {
   if (!name) return "";
-  return name
-    .toUpperCase()
-    .replace(/[^A-Z0-9 ]/g, ' ')
-    .split(' ')
-    .filter(word => word.length > 0)
-    .sort()
-    .join('');
+  let cleaned = name.toUpperCase()
+    .replace(/\b(SPS\.?|SPOUSES?|MR\.?|MRS\.?|MS\.?|DR\.?|ATTY\.?|ENGR?\.?|MD|PHD|OF|THE|CO|INC|CORP|CORPORATION)\b/g, '')
+    .replace(/[.,\/#!$%\^&*;:{}=\-_`~()]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+    
+  const words = cleaned.split(' ').filter(w => w.length > 1);
+  return Array.from(new Set(words)).sort().join(' ');
+}
+
+/**
+ * Jaro-Winkler Similarity algorithm for fuzzy string matching.
+ * Returns a score between 0.0 and 1.0.
+ */
+export function getJaroWinklerSimilarity(s1: string, s2: string): number {
+  if (s1 === s2) return 1.0;
+  if (!s1 || !s2) return 0;
+
+  const m1 = s1.length;
+  const m2 = s2.length;
+  const matchWindow = Math.floor(Math.max(m1, m2) / 2) - 1;
+  const s1Matches = new Array(m1).fill(false);
+  const s2Matches = new Array(m2).fill(false);
+
+  let matches = 0;
+  for (let i = 0; i < m1; i++) {
+    const start = Math.max(0, i - matchWindow);
+    const end = Math.min(i + matchWindow + 1, m2);
+    for (let j = start; j < end; j++) {
+      if (!s2Matches[j] && s1[i] === s2[j]) {
+        s1Matches[i] = true;
+        s2Matches[j] = true;
+        matches++;
+        break;
+      }
+    }
+  }
+
+  if (matches === 0) return 0.0;
+
+  let transpositions = 0;
+  let k = 0;
+  for (let i = 0; i < m1; i++) {
+    if (s1Matches[i]) {
+      while (!s2Matches[k]) k++;
+      if (s1[i] !== s2[k]) transpositions++;
+      k++;
+    }
+  }
+
+  const jaro = (matches / m1 + matches / m2 + (matches - transpositions / 2) / matches) / 3;
+  let prefix = 0;
+  for (let i = 0; i < Math.min(4, m1, m2); i++) {
+    if (s1[i] === s2[i]) prefix++;
+    else break;
+  }
+  return jaro + prefix * 0.1 * (1 - jaro);
 }
 
 /**
  * Determines the Mode of Conveyance based on the Update Code.
- * - TR or TRANSFER -> DEED OF SALE
- * - DC -> NEW
- * - Others -> UPDATE
  */
 export function getModeOfConveyance(updateCode?: string): string {
   const code = (updateCode || "").trim().toUpperCase();

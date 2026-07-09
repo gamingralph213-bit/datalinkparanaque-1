@@ -68,7 +68,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ImportZone } from '@/components/dashboard/import-zone';
 import { CalibrationSidebar } from '@/components/dashboard/calibration-sidebar';
 import { DataPreviewTable } from '@/components/dashboard/data-preview-table';
-import { LandRecord, CalibrationRule, processRecords, TaxRateMap, ProcessingReport, RecordStatusType, normalizePin, getModeOfConveyance, normalizeNameForMatch } from '@/lib/processor';
+import { LandRecord, CalibrationRule, processRecords, TaxRateMap, ProcessingReport, RecordStatusType, normalizePin, getModeOfConveyance, normalizeNameForMatch, getJaroWinklerSimilarity } from '@/lib/processor';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import * as XLSX from 'xlsx';
 import { BarangayConfig, initialLocationSettings } from '@/lib/locations';
@@ -422,7 +422,7 @@ export default function Home() {
     });
   }, [workflowMode, journalData, rawData, exemptPins, salesData, cancelledData]);
 
-  // Joined data for Building Permits with improved fuzzy name matching and ONE-TO-MANY expansion
+  // Joined data for Building Permits with advanced fuzzy name matching and ONE-TO-MANY expansion
   const joinedPermitData = useMemo(() => {
     if (workflowMode !== 'building-permit') return [];
     
@@ -447,12 +447,14 @@ export default function Home() {
       }
     });
 
+    const uniqueRollNames = Array.from(nameLookup.keys());
+
     return permitData.flatMap(p => {
       const pinNorm = normalizePin(p.pin);
       const cleanPermitArp = (p.arpNo || "").trim();
       const normPermitOwner = normalizeNameForMatch(p.barangayName || ""); // BARANGAY in permit log = Owner name
       
-      // Attempt matches in hierarchy: PIN -> ARP -> Fuzzy Name (Multiple)
+      // 1. Attempt EXACT matches (PIN/ARP)
       const exactMatch = (pinNorm ? pinLookup.get(pinNorm) : null) || 
                          (cleanPermitArp ? arpLookup.get(cleanPermitArp) : null);
       
@@ -467,20 +469,47 @@ export default function Home() {
         }];
       }
 
+      // 2. Attempt EXACT NORMALIZED name match (fast pass)
       const nameMatches = normPermitOwner ? nameLookup.get(normPermitOwner) : null;
-      
       if (nameMatches && nameMatches.length > 0) {
-        // EXPORT ALL MATCHING RECORDS if multiple are found for the same owner
         return nameMatches.map(match => ({
           ...p,
-          id: `${p.id}-${match.arpNo}`, // Unique key for expansion
+          id: `${p.id}-${match.arpNo}`,
           isJoined: true,
-          // Enriched fields from Roll
           rollArp: match.arpNo || '---',
           rollAddress: match.address || '---',
           rollArea: match.landArea || 0,
           rollUpdate: match.update || '---'
         }));
+      }
+
+      // 3. Attempt FUZZY matching (Jaro-Winkler)
+      if (normPermitOwner) {
+        let bestMatchName = null;
+        let maxScore = 0;
+        
+        for (const rollName of uniqueRollNames) {
+          const score = getJaroWinklerSimilarity(normPermitOwner, rollName);
+          if (score > maxScore) {
+            maxScore = score;
+            bestMatchName = rollName;
+          }
+          if (maxScore >= 1.0) break; // Perfect match found in normalized space
+        }
+        
+        // Use 90% threshold for high confidence automatic linking
+        if (maxScore >= 0.90 && bestMatchName) {
+          const fuzzyMatches = nameLookup.get(bestMatchName)!;
+          return fuzzyMatches.map(match => ({
+            ...p,
+            id: `${p.id}-${match.arpNo}`,
+            isJoined: true,
+            rollArp: match.arpNo || '---',
+            rollAddress: match.address || '---',
+            rollArea: match.landArea || 0,
+            rollUpdate: match.update || '---'
+          }));
+        }
       }
       
       return [{
