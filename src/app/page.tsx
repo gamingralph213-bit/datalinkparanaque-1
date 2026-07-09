@@ -43,7 +43,8 @@ import {
   FileX,
   Construction,
   HardHat,
-  AlertCircle
+  AlertCircle,
+  Building2
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -257,6 +258,7 @@ export default function Home() {
 
   const isAbstract = workflowMode === 'abstract';
   const isBuildingPermit = workflowMode === 'building-permit';
+  const isPermit = isBuildingPermit; // Alias for fixing ReferenceError
 
   // --- 1.1 MANIFEST STATE ---
   const [rawFileManifest, setRawFileManifest] = useState<{ name: string, count: number }[]>([]);
@@ -429,7 +431,6 @@ export default function Home() {
   const joinedPermitData = useMemo(() => {
     if (workflowMode !== 'building-permit') return [];
     
-    // Step 0: Pre-calculate occurrences in permit logs to determine "Under Review" status
     const permitOwnerCounts = new Map<string, number>();
     permitData.forEach(p => {
       const name = (p.barangayName || "").trim().toUpperCase();
@@ -690,48 +691,21 @@ export default function Home() {
         return true;
       });
       const kindDistribution: Record<string, number> = {};
-      const statusDistribution: Record<string, number> = {};
-      const geographicDistribution: Record<string, number> = {};
-      const costBreakdown: Record<string, number> = {};
-
+      const taxabilityDistribution: Record<string, number> = {};
+      const joinDistribution: Record<string, number> = {};
+      const locationDistribution: Record<string, number> = {};
       filteredData.forEach(r => {
-        if (workflowMode === 'building-permit') {
-          // B Permit Specific Logic
-          const occupancy = (r.useOfOccupancy || 'UNKNOWN').trim().toUpperCase();
-          kindDistribution[occupancy] = (kindDistribution[occupancy] || 0) + 1;
-          
-          const status = r.isUnderReview ? 'UNDER REVIEW' : (r.isPotentialMatch ? 'POTENTIAL MATCH' : (r.isJoined ? 'MATCHED' : 'UNLINKED'));
-          statusDistribution[status] = (statusDistribution[status] || 0) + 1;
-          
-          const area = (r.barangayName || 'UNMAPPED').toUpperCase();
-          geographicDistribution[area] = (geographicDistribution[area] || 0) + 1;
-          
-          costBreakdown[occupancy] = (costBreakdown[occupancy] || 0) + (r.estimatedCost || 0);
-        } else {
-          // Abstract Specific Logic
-          const kind = (r.kind || 'UNKNOWN').trim().toUpperCase();
-          kindDistribution[kind] = (kindDistribution[kind] || 0) + 1;
-          
-          const status = r.isJoined ? 'LINKED' : 'NO MATCH';
-          statusDistribution[status] = (statusDistribution[status] || 0) + 1;
-          
-          const loc = (r.location || 'UNMAPPED').toUpperCase();
-          geographicDistribution[loc] = (geographicDistribution[loc] || 0) + 1;
-          
-          const tax = r.taxability === 'E' ? 'EXEMPT' : 'TAXABLE';
-          costBreakdown[tax] = (costBreakdown[tax] || 0) + 1;
-        }
+        const kind = (r.kind || 'UNKNOWN').trim().toUpperCase();
+        kindDistribution[kind] = (kindDistribution[kind] || 0) + 1;
+        const tax = r.taxability === 'E' ? 'EXEMPT' : 'TAXABLE';
+        taxabilityDistribution[tax] = (taxabilityDistribution[tax] || 0) + 1;
+        const join = r.isUnderReview ? 'UNDER REVIEW' : (r.isJoined ? 'LINKED' : 'NO MATCH');
+        joinDistribution[join] = (joinDistribution[join] || 0) + 1;
+        const loc = (r.location || 'UNMAPPED').toUpperCase();
+        locationDistribution[loc] = (locationDistribution[loc] || 0) + 1;
       });
-      
-      return { 
-        totalRecords: filteredData.length, 
-        auChart: Object.entries(kindDistribution).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 12), 
-        marketChart: Object.entries(costBreakdown).map(([name, value]) => ({ name, value })), 
-        updateChart: Object.entries(statusDistribution).map(([name, value]) => ({ name, value })), 
-        barangayChart: Object.entries(geographicDistribution).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 15) 
-      };
+      return { totalRecords: filteredData.length, auChart: Object.entries(kindDistribution).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value), marketChart: Object.entries(taxabilityDistribution).map(([name, value]) => ({ name, value })), updateChart: Object.entries(joinDistribution).map(([name, value]) => ({ name, value })), barangayChart: Object.entries(locationDistribution).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 15) };
     }
-    
     const activeData = processedData.length > 0 ? processedData : previewData.filter(r => r.statusLabel !== 'CLEANUP' && r.statusLabel !== 'DUPLICATE' && r.statusLabel !== 'INCOMPLETE' && !r.isManualArchive);
     const filteredActiveData = activeData.filter(record => {
       if (sourceFileFilter !== 'all' && record.sourceFile !== sourceFileFilter) return false;
@@ -1361,7 +1335,7 @@ export default function Home() {
                       <div className="flex-1 overflow-hidden min-h-0">
                         <TabsContent value="results" className="m-0 h-full data-[state=active]:flex data-[state=active]:flex-col"><DataPreviewTable data={filteredDisplayData} isProcessed={processedData.length > 0} onRowClick={handleRowClick} workflowMode={workflowMode} /></TabsContent>
                         {workflowMode !== 'abstract' && workflowMode !== 'building-permit' && (<TabsContent value="archive" className="m-0 h-full data-[state=active]:flex data-[state=active]:flex-col"><DataPreviewTable data={filteredDisplayData} isProcessed={true} onRowClick={handleRowClick} showLabels /></TabsContent>)}
-                        <TabsContent value="analytics" className="m-0 h-full p-6 overflow-y-auto scrollbar-vertical-custom bg-muted/5 data-[state=active]:flex data-[state=active]:flex-col"><AnalyticsView analyticsData={analyticsData} onExplain={setExplainType} onExpand={setExpandedChart} taxabilityFilter={taxabilityFilter} onTaxabilityFilterChange={setTaxabilityFilter} workflowMode={workflowMode} /></TabsContent>
+                        <TabsContent value="analytics" className="m-0 h-full p-6 overflow-y-auto scrollbar-vertical-custom bg-muted/5 data-[state=active]:flex data-[state=active]:flex-col"><AnalyticsView analyticsData={analyticsData} onExplain={setExplainType} onExpand={setExpandedChart} taxabilityFilter={taxabilityFilter} onTaxabilityFilterChange={setTaxabilityFilter} workflowMode={workflowMode === 'building-permit' ? 'standard' : workflowMode} /></TabsContent>
                         <TabsContent value="audit" className="m-0 h-full data-[state=active]:flex data-[state=active]:flex-col"><AuditLogTab reports={processingReports} onClearHistory={() => { setProcessingReports([]); toast({ title: "History Purged", description: "Audit logs cleared permanently." }); }} onDeleteReport={(id) => { setProcessingReports(prev => prev.filter(r => r.id !== id)); toast({ title: "Log Deleted", description: "Audit entry has been removed." }); }} /></TabsContent>
                       </div>
                     </Card>
@@ -1436,7 +1410,7 @@ export default function Home() {
             </DialogHeader>
             <Button variant="ghost" size="icon" onClick={() => setExpandedChart(null)} className="rounded-full"><X className="w-5 h-5" /></Button>
           </div>
-          <div className="flex-1 p-10 flex flex-col items-center justify-center overflow-hidden"><ChartContainer config={expandedChart === 'market' ? marketChartConfig : analyticsChartConfig} className="w-full h-full max-h-[500px]">{expandedChart === 'market' ? (<PieChart><Pie data={analyticsData.marketChart} cx="50%" cy="50%" innerRadius={100} outerRadius={160} paddingAngle={8} dataKey="value" stroke="none" label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}>{analyticsData.marketChart.map((entry, index) => <Cell key={`cell-exp-m-${index}`} fill={COLORS[index % COLORS.length]} />)}</Pie><ChartTooltip content={<ChartTooltipContent />} /><Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ paddingTop: '40px', fontSize: '12px', fontWeight: 'bold' }}/></PieChart>) : (<BarChart data={expandedChart === 'usage' ? analyticsData.auChart : expandedChart === 'barangay' ? analyticsData.barangayChart : analyticsData.updateChart} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}><CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.05} /><XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} angle={-45} textAnchor="end" interval={0} tick={{ fill: 'hsl(var(--muted-foreground))', fontWeight: 'bold' }} /><YAxis fontSize={12} tickLine={false} axisLine={false} tick={{ fill: 'hsl(var(--muted-foreground))' }} /><ChartTooltip content={<ChartTooltipContent />} /><Bar dataKey="value" radius={[8, 8, 0, 0]}>{(expandedChart === 'usage' ? analyticsData.auChart : expandedChart === 'barangay' ? analyticsData.barangayChart : analyticsData.updateChart).map((entry, index) => (<Cell key={`cell-exp-${index}`} fill={COLORS[(index + (expandedChart === 'barangay' ? 4 : expandedChart === 'update' ? 2 : 0)) % COLORS.length]} />))}</Bar></BarChart>)}</ChartContainer></div>
+          <div className="flex-1 p-10 flex flex-col items-center justify-center overflow-hidden"><ChartContainer config={expandedChart === 'market' ? { value: { label: "Value", color: "hsl(var(--primary))" } } : { value: { label: "Count", color: "hsl(var(--primary))" } }} className="w-full h-full max-h-[500px]">{expandedChart === 'market' ? (<PieChart><Pie data={analyticsData.marketChart} cx="50%" cy="50%" innerRadius={100} outerRadius={160} paddingAngle={8} dataKey="value" stroke="none" label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}>{analyticsData.marketChart.map((entry, index) => <Cell key={`cell-exp-m-${index}`} fill={COLORS[index % COLORS.length]} />)}</Pie><ChartTooltip content={<ChartTooltipContent />} /><Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ paddingTop: '40px', fontSize: '12px', fontWeight: 'bold' }}/></PieChart>) : (<BarChart data={expandedChart === 'usage' ? analyticsData.auChart : expandedChart === 'barangay' ? analyticsData.barangayChart : analyticsData.updateChart} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}><CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.05} /><XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} angle={-45} textAnchor="end" interval={0} tick={{ fill: 'hsl(var(--muted-foreground))', fontWeight: 'bold' }} /><YAxis fontSize={12} tickLine={false} axisLine={false} tick={{ fill: 'hsl(var(--muted-foreground))' }} /><ChartTooltip content={<ChartTooltipContent />} /><Bar dataKey="value" radius={[8, 8, 0, 0]}>{(expandedChart === 'usage' ? analyticsData.auChart : expandedChart === 'barangay' ? analyticsData.barangayChart : analyticsData.updateChart).map((entry, index) => (<Cell key={`cell-exp-${index}`} fill={COLORS[(index + (expandedChart === 'barangay' ? 4 : expandedChart === 'update' ? 2 : 0)) % COLORS.length]} />))}</Bar></BarChart>)}</ChartContainer></div>
           <div className="p-6 border-t bg-muted/20 flex justify-center shrink-0"><Button onClick={() => setExpandedChart(null)} className="font-black uppercase text-xs tracking-widest bg-slate-800 hover:bg-slate-900 h-12 px-12">Close Visualization</Button></div>
         </DialogContent>
       </Dialog>
