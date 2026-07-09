@@ -347,21 +347,6 @@ const RecordRow = memo(({
       </TableCell>
     </TableRow>
   );
-}, (prevProps, nextProps) => {
-  return (
-    prevProps.row.id === nextProps.row.id &&
-    prevProps.row.statusLabel === nextProps.row.statusLabel &&
-    prevProps.row.taxability === nextProps.row.taxability &&
-    prevProps.row.isValid === nextProps.row.isValid &&
-    prevProps.row.isManualArchive === nextProps.row.isManualArchive &&
-    prevProps.row.location === nextProps.row.location &&
-    prevProps.row.unitValue === nextProps.row.unitValue &&
-    prevProps.row.marketValue === nextProps.row.marketValue &&
-    prevProps.isProcessed === nextProps.isProcessed &&
-    prevProps.index === nextProps.index &&
-    prevProps.showLabels === nextProps.showLabels &&
-    prevProps.workflowMode === nextProps.workflowMode
-  );
 });
 
 RecordRow.displayName = 'RecordRow';
