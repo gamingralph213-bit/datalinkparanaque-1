@@ -258,7 +258,7 @@ export default function Home() {
 
   const isAbstract = workflowMode === 'abstract';
   const isBuildingPermit = workflowMode === 'building-permit';
-  const isPermit = isBuildingPermit; // Alias for fixing ReferenceError
+  const isPermit = isBuildingPermit; 
 
   // --- 1.1 MANIFEST STATE ---
   const [rawFileManifest, setRawFileManifest] = useState<{ name: string, count: number }[]>([]);
@@ -427,7 +427,6 @@ export default function Home() {
     });
   }, [workflowMode, journalData, rawData, exemptPins, salesData, cancelledData]);
 
-  // Optimized Building Permit Join Logic with Progressive Matching Strategy
   const joinedPermitData = useMemo(() => {
     if (workflowMode !== 'building-permit') return [];
     
@@ -488,7 +487,6 @@ export default function Home() {
       
       const isUnderReview = (permitOwnerCounts.get(rawPermitOwner) || 0) > 1;
 
-      // PASS 1: Attempt EXACT matches
       const exactMatches = (pinNorm ? pinLookup.get(pinNorm) : null) || 
                            (cleanPermitArp ? arpLookup.get(cleanPermitArp) : null) ||
                            (normPermitOwner ? exactNameLookup.get(normPermitOwner) : null);
@@ -508,7 +506,6 @@ export default function Home() {
         }));
       }
 
-      // PASS 2: Progressive Fuzzy Matching with Confidence Scoring
       if (normPermitOwner) {
         const pTokens = normPermitOwner.split(' ');
         const candidateOverlapCounts = new Map<string, number>();
@@ -658,7 +655,6 @@ export default function Home() {
 
   const latestReport = processingReports[0] || null;
 
-  // --- 8. DERIVED STATE ---
   const uniqueSourceFiles = useMemo(() => {
     const files = new Set<string>();
     previewData.forEach(r => { if (r.sourceFile) files.add(r.sourceFile); });
@@ -794,7 +790,6 @@ export default function Home() {
     return sorted;
   }, [previewData, processedData, joinedAbstractData, joinedPermitData, workflowMode, viewMode, searchQuery, searchField, statusFilter, sourceFileFilter, barangayFilter, sortBy, isAbstract, isBuildingPermit]);
 
-  // Initialization
   useEffect(() => {
     setIsClient(true);
     const handleBeforeInstallPrompt = (e: any) => { e.preventDefault(); setDeferredPrompt(e); };
@@ -1126,7 +1121,7 @@ export default function Home() {
           "OWNERSHIP TRANSFER TO": j.acctName || "", 
           "ADDRESS OF NEW OWNER": (j as any).rollAddress || "", 
           "LOCATION OF PROPERTY": j.location || "", 
-          "MODE OF CONVEYANCE": getModeOfConveyance(j.update), 
+          "MODE OF CONVEYANCE": getModeOfConveyance(j.update, j.acctName), 
           "AMOUNT OF CONSIDERATION": j.sellingPrice || "", 
           "PROPERTY CONVEYED (L)": (kind === 'L' || kind === 'LAND') ? 'x' : "", 
           "PROPERTY CONVEYED (B)": (kind === 'B' || kind === 'BUILDING') ? 'x' : "", 
@@ -1226,8 +1221,6 @@ export default function Home() {
       setIsExporting(false);
     }
   };
-
-  if (!isClient) return null;
 
   const canAbstractExport = (journalData.length > 0 && rawData.length > 0) || workflowMode === 'abstract';
   const canPermitExport = (permitData.length > 0 && rawData.length > 0) || workflowMode === 'building-permit';
@@ -1394,8 +1387,17 @@ export default function Home() {
       {/* Diagnostic Explanation Dialog */}
       <Dialog open={!!explainType} onOpenChange={(open) => !open && setExplainType(null)}>
         <DialogContent className="sm:max-w-xl bg-card/95 backdrop-blur-xl border-white/10 shadow-2xl">
-          <DialogHeader><DialogTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2"><Lightbulb className="w-5 h-5 text-primary" /> {isPermit ? (explainType === 'usage' ? 'Occupancy Trends' : explainType === 'barangay' ? 'Development Hotspots' : explainType === 'update' ? 'Match Integrity' : 'Investment Density') : (workflowMode === 'abstract' ? (explainType === 'usage' ? 'Asset Class Profile' : explainType === 'barangay' ? 'Geographic Hotspots' : explainType === 'update' ? 'Join Efficiency Analysis' : 'Fiscal Profile Distribution') : (explainType === 'usage' ? 'Property Usage Analysis' : explainType === 'barangay' ? 'Geographic Distribution' : explainType === 'update' ? 'Transaction Code Insights' : 'Financial Concentration Analysis'))}</DialogTitle><DialogDescription className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Automated diagnostic report based on current session data.</DialogDescription></DialogHeader>
-          <div className="py-6 space-y-6"><div className="p-5 rounded-2xl bg-muted/20 border border-white/5 space-y-4"><p className="text-sm font-bold leading-relaxed text-foreground/80">{isPermit ? (explainType === 'usage' ? "This chart categorizes building permit logs by their 'Use of Occupancy'. Predominance of Residential (Resi) versus Commercial (Comm) occupancy helps identify the prevailing type of urban growth in the batch." : explainType === 'barangay' ? "Highlights the specific Barangays listed in the permit logs. High volume in certain sectors indicates active construction zones requiring increased field inspection focus." : explainType === 'update' ? "Analyzes the confidence of relational links. 'MATCHED' indicates high-certainty ARP/PIN parity, while 'POTENTIAL' and 'UNDER REVIEW' signal entries that require human verification due to log repetition or name variations." : "Visualizes the total 'Estimated Construction Cost' grouped by Occupancy. This helps in identifying high-value investments and tracking the economic impact of new developments.") : (workflowMode === 'abstract' ? (explainType === 'usage' ? "Shows the distribution of transferred assets. 'L' (Land) vs 'B' (Building) markers help determine the primary nature of real estate movements within this Abstract period. Ensure that classification markers align with the Assessment Roll reference." : explainType === 'barangay' ? "Identifies locations with the highest transaction frequency from the Journal logs. Higher volume in specific areas indicates active development zones or high-demand sectors in Parañaque." : explainType === 'update' ? "Analyzes the matching efficiency between the Journal and the Assessment Roll. A high 'NO MATCH' rate suggests potential data discrepancies, missing parcel records in the reference roll, or non-standard PIN formats in the source Journal." : "Visualizes the ratio of taxable revenue-generating transactions versus exempted transfers (government, religious, or charitable). This helps in projecting future fiscal impact resulting from current transfers.") : (explainType === 'usage' ? "The system identifies that RESI (Residential) and COMM (Commercial) types dominate the current batch. This suggests a high concentration of taxable assets in developed zones. Ensure that assessment levels (20% for RESI, 50% for COMM) are correctly applied in the Configuration Panel." : explainType === 'barangay' ? "The geographic distribution highlights key hotspots across Parañaque. Higher record counts in specific barangays often correlate with recent subdivision updates or large-scale land developments. Cross-reference this with the 'Update Code' chart to identify if these are primarily NEW or TR (Transfer) transactions." : explainType === 'update' ? "The distribution of update codes (e.g., NEW, TR, RC) provides a longitudinal view of property movements. A high percentage of TR codes indicates an active real estate market, while RC (Re-assessment) suggests a batch update cycle is in progress." : "This pie chart visualizes the total fiscal weight of each property classification. If a small percentage of 'INDU' (Industrial) properties accounts for a large portion of the pie, it indicates high-value individual assets. This helps in prioritizing audit resources for high-impact properties."))}</p></div><div className="flex items-start gap-4 p-4 rounded-xl bg-primary/5 border border-primary/10"><Info className="w-5 h-5 text-primary shrink-0 mt-0.5" /><p className="text-[11px] font-bold text-muted-foreground leading-relaxed uppercase">This insight is generated using the Parañaque Smart Logic engine. Manual verification of these trends is recommended during official reporting.</p></div></div>
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
+              <Lightbulb className="w-5 h-5 text-primary" /> 
+              {isPermit ? (explainType === 'usage' ? 'Occupancy Trends' : explainType === 'barangay' ? 'Development Hotspots' : explainType === 'update' ? 'Match Integrity' : 'Investment Density') : (workflowMode === 'abstract' ? (explainType === 'usage' ? 'Asset Class Profile' : explainType === 'barangay' ? 'Geographic Hotspots' : explainType === 'update' ? 'Join Efficiency Analysis' : 'Fiscal Profile Distribution') : (explainType === 'usage' ? 'Property Usage Analysis' : explainType === 'barangay' ? 'Geographic Distribution' : explainType === 'update' ? 'Transaction Code Insights' : 'Financial Concentration Analysis'))}
+            </DialogTitle>
+            <DialogDescription className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Automated diagnostic report based on current session data.</DialogDescription>
+          </DialogHeader>
+          <div className="py-6 space-y-6">
+            <div className="p-5 rounded-2xl bg-muted/20 border border-white/5 space-y-4">
+              <p className="text-sm font-bold leading-relaxed text-foreground/80">
+                {isPermit ? (explainType === 'usage' ? "This chart categorizes building permit logs by their 'Use of Occupancy'. Predominance of Residential (Resi) versus Commercial (Comm) occupancy helps identify the prevailing type of urban growth in the batch." : explainType === 'barangay' ? "Highlights the specific Barangays listed in the permit logs. High volume in certain sectors indicates active construction zones requiring increased field inspection focus." : explainType === 'update' ? "Analyzes the confidence of relational links. 'MATCHED' indicates high-certainty ARP/PIN parity, while 'POTENTIAL' and 'UNDER REVIEW' signal entries that require human verification due to log repetition or name variations." : "Visualizes the total 'Estimated Construction Cost' grouped by Occupancy. This helps in identifying high-value investments and tracking the economic impact of new developments.") : (workflowMode === 'abstract' ? (explainType === 'usage' ? "Shows the distribution of transferred assets. 'L' (Land) vs 'B' (Building) markers help determine the primary nature of real estate movements within this Abstract period. Ensure that classification markers align with the Assessment Roll reference." : explainType === 'barangay' ? "Identifies locations with the highest transaction frequency from the Journal logs. Higher volume in specific areas indicates active development zones or high-demand sectors in Parañaque." : explainType === 'update' ? "Analyzes the matching efficiency between the Journal and the Assessment Roll. A high 'NO MATCH' rate suggests potential data discrepancies, missing parcel records in the reference roll, or non-standard PIN formats in the source Journal." : "Visualizes the ratio of taxable revenue-generating transactions versus exempted transfers (government, religious, or charitable). This helps in projecting future fiscal impact resulting from current transfers.") : (explainType === 'usage' ? "The system identifies that RESI (Residential) and COMM (Commercial) types dominate the current batch. This suggests a high concentration of taxable assets in developed zones. Ensure that assessment levels (20% for RESI, 50% for COMM) are correctly applied in the Configuration Panel." : explainType === 'barangay' ? "The geographic distribution highlights key hotspots across Parañaque. Higher record counts in specific barangays often correlate with recent subdivision updates or large-scale land developments. Cross-reference this with the 'Update Code' chart to identify if these are primarily NEW or TR (Transfer) transactions." : explainType === 'update' ? "The distribution of update codes (e.g., NEW, TR, RC) provides a longitudinal view of property movements. A high percentage of TR codes indicates an active real estate market, while RC (Re-assessment) suggests a batch update cycle is in progress." : "This pie chart visualizes the total fiscal weight of each property classification. If a small percentage of 'INDU' (Industrial) properties accounts for a large portion of the pie, it indicates high-value individual assets. This helps in prioritizing audit resources for high-impact properties."))}</p></div><div className="flex items-start gap-4 p-4 rounded-xl bg-primary/5 border border-primary/10"><Info className="w-5 h-5 text-primary shrink-0 mt-0.5" /><p className="text-[11px] font-bold text-muted-foreground leading-relaxed uppercase">This insight is generated using the Parañaque Smart Logic engine. Manual verification of these trends is recommended during official reporting.</p></div></div>
           <DialogFooter><Button onClick={() => setExplainType(null)} className="bg-primary hover:bg-emerald-700 font-black uppercase text-xs tracking-widest px-8">Acknowledge</Button></DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1405,7 +1407,9 @@ export default function Home() {
         <DialogContent className="sm:max-w-4xl h-[80vh] flex flex-col bg-card/95 backdrop-blur-3xl border-white/10 shadow-2xl p-0">
           <div className="p-8 border-b shrink-0 flex items-center justify-between">
             <DialogHeader className="text-left">
-              <DialogTitle className="text-2xl font-black uppercase tracking-tight flex items-center gap-3">{isPermit ? (expandedChart === 'usage' ? <><HardHat className="w-6 h-6 text-primary" /> Occupancy Profile</> : expandedChart === 'barangay' ? <><MapPin className="w-6 h-6 text-primary" /> Permitting Locations</> : expandedChart === 'update' ? <><ShieldCheck className="w-6 h-6 text-primary" /> Join Status Audit</> : <><TrendingUp className="w-6 h-6 text-primary" /> Cost Distribution</>) : (workflowMode === 'abstract' ? (expandedChart === 'usage' ? <><Building2 className="w-6 h-6 text-primary" /> Asset Classification</> : expandedChart === 'barangay' ? <><MapPin className="w-6 h-6 text-primary" /> Transaction Hotspots</> : expandedChart === 'update' ? <><Link2 className="w-6 h-6 text-primary" /> Join Efficiency</> : <><Database className="w-6 h-6 text-primary" /> Fiscal Profiles</>) : (expandedChart === 'usage' ? <><CheckCircle2 className="w-6 h-6 text-primary" /> Property Usage Distribution</> : expandedChart === 'barangay' ? <><MapPin className="w-6 h-6 text-primary" /> Barangay Distribution</> : expandedChart === 'update' ? <><RefreshCw className="w-6 h-6 text-primary" /> Update Code distribution</> : <><Database className="w-6 h-6 text-primary" /> Market Value Breakdown</>))}</DialogTitle>
+              <DialogTitle className="text-2xl font-black uppercase tracking-tight flex items-center gap-3">
+                {isPermit ? (expandedChart === 'usage' ? <><HardHat className="w-6 h-6 text-primary" /> Occupancy Profile</> : expandedChart === 'barangay' ? <><MapPin className="w-6 h-6 text-primary" /> Permitting Locations</> : expandedChart === 'update' ? <><ShieldCheck className="w-6 h-6 text-primary" /> Join Status Audit</> : <><TrendingUp className="w-6 h-6 text-primary" /> Cost Distribution</>) : (workflowMode === 'abstract' ? (expandedChart === 'usage' ? <><Building2 className="w-6 h-6 text-primary" /> Asset Classification</> : expandedChart === 'barangay' ? <><MapPin className="w-6 h-6 text-primary" /> Transaction Hotspots</> : expandedChart === 'update' ? <><Link2 className="w-6 h-6 text-primary" /> Join Efficiency</> : <><Database className="w-6 h-6 text-primary" /> Fiscal Profiles</>) : (expandedChart === 'usage' ? <><CheckCircle2 className="w-6 h-6 text-primary" /> Property Usage Distribution</> : expandedChart === 'barangay' ? <><MapPin className="w-6 h-6 text-primary" /> Barangay Distribution</> : expandedChart === 'update' ? <><RefreshCw className="w-6 h-6 text-primary" /> Update Code distribution</> : <><Database className="w-6 h-6 text-primary" /> Market Value Breakdown</>))}
+              </DialogTitle>
               <DialogDescription className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Full-scale visualization for detailed analysis</DialogDescription>
             </DialogHeader>
             <Button variant="ghost" size="icon" onClick={() => setExpandedChart(null)} className="rounded-full"><X className="w-5 h-5" /></Button>

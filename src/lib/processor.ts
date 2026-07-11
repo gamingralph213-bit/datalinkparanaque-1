@@ -1,3 +1,4 @@
+
 import { BarangayConfig } from './locations';
 
 export interface TaxRateConfig {
@@ -130,19 +131,12 @@ export function normalizePin(pin: string): string {
 
 /**
  * Enhanced Normalization Strategy for owner names.
- * - Upper cases everything.
- * - Reorders LASTNAME, FIRSTNAME to FIRSTNAME LASTNAME.
- * - Strips common titles (SPS, DR, MR, etc).
- * - Ignores middle initials (single character words).
- * - Removes corporate noise (INC, CORP).
- * - Sorts remaining tokens alphabetically to be order-agnostic.
  */
 export function normalizeNameForMatch(name: string): string {
   if (!name) return "";
   
   let processed = name.toUpperCase();
   
-  // Pass 1: Handle reordering if comma exists
   if (processed.includes(',')) {
     const commaParts = processed.split(',').map(p => p.trim());
     if (commaParts.length >= 2) {
@@ -150,7 +144,6 @@ export function normalizeNameForMatch(name: string): string {
     }
   }
 
-  // Pass 2: Strip common noise words and titles
   const titles = ['SPS', 'SPOUSES', 'MR', 'MRS', 'MS', 'DR', 'ATTY', 'ENGR', 'MD', 'PHD', 'OF', 'THE', 'CO', 'INC', 'CORP', 'CORPORATION', 'DEVELOPMENT', 'REALTY', 'HOLDINGS', 'AND', 'ESTATE', 'PHILS', 'PHILIPPINES'];
   const titlesRegex = new RegExp(`\\b(${titles.join('|')})\\b\\.?,?`, 'g');
 
@@ -160,12 +153,10 @@ export function normalizeNameForMatch(name: string): string {
     .replace(/\s+/g, ' ') 
     .trim();
     
-  // Pass 3: Tokenize, ignore initials, and sort alphabetically
   const tokens = cleaned.split(' ')
-    .filter(token => token.length > 1) // Ignore middle initials or noise like "A."
+    .filter(token => token.length > 1)
     .sort();
 
-  // Return a unique string representing the name components
   return Array.from(new Set(tokens)).join(' ');
 }
 
@@ -217,7 +208,12 @@ export function getJaroWinklerSimilarity(s1: string, s2: string): number {
   return jaro + prefix * 0.1 * (1 - jaro);
 }
 
-export function getModeOfConveyance(updateCode?: string): string {
+export function getModeOfConveyance(updateCode?: string, acctName?: string): string {
+  const account = (acctName || "").toUpperCase();
+  if (account.includes("SHARE") || account.includes("SHARES")) {
+    return "EJS";
+  }
+
   const code = (updateCode || "").trim().toUpperCase();
   if (code === "TR" || code === "TRANSFER") {
     return "DEED OF SALE";

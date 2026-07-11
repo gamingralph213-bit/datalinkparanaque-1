@@ -87,7 +87,7 @@ const RecordRow = memo(({
         </TableCell>
 
         <TableCell className="p-3 text-center border-l font-bold text-xs uppercase text-foreground">
-          {getModeOfConveyance(row.update)}
+          {getModeOfConveyance(row.update, row.acctName)}
         </TableCell>
 
         <TableCell className="text-right font-mono p-3 font-black border-l text-emerald-600">
