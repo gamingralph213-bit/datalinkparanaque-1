@@ -381,27 +381,56 @@ export default function Home() {
       }
     });
 
-    const cancelledLookup = new Map<string, LandRecord>();
+    // Rank and Process Journals first for sequential historical owner detection
+    const journalPoolByPin = new Map<string, LandRecord[]>();
+    journals.forEach(j => {
+      const pinNorm = normalizePin(j.pin);
+      if (!journalPoolByPin.has(pinNorm)) journalPoolByPin.set(pinNorm, []);
+      journalPoolByPin.get(pinNorm)!.push(j);
+    });
+    // Sort each PIN's journal pool by ARP descending
+    journalPoolByPin.forEach(list => {
+      list.sort((a, b) => extractArpNumeric(b.arpNo) - extractArpNumeric(a.arpNo));
+    });
+
+    const cancelledPoolByPin = new Map<string, LandRecord[]>();
     cancelledData.forEach(c => {
       if (c.pin) {
         const pinNorm = normalizePin(c.pin);
-        const existing = cancelledLookup.get(pinNorm);
-        // Implementation of duplicate PIN filtering: Keep only the highest/most current ARP#
-        if (!existing || extractArpNumeric(c.arpNo) > extractArpNumeric(existing.arpNo)) {
-          cancelledLookup.set(pinNorm, c);
-        }
+        if (!cancelledPoolByPin.has(pinNorm)) cancelledPoolByPin.set(pinNorm, []);
+        cancelledPoolByPin.get(pinNorm)!.push(c);
       }
+    });
+    // Sort cancelled pool by ARP descending
+    cancelledPoolByPin.forEach(list => {
+      list.sort((a, b) => extractArpNumeric(b.arpNo) - extractArpNumeric(a.arpNo));
     });
 
     const normalizedExemptPins = new Set(Array.from(exemptPins).map(p => normalizePin(p)));
 
     const joined = journals.map(j => {
       const pinNorm = normalizePin(j.pin);
+      const currentArpVal = extractArpNumeric(j.arpNo);
       const rollMatch = rollLookup.get(pinNorm) || null;
       const salesMatch = salesLookup.get(cleanKey(j.arpNo)) || null;
-      const cancelledMatch = cancelledLookup.get(pinNorm) || null;
-      
       const isExempt = normalizedExemptPins.has(pinNorm);
+
+      // SEQUENTIAL LOGIC: Find Ownership Transfer From
+      // 1. Look in the Journal pool for the record with the highest ARP strictly less than current
+      const jHistory = journalPoolByPin.get(pinNorm) || [];
+      const prevJ = jHistory.find(h => extractArpNumeric(h.arpNo) < currentArpVal);
+
+      // 2. Look in the Cancelled pool for the record with the highest ARP strictly less than current
+      const cHistory = cancelledPoolByPin.get(pinNorm) || [];
+      const prevC = cHistory.find(h => extractArpNumeric(h.arpNo) < currentArpVal);
+
+      // Determine the "best" previous record based on proximity (highest ARP that is < current)
+      let prevRecord = null;
+      if (prevJ && prevC) {
+        prevRecord = extractArpNumeric(prevJ.arpNo) > extractArpNumeric(prevC.arpNo) ? prevJ : prevC;
+      } else {
+        prevRecord = prevJ || prevC;
+      }
 
       let considerationValue: string | number = 0;
       if (salesMatch) {
@@ -422,8 +451,8 @@ export default function Home() {
         notarialDate: salesMatch?.notarialDate || '',
         docFileNo: salesMatch?.docFileNo || '',
         notary: salesMatch?.notary || '',
-        cancelledOwner: cancelledMatch?.acctName || '',
-        cancelledTctNo: cancelledMatch?.tctNo || ''
+        cancelledOwner: prevRecord?.acctName || '',
+        cancelledTctNo: prevRecord?.tctNo || rollMatch?.tctNo || '' // Fallback to roll for previous title
       };
     });
 
@@ -1428,7 +1457,7 @@ export default function Home() {
       </Dialog>
 
       <Sheet open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-        <SheetContent side="right" className="sm:max-w-[1200px] w-[95vw] p-0 border-none bg-card shadow-2xl"><SheetHeader className="sr-only"><SheetTitle>Configuration Panel</SheetTitle><SheetDescription>Update global settings and calibration rules.</SheetDescription></SheetHeader><SettingsOverlay onClose={() => setIsSettingsOpen(false)} /></SheetContent>
+        <SheetContent side="right" className="sm:max-w-[1200px] w-[95vw] p-0 border-none bg-card shadow-2xl"><SheetHeader className="sr-only"><SheetTitle>Configuration Panel</SheetTitle><SheetHeader><SheetTitle>Configuration Panel</SheetTitle><SheetDescription>Update global settings and calibration rules.</SheetDescription></SheetHeader></SheetHeader><SettingsOverlay onClose={() => setIsSettingsOpen(false)} /></SheetContent>
       </Sheet>
 
       <AlertDialog open={isClearConfirmOpen} onOpenChange={setIsClearConfirmOpen}><AlertDialogContent className="bg-card/95 backdrop-blur-xl border-white/10 shadow-2xl"><AlertDialogHeader><AlertDialogTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2"><Trash2 className="w-4 h-4 text-red-600" /> Confirm Session Reset</AlertDialogTitle><AlertDialogDescription className="text-sm font-bold text-muted-foreground leading-relaxed">Are you sure you want to clear your current workspace? All property records and processing results in this session will be permanently removed.<br /><br /><span className="text-red-600/80 font-black uppercase tracking-tighter">Note: Your administrative audit logs will not be affected.</span></AlertDialogDescription></AlertDialogHeader><AlertDialogFooter className="gap-3"><AlertDialogCancel className="font-black uppercase text-xs h-10 px-6 hover:bg-muted hover:text-foreground">Cancel</AlertDialogCancel><AlertDialogAction onClick={() => { setIsClearConfirmOpen(false); clearWorkspace(); }} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase text-xs h-10 px-8 shadow-lg shadow-red-500/10 transition-all">Wipe Session Data</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
