@@ -147,90 +147,107 @@ const defaultTaxRates: TaxRateMap = {
 type ProcessingStep = 'idle' | 'cleanup' | 'dedupe' | 'calibrate' | 'complete';
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-const ImportManager = ({ mode, manifest, onAdd, onDelete }: { mode: 'raw' | 'exempt' | 'journal' | 'sales' | 'roll' | 'cancelled' | 'permits', manifest: any[], onAdd: () => void, onDelete: (name: string) => void }) => (
-  <Popover>
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <Button 
-              variant="outline" 
-              size="icon" 
-              className={cn(
-                "h-9 w-9 transition-all", 
-                mode === 'raw' ? "border-primary/30 text-primary hover:bg-primary/10" : 
-                mode === 'exempt' ? "border-blue-500/30 text-blue-600 hover:bg-blue-50/10" :
-                mode === 'journal' ? "border-amber-500/30 text-amber-600 hover:bg-amber-500/10" :
-                mode === 'sales' ? "border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10" :
-                mode === 'permits' ? "border-orange-500/30 text-orange-600 hover:bg-orange-500/10" :
-                "border-red-500/30 text-red-600 hover:bg-red-500/10"
-              )}
-            >
-              {mode === 'raw' ? <BookUser className="w-4 h-4" /> : 
-               mode === 'exempt' ? <ShieldOff className="w-4 h-4" /> :
-               mode === 'journal' ? <FileText className="w-4 h-4" /> :
-               mode === 'sales' ? <Tag className="w-4 h-4" /> :
-               mode === 'permits' ? <HardHat className="w-4 h-4" /> :
-               <FileX className="w-4 h-4" />}
-            </Button>
-          </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="font-black uppercase text-[10px] tracking-widest">
-          {mode === 'raw' ? "Manage Raw Records" : mode === 'exempt' ? "Manage Exempt Reference" : mode === 'journal' ? "Manage Journal Files" : mode === 'sales' ? "Manage Sales Data" : mode === 'permits' ? "Manage Permit Log" : "Manage Cancelled File"}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-    <PopoverContent className="w-80 p-0 bg-card/95 backdrop-blur-xl border-white/10 shadow-2xl rounded-2xl overflow-hidden" align="end">
-      <div className="p-4 bg-muted/30 border-b flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {mode === 'raw' ? <BookUser className="w-4 h-4 text-primary" /> : 
-           mode === 'exempt' ? <ShieldOff className="w-4 h-4 text-blue-600" /> :
-           mode === 'journal' ? <FileText className="w-4 h-4 text-amber-600" /> :
-           mode === 'sales' ? <Tag className="w-4 h-4 text-emerald-600" /> :
-           mode === 'permits' ? <HardHat className="w-4 h-4 text-orange-600" /> :
-           <FileX className="w-4 h-4 text-red-600" />}
-          <span className="text-[10px] font-black uppercase tracking-widest">{mode === 'raw' ? "Raw File Manager" : mode === 'exempt' ? "Exempt File Manager" : mode === 'journal' ? "Journal File Manager" : mode === 'sales' ? "Sales File Manager" : mode === 'permits' ? "Permit File Manager" : "Cancelled File Manager"}</span>
+const ImportManager = ({ mode, manifest, onAdd, onDelete }: { mode: 'raw' | 'exempt' | 'journal' | 'sales' | 'roll' | 'cancelled' | 'permits', manifest: any[], onAdd: () => void, onDelete: (name: string) => void }) => {
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+
+  const handleDelete = async (name: string) => {
+    setIsDeleting(name);
+    await delay(600); // Visual feedback duration
+    onDelete(name);
+    setIsDeleting(null);
+  };
+
+  return (
+    <Popover>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className={cn(
+                  "h-9 w-9 transition-all", 
+                  mode === 'raw' ? "border-primary/30 text-primary hover:bg-primary/10" : 
+                  mode === 'exempt' ? "border-blue-500/30 text-blue-600 hover:bg-blue-50/10" :
+                  mode === 'journal' ? "border-amber-500/30 text-amber-600 hover:bg-amber-500/10" :
+                  mode === 'sales' ? "border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10" :
+                  mode === 'permits' ? "border-orange-500/30 text-orange-600 hover:bg-orange-500/10" :
+                  "border-red-500/30 text-red-600 hover:bg-red-500/10"
+                )}
+              >
+                {mode === 'raw' ? <BookUser className="w-4 h-4" /> : 
+                 mode === 'exempt' ? <ShieldOff className="w-4 h-4" /> :
+                 mode === 'journal' ? <FileText className="w-4 h-4" /> :
+                 mode === 'sales' ? <Tag className="w-4 h-4" /> :
+                 mode === 'permits' ? <HardHat className="w-4 h-4" /> :
+                 <FileX className="w-4 h-4" />}
+              </Button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="font-black uppercase text-[10px] tracking-widest">
+            {mode === 'raw' ? "Manage Raw Records" : mode === 'exempt' ? "Manage Exempt Reference" : mode === 'journal' ? "Manage Journal Files" : mode === 'sales' ? "Manage Sales Data" : mode === 'permits' ? "Manage Permit Log" : "Manage Cancelled File"}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      <PopoverContent className="w-80 p-0 bg-card/95 backdrop-blur-xl border-white/10 shadow-2xl rounded-2xl overflow-hidden" align="end">
+        <div className="p-4 bg-muted/30 border-b flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {mode === 'raw' ? <BookUser className="w-4 h-4 text-primary" /> : 
+             mode === 'exempt' ? <ShieldOff className="w-4 h-4 text-blue-600" /> :
+              mode === 'journal' ? <FileText className="w-4 h-4 text-amber-600" /> :
+             mode === 'sales' ? <Tag className="w-4 h-4 text-emerald-600" /> :
+             mode === 'permits' ? <HardHat className="w-4 h-4 text-orange-600" /> :
+             <FileX className="w-4 h-4 text-red-600" />}
+            <span className="text-[10px] font-black uppercase tracking-widest">{mode === 'raw' ? "Raw File Manager" : mode === 'exempt' ? "Exempt File Manager" : mode === 'journal' ? "Journal File Manager" : mode === 'sales' ? "Sales File Manager" : mode === 'permits' ? "Permit File Manager" : "Cancelled File Manager"}</span>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onAdd} className="h-7 px-2 text-[9px] font-black uppercase tracking-widest bg-primary/10 text-primary hover:bg-primary hover:text-white">
+            <Plus className="w-3 shadow-sm h-3 mr-1" /> Add File
+          </Button>
         </div>
-        <Button variant="ghost" size="sm" onClick={onAdd} className="h-7 px-2 text-[9px] font-black uppercase tracking-widest bg-primary/10 text-primary hover:bg-primary hover:text-white">
-          <Plus className="w-3 shadow-sm h-3 mr-1" /> Add File
-        </Button>
-      </div>
-      <ScrollArea className="h-[250px]">
-        {manifest.length === 0 ? (
-          <div className="p-10 text-center flex flex-col items-center justify-center opacity-30">
-            <Files className="w-8 h-8 mb-2" />
-            <p className="text-[9px] font-black uppercase tracking-widest">No Files Loaded</p>
-          </div>
-        ) : (
-          <div className="p-2 space-y-1">
-            {manifest.map((file, i) => (
-              <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-muted/10 border border-white/5 group hover:bg-muted/30 transition-all">
-                <div className="flex items-center gap-3 min-w-0">
-                  <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-black uppercase truncate pr-2" title={file.name}>{file.name}</p>
-                    <p className="text-[9px] font-bold text-muted-foreground uppercase">{file.count} Records</p>
+        <ScrollArea className="h-[250px]">
+          {manifest.length === 0 ? (
+            <div className="p-10 text-center flex flex-col items-center justify-center opacity-30">
+              <Files className="w-8 h-8 mb-2" />
+              <p className="text-[9px] font-black uppercase tracking-widest">No Files Loaded</p>
+            </div>
+          ) : (
+            <div className="p-2 space-y-1">
+              {manifest.map((file, i) => (
+                <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-muted/10 border border-white/5 group hover:bg-muted/30 transition-all">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-black uppercase truncate pr-2" title={file.name}>{file.name}</p>
+                      <p className="text-[9px] font-bold text-muted-foreground uppercase">{file.count} Records</p>
+                    </div>
                   </div>
+                  {isDeleting === file.name ? (
+                    <div className="h-8 w-8 flex items-center justify-center">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-red-600" />
+                    </div>
+                  ) : (
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => handleDelete(file.name)}
+                      className="h-8 w-8 text-muted-foreground hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  )}
                 </div>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => onDelete(file.name)}
-                  className="h-8 w-8 text-muted-foreground hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-      </ScrollArea>
-      <div className="p-3 bg-muted/30 border-t flex items-center justify-between">
-        <span className="text-[9px] font-black text-muted-foreground uppercase">Total records: {manifest.reduce((sum, f) => sum + f.count, 0).toLocaleString()}</span>
-      </div>
-    </PopoverContent>
-  </Popover>
-);
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+        <div className="p-3 bg-muted/30 border-t flex items-center justify-between">
+          <span className="text-[9px] font-black text-muted-foreground uppercase">Total records: {manifest.reduce((sum, f) => sum + f.count, 0).toLocaleString()}</span>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 export default function Home() {
   const { toast } = useToast();
@@ -380,28 +397,21 @@ export default function Home() {
       }
     });
 
-    // Rank and Process Journals first for sequential historical owner detection
-    const journalPoolByPin = new Map<string, LandRecord[]>();
-    journals.forEach(j => {
-      const pinNorm = normalizePin(j.pin);
-      if (!journalPoolByPin.has(pinNorm)) journalPoolByPin.set(pinNorm, []);
-      journalPoolByPin.get(pinNorm)!.push(j);
-    });
-    // Sort each PIN's journal pool by ARP descending (highest first)
-    journalPoolByPin.forEach(list => {
-      list.sort((a, b) => extractArpNumeric(b.arpNo) - extractArpNumeric(a.arpNo));
-    });
+    const historyPoolByPin = new Map<string, LandRecord[]>();
+    const addToPool = (recs: LandRecord[]) => {
+      recs.forEach(r => {
+        if (r.pin) {
+          const pinNorm = normalizePin(r.pin);
+          if (!historyPoolByPin.has(pinNorm)) historyPoolByPin.set(pinNorm, []);
+          historyPoolByPin.get(pinNorm)!.push(r);
+        }
+      });
+    };
 
-    const cancelledPoolByPin = new Map<string, LandRecord[]>();
-    cancelledData.forEach(c => {
-      if (c.pin) {
-        const pinNorm = normalizePin(c.pin);
-        if (!cancelledPoolByPin.has(pinNorm)) cancelledPoolByPin.set(pinNorm, []);
-        cancelledPoolByPin.get(pinNorm)!.push(c);
-      }
-    });
-    // Sort cancelled pool by ARP descending
-    cancelledPoolByPin.forEach(list => {
+    addToPool(journals);
+    addToPool(cancelledData);
+
+    historyPoolByPin.forEach(list => {
       list.sort((a, b) => extractArpNumeric(b.arpNo) - extractArpNumeric(a.arpNo));
     });
 
@@ -414,22 +424,8 @@ export default function Home() {
       const salesMatch = salesLookup.get(cleanKey(j.arpNo)) || null;
       const isExempt = normalizedExemptPins.has(pinNorm);
 
-      // SEQUENTIAL LOGIC: Find Ownership Transfer From
-      // 1. Look in the Journal pool for the record with the highest ARP strictly less than current
-      const jHistory = journalPoolByPin.get(pinNorm) || [];
-      const prevJ = jHistory.find(h => extractArpNumeric(h.arpNo) < currentArpVal);
-
-      // 2. Look in the Cancelled pool for the record with the highest ARP strictly less than current
-      const cHistory = cancelledPoolByPin.get(pinNorm) || [];
-      const prevC = cHistory.find(h => extractArpNumeric(h.arpNo) < currentArpVal);
-
-      // Determine the "best" previous record based on proximity (highest ARP that is < current)
-      let prevRecord = null;
-      if (prevJ && prevC) {
-        prevRecord = extractArpNumeric(prevJ.arpNo) > extractArpNumeric(prevC.arpNo) ? prevJ : prevC;
-      } else {
-        prevRecord = prevJ || prevC;
-      }
+      const history = historyPoolByPin.get(pinNorm) || [];
+      const prevRecord = history.find(h => extractArpNumeric(h.arpNo) < currentArpVal) || null;
 
       let considerationValue: string | number = 0;
       if (salesMatch) {
@@ -539,7 +535,7 @@ export default function Home() {
           rollArp: match.arpNo || '---',
           rollAddress: match.address || '---',
           rollArea: match.landArea || 0,
-          rollClass: match.au || '---',
+          rollClass: (match.au || '').split('-').length > 1 ? match.au.split('-')[1] : match.au,
           rollOwner: match.acctName || '---'
         }));
       }
@@ -591,7 +587,7 @@ export default function Home() {
                rollArp: match.arpNo || '---',
                rollAddress: match.address || '---',
                rollArea: match.landArea || 0,
-               rollClass: match.au || '---',
+               rollClass: (match.au || '').split('-').length > 1 ? match.au.split('-')[1] : match.au,
                rollOwner: match.acctName || '---'
              }));
            } else if (maxScore >= 0.88) {
@@ -604,7 +600,7 @@ export default function Home() {
                rollArp: match.arpNo || '---',
                rollAddress: match.address || '---',
                rollArea: match.landArea || 0,
-               rollClass: match.au || '---',
+               rollClass: (match.au || '').split('-').length > 1 ? match.au.split('-')[1] : match.au,
                rollOwner: match.acctName || '---'
              }));
            }
@@ -720,8 +716,11 @@ export default function Home() {
   }, [previewData, processedData, viewMode, workflowMode, isAbstract, isBuildingPermit]);
 
   const analyticsData = useMemo(() => {
-    if (workflowMode === 'abstract' || workflowMode === 'building-permit') {
-      const activeData = workflowMode === 'abstract' ? joinedAbstractData : joinedPermitData;
+    const isAbstractLocal = workflowMode === 'abstract';
+    const isPermitLocal = workflowMode === 'building-permit';
+
+    if (isAbstractLocal || isPermitLocal) {
+      const activeData = isAbstractLocal ? joinedAbstractData : joinedPermitData;
       const filteredData = activeData.filter(record => {
         if (sourceFileFilter !== 'all' && record.sourceFile !== sourceFileFilter) return false;
         if (barangayFilter !== 'all' && (record.barangayName || 'UNMAPPED') !== barangayFilter) return false;
@@ -840,7 +839,7 @@ export default function Home() {
     window.addEventListener('appinstalled', handleAppInstalled);
     document.addEventListener('fullscreenchange', handleFullScreenChange);
     return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeinstallprompt);
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
       document.removeEventListener('fullscreenchange', handleFullScreenChange);
     };
