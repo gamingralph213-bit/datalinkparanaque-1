@@ -539,7 +539,7 @@ export default function Home() {
           rollArp: match.arpNo || '---',
           rollAddress: match.address || '---',
           rollArea: match.landArea || 0,
-          rollUpdate: match.update || '---',
+          rollClass: match.au || '---',
           rollOwner: match.acctName || '---'
         }));
       }
@@ -591,7 +591,7 @@ export default function Home() {
                rollArp: match.arpNo || '---',
                rollAddress: match.address || '---',
                rollArea: match.landArea || 0,
-               rollUpdate: match.update || '---',
+               rollClass: match.au || '---',
                rollOwner: match.acctName || '---'
              }));
            } else if (maxScore >= 0.88) {
@@ -604,7 +604,7 @@ export default function Home() {
                rollArp: match.arpNo || '---',
                rollAddress: match.address || '---',
                rollArea: match.landArea || 0,
-               rollUpdate: match.update || '---',
+               rollClass: match.au || '---',
                rollOwner: match.acctName || '---'
              }));
            }
@@ -618,14 +618,17 @@ export default function Home() {
         rollArp: '---',
         rollAddress: '---',
         rollArea: 0,
-        rollUpdate: '---',
+        rollClass: '---',
         rollOwner: '---'
       }];
     });
   }, [workflowMode, permitData, rawData]);
 
   const stats = useMemo(() => {
-    if (workflowMode === 'abstract') {
+    const isAbstractLocal = workflowMode === 'abstract';
+    const isBuildingPermitLocal = workflowMode === 'building-permit';
+
+    if (isAbstractLocal) {
       const joined = joinedAbstractData;
       const journals = journalData.length > 0 ? journalData : rawData.filter(r => r.sourceFile?.toLowerCase().includes('journal'));
       const rolls = rawData.filter(r => !r.sourceFile?.toLowerCase().includes('journal'));
@@ -650,7 +653,7 @@ export default function Home() {
       };
     }
 
-    if (workflowMode === 'building-permit') {
+    if (isBuildingPermitLocal) {
       const joined = joinedPermitData;
       const linkedCount = joined.filter(r => r.isJoined).length;
       return {
@@ -1239,7 +1242,7 @@ export default function Home() {
         "No. of Story": "",
         "Total Floor Area": (p as any).rollArea || 0,
         "Estimated Building Cost": p.estimatedCost || 0,
-        "Class": (p as any).rollUpdate || "",
+        "Class": (p as any).rollClass || "",
         "Potential Match": (p as any).isPotentialMatch ? (p as any).rollOwner : "",
         "Review Status": (p as any).isUnderReview ? "UNDER REVIEW" : ""
       }));

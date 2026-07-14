@@ -207,7 +207,7 @@ const RecordRow = memo(({
         </TableCell>
 
         <TableCell className="text-center p-3 border-l font-black text-xs">
-          {permitRow.rollUpdate || '---'}
+          {permitRow.rollClass || '---'}
         </TableCell>
 
         <TableCell className="p-3 border-l uppercase text-muted-foreground font-bold text-[10px] max-w-[180px] truncate">
