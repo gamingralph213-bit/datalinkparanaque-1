@@ -71,7 +71,7 @@ import { CalibrationSidebar } from '@/components/dashboard/calibration-sidebar';
 import { DataPreviewTable } from '@/components/dashboard/data-preview-table';
 import { LandRecord, CalibrationRule, processRecords, TaxRateMap, ProcessingReport, RecordStatusType, normalizePin, getModeOfConveyance, normalizeNameForMatch, getJaroWinklerSimilarity, extractArpNumeric } from '@/lib/processor';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import { BarangayConfig, initialLocationSettings } from '@/lib/locations';
 import { ModeToggle } from '@/components/mode-toggle';
 import { RecordDetailModal } from '@/components/dashboard/record-detail-modal';
@@ -148,7 +148,22 @@ const defaultTaxRates: TaxRateMap = {
 type ProcessingStep = 'idle' | 'cleanup' | 'dedupe' | 'calibrate' | 'complete';
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-const ImportManager = ({ mode, manifest, onAdd, onDelete }: { mode: 'raw' | 'exempt' | 'journal' | 'sales' | 'roll' | 'cancelled' | 'permits' | 'three-year-sales', manifest: any[], onAdd: () => void, onDelete: (name: string) => void }) => {
+const applyCenterStyle = (ws: XLSX.WorkSheet, skipRows: number) => {
+  if (!ws['!ref']) return;
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for (let R = range.s.r; R <= range.e.r; ++R) {
+    if (R < skipRows) continue;
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+      const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+      const cell = ws[cellAddress];
+      if (cell) {
+        cell.s = { alignment: { horizontal: 'center', vertical: 'center' } };
+      }
+    }
+  }
+};
+
+const ImportManager = ({ mode, manifest, onAdd, onDelete, onClearAll }: { mode: 'raw' | 'exempt' | 'journal' | 'sales' | 'roll' | 'cancelled' | 'permits' | 'three-year-sales', manifest: any[], onAdd: () => void, onDelete: (name: string) => void, onClearAll?: () => void }) => {
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   const handleDelete = async (name: string) => {
@@ -247,6 +262,11 @@ const ImportManager = ({ mode, manifest, onAdd, onDelete }: { mode: 'raw' | 'exe
         </ScrollArea>
         <div className="p-3 bg-muted/30 border-t flex items-center justify-between">
           <span className="text-[9px] font-black text-muted-foreground uppercase">Total records: {manifest.reduce((sum, f) => sum + f.count, 0).toLocaleString()}</span>
+          {onClearAll && manifest.length > 0 && (
+            <Button variant="ghost" size="sm" onClick={onClearAll} className="h-6 px-2 text-[9px] font-black uppercase tracking-widest text-red-600 hover:bg-red-50 hover:text-red-700">
+              <Trash2 className="w-3 shadow-sm h-3 mr-1" /> Clear All
+            </Button>
+          )}
         </div>
       </PopoverContent>
     </Popover>
@@ -1120,6 +1140,17 @@ export default function Home() {
     setProcessedData([]); toast({ title: "File Removed", description: `${fileName} has been removed from the session.` });
   };
 
+  const clearFiles = (mode: 'raw' | 'exempt' | 'journal' | 'sales' | 'three-year-sales' | 'roll' | 'cancelled' | 'permits') => {
+    if (mode === 'raw' || mode === 'roll') { setRawData([]); setRawFileManifest([]); }
+    else if (mode === 'journal') { setJournalData([]); setJournalFileManifest([]); }
+    else if (mode === 'sales') { setSalesData([]); setSalesFileManifest([]); }
+    else if (mode === 'cancelled') { setCancelledData([]); setCancelledFileManifest([]); }
+    else if (mode === 'permits') { setPermitData([]); setPermitFileManifest([]); }
+    else if (mode === 'three-year-sales') { setThreeYearSalesData([]); setThreeYearSalesFileManifest([]); }
+    else { setExemptFileManifest([]); setExemptPins(new Set()); }
+    setProcessedData([]); toast({ title: "Files Cleared", description: `All files have been removed from the ${mode} session.` });
+  };
+
   const handleDirectImport = async (e: React.ChangeEvent<HTMLInputElement>, mode: 'raw' | 'exempt' | 'journal' | 'sales' | 'three-year-sales' | 'roll' | 'cancelled' | 'permits') => {
     const files = e.target.files; if (!files || files.length === 0) return;
     setIsDirectImporting(true); setDirectImportProgress({ current: 0, total: files.length, mode });
@@ -1249,7 +1280,7 @@ export default function Home() {
 
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.aoa_to_sheet([["DATA LINK PARAÑAQUE - SMART EXPORT"], ["EXPORT DATE:", new Date().toLocaleString()], ["TOTAL RECORDS:", finalOutputList.length.toLocaleString()], [], ["SUMMARY TAXABLE PROPERTIES"], [], ["CURRENT (2028)"], ["TOTAL MARKET VALUE (2028):", fmt(sum(taxableRecords, 'marketValue2028'))], ["TOTAL ASSESSED VALUE (2028):", fmt(sum(taxableRecords, 'assessedValue2028'))], ["TOTAL YEARLY TAX (2028 capped at 6%):", fmt(sum(taxableRecords, 'yearlyTax2028'))], [], ["RPVARA (2029)"], ["TOTAL MARKET VALUE (2029):", fmt(sum(taxableRecords, 'marketValue2029'))], ["TOTAL ASSESSED VALUE (2029):", fmt(sum(taxableRecords, 'assessedValue2029'))], ["TOTAL YEARLY TAX (2029):", fmt(sum(taxableRecords, 'yearlyTax2029'))], [], ["SUMMARY EXEMPTED PROPERTIES"], [], ["CURRENT (2028)"], ["TOTAL MARKET VALUE (2028):", fmt(sum(exemptRecords, 'marketValue2028'))], ["TOTAL ASSESSED VALUE (2028):", fmt(sum(exemptRecords, 'assessedValue2028'))], [], ["RPVARA (2029)"], ["TOTAL MARKET VALUE (2029):", fmt(sum(exemptRecords, 'marketValue2029'))], ["TOTAL ASSESSED VALUE (2029):", fmt(sum(exemptRecords, 'assessedValue2029'))], [], activeHeaders]);
-      XLSX.utils.sheet_add_json(ws, formattedExport, { origin: -1, skipHeader: true }); ws['!cols'] = activeHeaders.map(() => ({ wch: 22 })); XLSX.utils.book_append_sheet(wb, ws, "ExportResults");
+      XLSX.utils.sheet_add_json(ws, formattedExport, { origin: -1, skipHeader: true }); ws['!cols'] = activeHeaders.map(() => ({ wch: 22 })); applyCenterStyle(ws, 26); XLSX.utils.book_append_sheet(wb, ws, "ExportResults");
 
       const geoPart = settings.barangays.length === uniqueBarangays.length ? "All-Barangays" : settings.barangays.join("-");
       const statusPart = settings.statuses.join("-").replace(/\s+/g, '_');
@@ -1322,6 +1353,7 @@ export default function Home() {
 
       XLSX.utils.sheet_add_json(ws, abstractData, { origin: -1, skipHeader: true });
       ws['!cols'] = headers.map(() => ({ wch: 22 }));
+      applyCenterStyle(ws, 3);
       XLSX.utils.book_append_sheet(wb, ws, "AbstractReport");
       XLSX.writeFile(wb, `AbstractReport-${new Date().toISOString().split('T')[0]}.xlsx`);
       showSuccessToast(`Exported ${abstractData.length} Abstract entries successfully.`);
@@ -1389,6 +1421,7 @@ export default function Home() {
       ]);
       XLSX.utils.sheet_add_json(ws, exportRows, { origin: -1, skipHeader: true });
       ws['!cols'] = headers.map(() => ({ wch: 22 }));
+      applyCenterStyle(ws, 3);
       XLSX.utils.book_append_sheet(wb, ws, "BuildingPermits");
       XLSX.writeFile(wb, `BuildingPermitAbstract-${new Date().toISOString().split('T')[0]}.xlsx`);
       showSuccessToast(`Exported ${exportRows.length} Permit entries successfully.`);
@@ -1545,13 +1578,13 @@ export default function Home() {
                           {workflowMode !== 'abstract' && workflowMode !== 'building-permit' && workflowMode !== 'three-year-report' && (<Select value={sortBy} onValueChange={(val: any) => { setSortBy(val); setStatusFilter('all'); }}><SelectTrigger className="w-[160px] h-9 text-xs font-bold uppercase shrink-0"><ArrowUpDown className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="Sort By" /></SelectTrigger><SelectContent><SelectItem value="pin">Sort by PIN</SelectItem><SelectItem value="arpNo">Sort by ARP No#</SelectItem></SelectContent></Select>)}
                           <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-[160px] h-9 text-xs font-bold uppercase shrink-0"><Filter className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="all">All</SelectItem>{(workflowMode === 'abstract' || workflowMode === 'building-permit' || workflowMode === 'three-year-report') ? (<><SelectItem value="Linked">Linked Records</SelectItem><SelectItem value="No Match">Unlinked Records</SelectItem><SelectItem value="Under Review">Under Review</SelectItem>{workflowMode === 'three-year-report' && <SelectItem value="Other/Unmapped">Other / Unmapped</SelectItem>}</>) : (dynamicStatusOptions.sort().map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>)))}</SelectContent></Select>
                           <div className="flex gap-2 items-center shrink-0">
-                            <ImportManager mode="raw" manifest={rawFileManifest} onAdd={() => rawFileInputRef.current?.click()} onDelete={(name) => deleteFile(name, 'raw')} />
-                            <ImportManager mode="exempt" manifest={exemptFileManifest} onAdd={() => exemptFileInputRef.current?.click()} onDelete={(name) => deleteFile(name, 'exempt')} />
-                            {workflowMode === 'abstract' && <ImportManager mode="journal" manifest={journalFileManifest} onAdd={() => journalFileInputRef.current?.click()} onDelete={(name) => deleteFile(name, 'journal')} />}
-                            {workflowMode === 'abstract' && <ImportManager mode="sales" manifest={salesFileManifest} onAdd={() => salesFileInputRef.current?.click()} onDelete={(name) => deleteFile(name, 'sales')} />}
-                            {workflowMode === 'abstract' && <ImportManager mode="cancelled" manifest={cancelledFileManifest} onAdd={() => cancelledFileInputRef.current?.click()} onDelete={(name) => deleteFile(name, 'cancelled')} />}
-                            {workflowMode === 'building-permit' && <ImportManager mode="permits" manifest={permitFileManifest} onAdd={() => permitFileInputRef.current?.click()} onDelete={(name) => deleteFile(name, 'permits')} />}
-                            {workflowMode === 'three-year-report' && <ImportManager mode="three-year-sales" manifest={threeYearSalesFileManifest} onAdd={() => threeYearSalesFileInputRef.current?.click()} onDelete={(name) => deleteFile(name, 'three-year-sales')} />}
+                            <ImportManager mode="raw" manifest={rawFileManifest} onAdd={() => rawFileInputRef.current?.click()} onDelete={(name) => deleteFile(name, 'raw')} onClearAll={() => clearFiles('raw')} />
+                            <ImportManager mode="exempt" manifest={exemptFileManifest} onAdd={() => exemptFileInputRef.current?.click()} onDelete={(name) => deleteFile(name, 'exempt')} onClearAll={() => clearFiles('exempt')} />
+                            {workflowMode === 'abstract' && <ImportManager mode="journal" manifest={journalFileManifest} onAdd={() => journalFileInputRef.current?.click()} onDelete={(name) => deleteFile(name, 'journal')} onClearAll={() => clearFiles('journal')} />}
+                            {workflowMode === 'abstract' && <ImportManager mode="sales" manifest={salesFileManifest} onAdd={() => salesFileInputRef.current?.click()} onDelete={(name) => deleteFile(name, 'sales')} onClearAll={() => clearFiles('sales')} />}
+                            {workflowMode === 'abstract' && <ImportManager mode="cancelled" manifest={cancelledFileManifest} onAdd={() => cancelledFileInputRef.current?.click()} onDelete={(name) => deleteFile(name, 'cancelled')} onClearAll={() => clearFiles('cancelled')} />}
+                            {workflowMode === 'building-permit' && <ImportManager mode="permits" manifest={permitFileManifest} onAdd={() => permitFileInputRef.current?.click()} onDelete={(name) => deleteFile(name, 'permits')} onClearAll={() => clearFiles('permits')} />}
+                            {workflowMode === 'three-year-report' && <ImportManager mode="three-year-sales" manifest={threeYearSalesFileManifest} onAdd={() => threeYearSalesFileInputRef.current?.click()} onDelete={(name) => deleteFile(name, 'three-year-sales')} onClearAll={() => clearFiles('three-year-sales')} />}
                           </div>
                         </div>
                       )}
@@ -1664,10 +1697,10 @@ export default function Home() {
       {isDirectImporting && (
         <div className="fixed inset-0 z-[110] bg-background/95 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in duration-300">
           <Card className="w-full max-w-md p-12 bg-card border-white/10 shadow-2xl flex flex-col items-center scale-105">
-            <div className="relative flex items-center justify-center mb-8"><Loader2 className={cn("w-16 h-16 animate-spin", directImportProgress.mode === 'raw' ? "text-primary" : directImportProgress.mode === 'journal' ? "text-amber-600" : directImportProgress.mode === 'sales' ? "text-emerald-600" : directImportProgress.mode === 'cancelled' ? "text-red-600" : directImportProgress.mode === 'permits' ? "text-orange-600" : "text-blue-600")} /><div className="absolute inset-0 flex items-center justify-center">{directImportProgress.mode === 'raw' ? <BookUser className="w-6 h-6 text-primary" /> : directImportProgress.mode === 'journal' ? <FileText className="w-6 h-6 text-amber-600" /> : directImportProgress.mode === 'sales' ? <Tag className="w-6 h-6 text-emerald-600" /> : directImportProgress.mode === 'cancelled' ? <FileX className="w-6 h-6 text-red-600" /> : directImportProgress.mode === 'permits' ? <HardHat className="w-6 h-6 text-orange-600" /> : <ShieldOff className="w-6 h-6 text-blue-600" />}</div></div>
-            <h3 className="text-2xl font-black text-foreground uppercase tracking-tight mb-2 text-center">{directImportProgress.mode === 'raw' ? "Analyzing Records" : directImportProgress.mode === 'journal' ? "Parsing Journal Logs" : directImportProgress.mode === 'sales' ? "Ingesting Sales Data" : directImportProgress.mode === 'cancelled' ? "Indexing Cancelled Data" : directImportProgress.mode === 'permits' ? "Ingesting Permit Log" : "Indexing PIN Reference"}</h3>
+            <div className="relative flex items-center justify-center mb-8"><Loader2 className={cn("w-16 h-16 animate-spin", directImportProgress.mode === 'raw' ? "text-primary" : directImportProgress.mode === 'journal' ? "text-amber-600" : directImportProgress.mode === 'sales' ? "text-emerald-600" : directImportProgress.mode === 'cancelled' ? "text-red-600" : directImportProgress.mode === 'permits' ? "text-orange-600" : directImportProgress.mode === 'three-year-sales' ? "text-violet-600" : "text-blue-600")} /><div className="absolute inset-0 flex items-center justify-center">{directImportProgress.mode === 'raw' ? <BookUser className="w-6 h-6 text-primary" /> : directImportProgress.mode === 'journal' ? <FileText className="w-6 h-6 text-amber-600" /> : directImportProgress.mode === 'sales' ? <Tag className="w-6 h-6 text-emerald-600" /> : directImportProgress.mode === 'cancelled' ? <FileX className="w-6 h-6 text-red-600" /> : directImportProgress.mode === 'permits' ? <HardHat className="w-6 h-6 text-orange-600" /> : directImportProgress.mode === 'three-year-sales' ? <TrendingUp className="w-6 h-6 text-violet-600" /> : <ShieldOff className="w-6 h-6 text-blue-600" />}</div></div>
+            <h3 className="text-2xl font-black text-foreground uppercase tracking-tight mb-2 text-center">{directImportProgress.mode === 'raw' ? "Analyzing Records" : directImportProgress.mode === 'journal' ? "Parsing Journal Logs" : (directImportProgress.mode === 'sales' || directImportProgress.mode === 'three-year-sales') ? "Ingesting Sales Data" : directImportProgress.mode === 'cancelled' ? "Indexing Cancelled Data" : directImportProgress.mode === 'permits' ? "Ingesting Permit Log" : "Indexing PIN Reference"}</h3>
             <p className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.3em] mb-8 animate-pulse text-center">INITIALIZING ENGINE...</p>
-            <div className="w-full pt-6 border-t flex flex-col items-center gap-2"><span className={cn("text-[10px] font-black uppercase tracking-widest", directImportProgress.mode === 'raw' ? "text-primary" : directImportProgress.mode === 'journal' ? "text-amber-600" : directImportProgress.mode === 'sales' ? "text-emerald-600" : directImportProgress.mode === 'cancelled' ? "text-red-600" : directImportProgress.mode === 'permits' ? "text-orange-600" : "text-blue-600")}>Batch Progress: {directImportProgress.current + 1} / {directImportProgress.total}</span></div>
+            <div className="w-full pt-6 border-t flex flex-col items-center gap-2"><span className={cn("text-[10px] font-black uppercase tracking-widest", directImportProgress.mode === 'raw' ? "text-primary" : directImportProgress.mode === 'journal' ? "text-amber-600" : directImportProgress.mode === 'sales' ? "text-emerald-600" : directImportProgress.mode === 'cancelled' ? "text-red-600" : directImportProgress.mode === 'permits' ? "text-orange-600" : directImportProgress.mode === 'three-year-sales' ? "text-violet-600" : "text-blue-600")}>Batch Progress: {directImportProgress.current + 1} / {directImportProgress.total}</span></div>
             <p className="mt-10 text-[9px] font-black text-muted-foreground/50 uppercase tracking-[0.2em]">System working • Do not refresh session</p>
           </Card>
         </div>

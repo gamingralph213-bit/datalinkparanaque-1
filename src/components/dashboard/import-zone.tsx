@@ -21,7 +21,8 @@ import {
   Database,
   Tag,
   FileX,
-  HardHat
+  HardHat,
+  TrendingUp
 } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -191,15 +192,15 @@ export function ImportZone({ onDataImported, mode = 'raw', workflowMode = 'stand
           <div className="absolute inset-0 z-50 bg-background/95 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in duration-300">
             <Card className="w-full max-w-md p-12 bg-card border-white/10 shadow-2xl flex flex-col items-center scale-105">
               <div className="relative flex items-center justify-center mb-8">
-                <Loader2 className={cn("w-16 h-16 animate-spin", mode === 'raw' ? "text-primary" : mode === 'journal' ? "text-amber-600" : (mode === 'sales' || mode === 'three-year-sales') ? "text-emerald-600" : mode === 'cancelled' ? "text-red-600" : mode === 'permits' ? "text-orange-600" : "text-blue-600")} />
+                <Loader2 className={cn("w-16 h-16 animate-spin", mode === 'raw' ? "text-primary" : mode === 'journal' ? "text-amber-600" : mode === 'sales' ? "text-emerald-600" : mode === 'cancelled' ? "text-red-600" : mode === 'permits' ? "text-orange-600" : mode === 'three-year-sales' ? "text-violet-600" : "text-blue-600")} />
                 <div className="absolute inset-0 flex items-center justify-center">
-                  {mode === 'raw' ? <BookUser className="w-6 h-6 text-primary" /> : mode === 'journal' ? <FileText className="w-6 h-6 text-amber-600" /> : (mode === 'sales' || mode === 'three-year-sales') ? <Tag className="w-6 h-6 text-emerald-600" /> : mode === 'cancelled' ? <FileX className="w-6 h-6 text-red-600" /> : mode === 'permits' ? <HardHat className="w-6 h-6 text-orange-600" /> : <ShieldOff className="w-6 h-6 text-blue-600" />}
+                  {mode === 'raw' ? <BookUser className="w-6 h-6 text-primary" /> : mode === 'journal' ? <FileText className="w-6 h-6 text-amber-600" /> : mode === 'sales' ? <Tag className="w-6 h-6 text-emerald-600" /> : mode === 'cancelled' ? <FileX className="w-6 h-6 text-red-600" /> : mode === 'permits' ? <HardHat className="w-6 h-6 text-orange-600" /> : mode === 'three-year-sales' ? <TrendingUp className="w-6 h-6 text-violet-600" /> : <ShieldOff className="w-6 h-6 text-blue-600" />}
                 </div>
               </div>
               <h3 className="text-2xl font-black text-foreground uppercase tracking-tight mb-2 text-center">{mode === 'raw' ? "Analyzing Records" : mode === 'journal' ? "Parsing Journal Logs" : (mode === 'sales' || mode === 'three-year-sales') ? "Ingesting Sales Data" : mode === 'cancelled' ? "Indexing Cancelled Data" : mode === 'permits' ? "Ingesting Permit Log" : "Indexing PIN Reference"}</h3>
               <p className="text-[11px] font-black text-muted-foreground uppercase tracking-[0.3em] mb-8 animate-pulse text-center">INITIALIZING ENGINE...</p>
               {stagedFiles.length > 0 && (
-                <div className="w-full pt-6 border-t flex flex-col items-center gap-2"><span className={cn("text-[10px] font-black uppercase tracking-widest", mode === 'raw' ? "text-primary" : mode === 'journal' ? "text-amber-600" : (mode === 'sales' || mode === 'three-year-sales') ? "text-emerald-600" : mode === 'cancelled' ? "text-red-600" : mode === 'permits' ? "text-orange-600" : "text-blue-600")}>Batch Queue: {processedCount} / {stagedFiles.length} Completed</span></div>
+                <div className="w-full pt-6 border-t flex flex-col items-center gap-2"><span className={cn("text-[10px] font-black uppercase tracking-widest", mode === 'raw' ? "text-primary" : mode === 'journal' ? "text-amber-600" : mode === 'sales' ? "text-emerald-600" : mode === 'cancelled' ? "text-red-600" : mode === 'permits' ? "text-orange-600" : mode === 'three-year-sales' ? "text-violet-600" : "text-blue-600")}>Batch Queue: {processedCount} / {stagedFiles.length} Completed</span></div>
               )}
               <p className="mt-10 text-[9px] font-black text-muted-foreground/50 uppercase tracking-[0.2em]">System working • Do not refresh session</p>
             </Card>

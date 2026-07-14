@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import { LandRecord } from './processor';
 
 /**
@@ -192,7 +192,16 @@ export const exportThreeYearReport = (rows: ThreeYearReportRow[], filenameSuffix
   /** Write a cell value at (col 0-indexed, row 1-indexed). */
   const c = (col: number, row: number, v: any): void => {
     const addr = `${COL_LETTERS[col]}${row}`;
-    ws[addr] = typeof v === 'number' ? { v, t: 'n' } : { v: v ?? '', t: 's' };
+    
+    // Apply center alignment for all rows >= 5 (Header row and below)
+    let style = {};
+    if (row >= 5) {
+      style = { alignment: { horizontal: 'center', vertical: 'center' } };
+    }
+
+    ws[addr] = typeof v === 'number' 
+      ? { v, t: 'n', s: style } 
+      : { v: v ?? '', t: 's', s: style };
   };
 
   // ── Title / subtitle rows ──────────────────────────────────────────────────
@@ -234,52 +243,31 @@ export const exportThreeYearReport = (rows: ThreeYearReportRow[], filenameSuffix
     { s: { r: R_HEADER   - 1, c: 7 }, e: { r: R_HEADER   - 1, c: 9 } },
   ];
 
-  // ── Group consecutive rows by kindGroup for Column A merge ────────────────
-  type Group = { label: string; rows: ThreeYearReportRow[] };
-  const groups: Group[] = [];
-  let cg: Group | null = null;
-
-  for (const row of rows) {
-    const label = row.kindGroup === 'Land' ? 'Land'
-      : row.kindGroup === 'Building' ? 'Bldg.' : `${row.kind || ''}-${row.au || ''}`.replace(/^-|-$/, '') || 'Other/Unmapped';
-    if (!cg || cg.label !== label) {
-      cg = { label, rows: [] };
-      groups.push(cg);
-    }
-    cg.rows.push(row);
-  }
-
   // ── Write data rows ────────────────────────────────────────────────────────
   let currentRow = R_DATA;
 
-  for (const group of groups) {
-    const groupStart = currentRow;
-    const groupEnd   = currentRow + group.rows.length - 1;
-
-    // Column A: group label written on the first row of the group
-    c(0, groupStart, group.label);
-
-    // Merge Column A across the entire group (if > 1 row)
-    if (group.rows.length > 1) {
-      merges.push({
-        s: { r: groupStart - 1, c: 0 },
-        e: { r: groupEnd   - 1, c: 0 },
-      });
+  for (const dataRow of rows) {
+    let kindLabel = '';
+    if (!dataRow.isJoined) {
+      kindLabel = 'UNLINKED';
+    } else if ((dataRow as any).isOtherUnmapped) {
+      kindLabel = 'OTHER/UNMAPPED';
+    } else {
+      kindLabel = dataRow.kindGroup === 'Land' ? 'LAND' : 'BUILDING';
     }
 
-    for (const dataRow of group.rows) {
-      c(1, currentRow, dataRow.acctName || '');                    // Name of New Owner
-      c(2, currentRow, dataRow.arpNo    || '');                    // ARPN/PIN (Tax Dec. No.)
-      c(3, currentRow, dataRow.address  || dataRow.location || ''); // Location / Street
-      c(4, currentRow, dataRow.salesClassification || '');          // Classification (CLASS)
-      c(5, currentRow, '');                                         // Sub-class — blank
-      c(6, currentRow, dataRow.landArea !== undefined && dataRow.landArea !== 0
-        ? dataRow.landArea : ((dataRow as any).rollArea || ''));             // Area
-      c(7, currentRow, '');                                         // Lowest  — blank
-      c(8, currentRow, '');                                         // Median  — blank
-      c(9, currentRow, '');                                         // Highest — blank
-      currentRow++;
-    }
+    c(0, currentRow, kindLabel);                                  // Kind of Property
+    c(1, currentRow, dataRow.acctName || '');                     // Name of New Owner
+    c(2, currentRow, dataRow.arpNo    || '');                     // ARPN/PIN (Tax Dec. No.)
+    c(3, currentRow, dataRow.address  || dataRow.location || ''); // Location / Street
+    c(4, currentRow, dataRow.salesClassification || '');          // Classification (CLASS)
+    c(5, currentRow, '');                                         // Sub-class — blank
+    c(6, currentRow, dataRow.landArea !== undefined && dataRow.landArea !== 0
+      ? dataRow.landArea : ((dataRow as any).rollArea || ''));    // Area
+    c(7, currentRow, '');                                         // Lowest  — blank
+    c(8, currentRow, '');                                         // Median  — blank
+    c(9, currentRow, '');                                         // Highest — blank
+    currentRow++;
   }
 
   // ── Finalize sheet ─────────────────────────────────────────────────────────
