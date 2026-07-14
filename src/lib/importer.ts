@@ -12,7 +12,7 @@ export const HEADER_ALIASES = {
   ],
   arpNo: [
     'arpno', 'arp', 'arpnumber', 'currentarp', 'current', 'tdno', 'tdnumber', 'taxdeclaration', 
-    'taxdeclarationno', 'currenttd', 'oldarp', 'previousarp', 'taxdecno'
+    'taxdeclarationno', 'currenttd', 'oldarp', 'previousarp', 'taxdecno', '[inse'
   ],
   newArpNo: [
     'newarpno', 'arpnonew', 'newarp', 'newtdno', 'farp', 'newtd', 'arpno(new)', 'targetarp', 'arpno.new'
@@ -132,7 +132,7 @@ function expandTdNumbers(tdString: string): string[] {
 /**
  * Maps JSON data to LandRecord objects using robust fuzzy header detection.
  */
-export const mapRawToRecords = (raw: any[], fileName: string, mode: 'raw' | 'exempt' | 'journal' | 'sales' | 'cancelled' | 'permits' = 'raw'): LandRecord[] => {
+export const mapRawToRecords = (raw: any[], fileName: string, mode: 'raw' | 'exempt' | 'journal' | 'sales' | 'cancelled' | 'permits' | 'three-year-sales' = 'raw'): LandRecord[] => {
   let lastSeenDate = "";
 
   return raw.flatMap((item) => {
@@ -165,7 +165,7 @@ export const mapRawToRecords = (raw: any[], fileName: string, mode: 'raw' | 'exe
     }
 
     const arpRaw = getValue('arpNo');
-    const expandedArps = (mode === 'sales' || mode === 'cancelled') ? expandTdNumbers(arpRaw) : [arpRaw];
+    const expandedArps = (mode === 'sales' || mode === 'three-year-sales' || mode === 'cancelled') ? expandTdNumbers(arpRaw) : [arpRaw];
     
     let kind = getValue('kind');
     let au = getValue('au');
@@ -185,7 +185,7 @@ export const mapRawToRecords = (raw: any[], fileName: string, mode: 'raw' | 'exe
       pin: getValue('pin'),
       previous: getValue('previous'),
       update: getValue('update'),
-      taxability: mode === 'exempt' ? 'E' : ('T' as const),
+      taxability: (mode === 'exempt' ? 'E' : 'T') as 'T' | 'E',
       acctName: getValue('acctName'),
       address: getValue('address'),
       location: getValue('address') || deepLookup['location'] || '', 
@@ -232,8 +232,8 @@ export const mapRawToRecords = (raw: any[], fileName: string, mode: 'raw' | 'exe
 
 export const parseFile = async (
   file: File, 
-  workflowMode: 'standard' | 'roll' | 'journal' | 'sales' | 'cancelled' | 'permits' = 'standard',
-  importMode: 'raw' | 'exempt' | 'journal' | 'sales' | 'cancelled' | 'permits' = 'raw'
+  workflowMode: string = 'standard',
+  importMode: 'raw' | 'exempt' | 'journal' | 'sales' | 'three-year-sales' | 'cancelled' | 'permits' = 'raw'
 ): Promise<{ data: LandRecord[], count: number }> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -261,7 +261,7 @@ export const parseFile = async (
         const finalRecords = mappedData.filter(r => 
           (r.pin && r.pin.includes('-')) || 
           (r.arpNo && r.arpNo.length > 5) ||
-          (importMode === 'sales' && r.arpNo) ||
+          ((importMode === 'sales' || importMode === 'three-year-sales') && r.arpNo) ||
           (importMode === 'cancelled' && r.pin) ||
           (importMode === 'permits' && (r.buildingPermitNo || r.acctName))
         );

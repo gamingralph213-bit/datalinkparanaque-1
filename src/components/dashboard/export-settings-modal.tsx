@@ -124,12 +124,12 @@ export function ExportSettingsModal({
   }, [data]);
 
   const approvedStatuses = useMemo(() => 
-    availableStatuses.filter(s => s !== 'DUPLICATE' && s !== 'INCOMPLETE' && s !== 'CLEANUP'),
+    availableStatuses.filter(s => s !== 'DUPLICATE' && s !== 'INCOMPLETE' && s !== 'CLEANUP') as RecordStatusType[],
     [availableStatuses]
   );
   
   const archiveStatuses = useMemo(() => 
-    availableStatuses.filter(s => s === 'DUPLICATE' || s === 'INCOMPLETE' || s === 'CLEANUP'),
+    availableStatuses.filter(s => s === 'DUPLICATE' || s === 'INCOMPLETE' || s === 'CLEANUP') as RecordStatusType[],
     [availableStatuses]
   );
 

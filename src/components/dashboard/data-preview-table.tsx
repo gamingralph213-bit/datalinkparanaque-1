@@ -32,7 +32,7 @@ interface DataPreviewTableProps {
   isProcessed?: boolean;
   onRowClick: (record: LandRecord) => void;
   showLabels?: boolean;
-  workflowMode?: 'standard' | 'abstract' | 'building-permit';
+  workflowMode?: 'standard' | 'abstract' | 'building-permit' | 'three-year-report';
 }
 
 const RecordRow = memo(({ 
@@ -48,7 +48,7 @@ const RecordRow = memo(({
   isProcessed: boolean;
   onRowClick: (record: LandRecord) => void;
   showLabels?: boolean;
-  workflowMode?: 'standard' | 'abstract' | 'building-permit';
+  workflowMode?: 'standard' | 'abstract' | 'building-permit' | 'three-year-report';
 }) => {
   if (workflowMode === 'abstract') {
     const abstractRow = row as any;
@@ -227,6 +227,68 @@ const RecordRow = memo(({
             ) : permitRow.isJoined ? (
               <Badge className="bg-emerald-600 text-white font-black text-[9px] tracking-widest gap-1 uppercase">
                 <Link2 className="w-3" /> Matched
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="font-black text-[9px] tracking-widest gap-1 uppercase opacity-60">
+                <Unlink2 className="w-3" /> Unlinked
+              </Badge>
+            )}
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  }
+
+  if (workflowMode === 'three-year-report') {
+    const reportRow = row as any;
+    return (
+      <TableRow 
+        className={cn(
+          "border-b transition-all duration-200 hover:bg-muted/30",
+          !reportRow.isJoined && "bg-orange-50/30 dark:bg-red-950/20"
+        )}
+      >
+        <TableCell className="text-center font-black p-3 border-r bg-muted/5 text-muted-foreground font-mono">
+          {index + 1}
+        </TableCell>
+        <TableCell className="text-center font-bold p-3 border-l text-sm uppercase text-emerald-700">
+          {reportRow.kindGroup === 'Land' ? 'Land' : (reportRow.kindGroup === 'Bldg' ? 'Bldg.' : 'Machinery')}
+        </TableCell>
+        <TableCell className="font-bold uppercase p-3 border-l truncate max-w-[200px]">
+          {reportRow.acctName || '---'}
+        </TableCell>
+        <TableCell className="font-mono p-3 border-l text-primary font-black">
+          {reportRow.arpNo || '---'}
+        </TableCell>
+        <TableCell className="p-3 border-l uppercase text-muted-foreground truncate max-w-[250px] text-xs">
+          {reportRow.rollAddress || reportRow.location || '---'}
+        </TableCell>
+        <TableCell className="p-3 border-l uppercase font-bold text-xs text-center">
+          {reportRow.salesClassification || '---'}
+        </TableCell>
+        <TableCell className="p-3 border-l uppercase text-center text-muted-foreground">
+          ---
+        </TableCell>
+        <TableCell className="text-right font-mono p-3 font-black border-l">
+          {reportRow.landArea ? reportRow.landArea.toLocaleString() : (reportRow.rollArea?.toLocaleString() || '0')}
+        </TableCell>
+        
+        {/* Sales Values */}
+        <TableCell className="text-right font-mono p-3 font-black border-l bg-emerald-50/30 dark:bg-emerald-950/20 text-muted-foreground/30">
+          ---
+        </TableCell>
+        <TableCell className="text-right font-mono p-3 font-black border-l bg-emerald-50/30 dark:bg-emerald-950/20 text-muted-foreground/30">
+          ---
+        </TableCell>
+        <TableCell className="text-right font-mono p-3 font-black border-l bg-emerald-50/30 dark:bg-emerald-950/20 text-muted-foreground/30 border-r">
+          ---
+        </TableCell>
+
+        <TableCell className="text-center p-3 border-l">
+          <div className="flex flex-col items-center gap-1">
+            {reportRow.isJoined ? (
+              <Badge className="bg-emerald-600 text-white font-black text-[9px] tracking-widest gap-1 uppercase">
+                <Link2 className="w-3" /> Linked
               </Badge>
             ) : (
               <Badge variant="outline" className="font-black text-[9px] tracking-widest gap-1 uppercase opacity-60">
@@ -462,7 +524,47 @@ export function DataPreviewTable({ data, isProcessed = false, onRowClick, showLa
           wrapperClassName="overflow-visible" 
         >
           <TableHeader className="bg-card sticky top-0 z-20 shadow-sm">
-            {workflowMode === 'abstract' ? (
+            {workflowMode === 'three-year-report' ? (
+              <>
+                <TableRow className="hover:bg-transparent border-b">
+                  <TableHead rowSpan={2} className="w-14 text-center font-black bg-card border-r">#</TableHead>
+                  <TableHead rowSpan={2} className="min-w-[120px] font-black text-center uppercase bg-card border-l">Kind of Property</TableHead>
+                  <TableHead rowSpan={2} className="min-w-[200px] font-black text-center uppercase bg-card border-l">
+                    Name of New Owner<br/><span className="text-muted-foreground font-normal">(2)</span>
+                  </TableHead>
+                  <TableHead rowSpan={2} className="min-w-[150px] font-black text-center uppercase bg-card border-l">
+                    ARPN/PIN<br/><span className="text-muted-foreground font-normal">(3)</span>
+                  </TableHead>
+                  <TableHead rowSpan={2} className="min-w-[250px] font-black text-center uppercase bg-card border-l">
+                    Location<br/><span className="text-muted-foreground font-normal">(4)</span>
+                  </TableHead>
+                  <TableHead rowSpan={2} className="min-w-[150px] font-black text-center uppercase bg-card border-l">
+                    Classification<br/><span className="text-muted-foreground font-normal">(5)</span>
+                  </TableHead>
+                  <TableHead rowSpan={2} className="min-w-[180px] font-black text-center uppercase bg-card border-l">
+                    Sub-class/Type of Bldg.<br/><span className="text-muted-foreground font-normal">(6)</span>
+                  </TableHead>
+                  <TableHead rowSpan={2} className="min-w-[120px] font-black text-center uppercase bg-card border-l">
+                    Area<br/><span className="text-muted-foreground font-normal">(7)</span>
+                  </TableHead>
+                  <TableHead colSpan={3} className="text-center font-black uppercase bg-emerald-50 dark:bg-emerald-950 border-x border-b-0 border-emerald-100 dark:border-emerald-900">
+                    Sales Value
+                  </TableHead>
+                  <TableHead rowSpan={2} className="w-36 text-center font-black uppercase bg-card">Record Status</TableHead>
+                </TableRow>
+                <TableRow className="hover:bg-transparent border-b-2">
+                  <TableHead className="min-w-[100px] text-center font-black uppercase bg-emerald-50 dark:bg-emerald-950 border-l border-emerald-100 dark:border-emerald-900">
+                    Lowest<br/><span className="text-muted-foreground font-normal">(8)</span>
+                  </TableHead>
+                  <TableHead className="min-w-[100px] text-center font-black uppercase bg-emerald-50 dark:bg-emerald-950 border-l border-emerald-100 dark:border-emerald-900">
+                    Median<br/><span className="text-muted-foreground font-normal">(9)</span>
+                  </TableHead>
+                  <TableHead className="min-w-[100px] text-center font-black uppercase bg-emerald-50 dark:bg-emerald-950 border-x border-emerald-100 dark:border-emerald-900">
+                    Highest<br/><span className="text-muted-foreground font-normal">(10)</span>
+                  </TableHead>
+                </TableRow>
+              </>
+            ) : workflowMode === 'abstract' ? (
               <TableRow className="hover:bg-transparent border-b-2">
                 <TableHead className="w-14 text-center font-black bg-card border-r">#</TableHead>
                 <TableHead className="min-w-[150px] font-black uppercase bg-card border-l">ARP NO.</TableHead>

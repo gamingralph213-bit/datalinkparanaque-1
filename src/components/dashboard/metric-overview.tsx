@@ -83,7 +83,7 @@ interface MetricOverviewProps {
   variant?: 'default' | 'hero';
   taxViewMode: 'T' | 'E';
   onTaxViewModeChange: (mode: 'T' | 'E') => void;
-  workflowMode?: 'standard' | 'abstract' | 'building-permit';
+  workflowMode?: string;
 }
 
 export function MetricOverview({ 
@@ -272,7 +272,49 @@ export function MetricOverview({
     }
   ];
 
-  const statDefinitions = isAbstract ? abstractStats : isBuildingPermit ? permitStats : standardStats;
+  const threeYearStats = [
+    {
+      label: "Sales Data Loaded",
+      value: <AnimatedNumber value={stats.totalRawRows} />,
+      icon: Files,
+      color: isHero ? "border-t-violet-500 bg-violet-500/5" : "border-l-violet-500 bg-violet-500/5",
+      textClass: "text-violet-600",
+      definition: "Total number of sales data entries imported in this session."
+    },
+    {
+      label: "Matches Found",
+      value: <AnimatedNumber value={stats.linkedCount || 0} />,
+      icon: Link2,
+      color: isHero ? "border-t-emerald-600 bg-emerald-50/5" : "border-l-emerald-600 bg-emerald-50/5",
+      textClass: "text-emerald-600",
+      definition: "Sales records successfully linked to the Assessment Roll reference via ARPN."
+    },
+    {
+      label: "Unlinked Logs",
+      value: <AnimatedNumber value={stats.unlinkedCount || 0} />,
+      icon: Unlink2,
+      color: isHero ? "border-t-red-500 bg-red-500/5" : "border-l-red-500 bg-red-500/5",
+      textClass: "text-red-600",
+      definition: "Sales entries that could not be reconciled with a parcel in the current Assessment Roll."
+    },
+    {
+      label: "Reference Roll",
+      value: <AnimatedNumber value={stats.rollCount || 0} />,
+      icon: FileSpreadsheet,
+      color: isHero ? "border-t-blue-500 bg-blue-500/5" : "border-l-blue-500 bg-blue-500/5",
+      textClass: "text-blue-600",
+      definition: "The total size of the Assessment Roll used as a lookup reference."
+    },
+    {
+      label: "Total Matched Area",
+      value: <AnimatedNumber value={stats.finalCount || 0} />,
+      icon: Database,
+      color: isHero ? "border-t-slate-400" : "border-l-slate-400",
+      definition: "Number of successfully matched sales transactions processed."
+    }
+  ];
+
+  const statDefinitions = workflowMode === 'abstract' ? abstractStats : workflowMode === 'building-permit' ? permitStats : workflowMode === 'three-year-report' ? threeYearStats : standardStats;
 
   return (
     <div className="space-y-4 w-full">
@@ -286,15 +328,15 @@ export function MetricOverview({
           </div>
           <div>
             <h3 className="text-xs font-black uppercase tracking-tight leading-none">
-              {isAbstract ? "Abstract Joiner Summary" : isBuildingPermit ? "Building Permit Analytics" : "Dashboard Analytics Context"}
+              {workflowMode === 'abstract' ? "Abstract Joiner Summary" : workflowMode === 'building-permit' ? "Building Permit Analytics" : workflowMode === 'three-year-report' ? "3-Year Report Analytics" : "Dashboard Analytics Context"}
             </h3>
             <p className="text-[9px] font-bold text-muted-foreground mt-1 uppercase tracking-widest">
-              {isAbstract ? "Relational join metrics for Journal vs Roll" : isBuildingPermit ? "Relational join metrics for Permit vs Roll" : "Toggle view for specific financial subsets"}
+              {workflowMode === 'abstract' ? "Relational join metrics for Journal vs Roll" : workflowMode === 'building-permit' ? "Relational join metrics for Permit vs Roll" : workflowMode === 'three-year-report' ? "Relational join metrics for Sales Data vs Roll" : "Toggle view for specific financial subsets"}
             </p>
           </div>
         </div>
         
-        {!isAbstract && !isBuildingPermit && (
+        {workflowMode === 'standard' && (
           <div className="flex items-center gap-1 bg-zinc-950 p-1 rounded-xl border border-zinc-800">
              <Button onClick={() => onTaxViewModeChange('T')} variant={taxViewMode === 'T' ? 'secondary' : 'ghost'} size="sm" className={cn("h-8 text-[9px] font-black uppercase tracking-widest gap-2", taxViewMode === 'T' && "bg-emerald-600 text-white hover:bg-emerald-500")}><CheckCircle2 className="w-3 h-3" /> Taxable</Button>
              <Button onClick={() => onTaxViewModeChange('E')} variant={taxViewMode === 'E' ? 'secondary' : 'ghost'} size="sm" className={cn("h-8 text-[9px] font-black uppercase tracking-widest gap-2", taxViewMode === 'E' && "bg-blue-600 text-white hover:bg-blue-500")}><Database className="w-3 h-3" /> Exempted</Button>
