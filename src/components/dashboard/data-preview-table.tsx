@@ -56,8 +56,9 @@ const RecordRow = memo(({
     
     return (
       <TableRow 
+        onClick={() => onRowClick(row)}
         className={cn(
-          "border-b transition-all duration-200 hover:bg-muted/30",
+          "border-b transition-all duration-200 hover:bg-muted/30 cursor-pointer",
           !abstractRow.isJoined && "bg-red-50/30 dark:bg-red-950/20"
         )}
       >
