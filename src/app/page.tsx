@@ -1426,12 +1426,12 @@ export default function Home() {
       }
 
       let suffixParts = [];
-      if (settings.kinds && settings.kinds.length > 0 && settings.kinds.length < 2) {
+      if (settings.kinds && settings.kinds.length > 0) {
         suffixParts.push(settings.kinds.join('-'));
       }
-      if (settings.statuses && settings.statuses.length > 0 && settings.statuses.length < 4) {
-        // Replace slash in 'Other/Unmapped' to avoid invalid file paths
-        suffixParts.push(settings.statuses.map((s: string) => s.replace(/\//g, '')).join('-'));
+      if (settings.statuses && settings.statuses.length > 0) {
+        // Replace slash and spaces in statuses to avoid invalid/messy file paths
+        suffixParts.push(settings.statuses.map((s: string) => s.replace(/[\/\s]/g, '')).join('-'));
       }
       const suffix = suffixParts.length > 0 ? suffixParts.join('_') : undefined;
 
