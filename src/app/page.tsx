@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useTransition, useCallback, useRef } from 'react';
@@ -172,7 +171,7 @@ const ImportManager = ({ mode, manifest, onAdd, onDelete }: { mode: 'raw' | 'exe
                   mode === 'exempt' ? "border-blue-500/30 text-blue-600 hover:bg-blue-50/10" :
                   mode === 'journal' ? "border-amber-500/30 text-amber-600 hover:bg-amber-500/10" :
                   mode === 'sales' ? "border-emerald-500/30 text-emerald-600 hover:bg-amber-500/10" :
-                  mode === 'permits' ? "border-orange-500/30 text-orange-600 hover:bg-orange-500/10" :
+                  mode === 'permits' ? "border-orange-500/30 text-orange-600 hover:bg-amber-500/10" :
                   "border-red-500/30 text-red-600 hover:bg-red-500/10"
                 )}
               >
@@ -385,8 +384,12 @@ export default function Home() {
     const journals = journalData.length > 0 ? journalData : rawData.filter(r => r.sourceFile?.toLowerCase().includes('journal'));
     const rolls = rawData.filter(r => !r.sourceFile?.toLowerCase().includes('journal'));
     
-    const rollLookup = new Map<string, LandRecord>();
-    rolls.forEach(r => { if (r.pin) rollLookup.set(normalizePin(r.pin), r); });
+    const rollByPinLookup = new Map<string, LandRecord>();
+    const rollByArpLookup = new Map<string, LandRecord>();
+    rolls.forEach(r => { 
+      if (r.pin) rollByPinLookup.set(normalizePin(r.pin), r); 
+      if (r.arpNo) rollByArpLookup.set(r.arpNo.trim(), r);
+    });
 
     const salesLookup = new Map<string, LandRecord>();
     const cleanKey = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -395,6 +398,11 @@ export default function Home() {
       if (s.arpNo) {
         salesLookup.set(cleanKey(s.arpNo), s); 
       }
+    });
+
+    const cancelledLookup = new Map<string, LandRecord>();
+    cancelledData.forEach(c => {
+      if (c.arpNo) cancelledLookup.set(c.arpNo.trim(), c);
     });
 
     const historyPoolByPin = new Map<string, LandRecord[]>();
@@ -420,12 +428,27 @@ export default function Home() {
     const joined = journals.map(j => {
       const pinNorm = normalizePin(j.pin);
       const currentArpVal = extractArpNumeric(j.arpNo);
-      const rollMatch = rollLookup.get(pinNorm) || null;
       const salesMatch = salesLookup.get(cleanKey(j.arpNo)) || null;
       const isExempt = normalizedExemptPins.has(pinNorm);
 
+      // New Sequential Logic:
+      // 1. Get Journal.ARP -> Match in Roll.
+      // 2. From Roll record, get 'Previous' ARP field.
+      // 3. Match 'Previous' against 'Current' in Cancelled file.
+      const rollMatchByArp = rollByArpLookup.get(j.arpNo?.trim()) || null;
+      const rollMatchByPin = rollByPinLookup.get(pinNorm) || null;
+      
+      const rollMatch = rollMatchByArp || rollMatchByPin;
+      
+      let explicitPrevByRoll: LandRecord | null = null;
+      if (rollMatch?.previous) {
+        const prevArp = rollMatch.previous.trim();
+        explicitPrevByRoll = cancelledLookup.get(prevArp) || null;
+      }
+
+      // Proximity Fallback
       const history = historyPoolByPin.get(pinNorm) || [];
-      const prevRecord = history.find(h => extractArpNumeric(h.arpNo) < currentArpVal) || null;
+      const prevRecord = explicitPrevByRoll || history.find(h => extractArpNumeric(h.arpNo) < currentArpVal) || null;
 
       let considerationValue: string | number = 0;
       if (salesMatch) {
@@ -447,7 +470,7 @@ export default function Home() {
         docFileNo: salesMatch?.docFileNo || '',
         notary: salesMatch?.notary || '',
         cancelledOwner: prevRecord?.acctName || '',
-        cancelledTctNo: prevRecord?.tctNo || '' 
+        cancelledTctNo: prevRecord?.tctNo || ' ' 
       };
     });
 
@@ -477,6 +500,11 @@ export default function Home() {
     
     const rollWordIndex = new Map<string, Set<string>>();
     const normNameToRollRecords = new Map<string, LandRecord[]>();
+
+    const cancelledArpLookup = new Map<string, LandRecord>();
+    cancelledData.forEach(c => {
+      if (c.arpNo) cancelledArpLookup.set(c.arpNo.trim(), c);
+    });
 
     const genericTokens = new Set(['DEVELOPMENT', 'REALTY', 'HOLDINGS', 'CORPORATION', 'INC', 'CORP', 'CO', 'AND', 'ESTATE', 'PHILS', 'PHILIPPINES']);
 
@@ -526,18 +554,23 @@ export default function Home() {
                            (normPermitOwner ? exactNameLookup.get(normPermitOwner) : null);
       
       if (exactMatches && exactMatches.length > 0) {
-        return exactMatches.map(match => ({
-          ...p,
-          id: `${p.id}-${match.arpNo}-${match.pin}`,
-          isJoined: true,
-          isPotentialMatch: false,
-          isUnderReview,
-          rollArp: match.arpNo || '---',
-          rollAddress: match.address || '---',
-          rollArea: match.landArea || 0,
-          rollClass: (match.au || '').split('-').length > 1 ? match.au.split('-')[1] : match.au,
-          rollOwner: match.acctName || '---'
-        }));
+        return exactMatches.map(match => {
+          const explicitPrev = match.previous ? cancelledArpLookup.get(match.previous.trim()) : null;
+          return {
+            ...p,
+            id: `${p.id}-${match.arpNo}-${match.pin}`,
+            isJoined: true,
+            isPotentialMatch: false,
+            isUnderReview,
+            rollArp: match.arpNo || '---',
+            rollAddress: match.address || '---',
+            rollArea: match.landArea || 0,
+            rollClass: (match.au || '').split('-').length > 1 ? match.au.split('-')[1] : match.au,
+            rollOwner: match.acctName || '---',
+            cancelledOwner: explicitPrev?.acctName || '',
+            cancelledTctNo: explicitPrev?.tctNo || ''
+          };
+        });
       }
 
       if (normPermitOwner) {
@@ -578,31 +611,41 @@ export default function Home() {
         if (bestMatchName) {
            const matches = normNameToRollRecords.get(bestMatchName)!;
            if (maxScore >= 0.96) {
-             return matches.map(match => ({
-               ...p,
-               id: `${p.id}-${match.arpNo}-${match.pin}`,
-               isJoined: true,
-               isPotentialMatch: false,
-               isUnderReview,
-               rollArp: match.arpNo || '---',
-               rollAddress: match.address || '---',
-               rollArea: match.landArea || 0,
-               rollClass: (match.au || '').split('-').length > 1 ? match.au.split('-')[1] : match.au,
-               rollOwner: match.acctName || '---'
-             }));
+             return matches.map(match => {
+               const explicitPrev = match.previous ? cancelledArpLookup.get(match.previous.trim()) : null;
+               return {
+                 ...p,
+                 id: `${p.id}-${match.arpNo}-${match.pin}`,
+                 isJoined: true,
+                 isPotentialMatch: false,
+                 isUnderReview,
+                 rollArp: match.arpNo || '---',
+                 rollAddress: match.address || '---',
+                 rollArea: match.landArea || 0,
+                 rollClass: (match.au || '').split('-').length > 1 ? match.au.split('-')[1] : match.au,
+                 rollOwner: match.acctName || '---',
+                 cancelledOwner: explicitPrev?.acctName || '',
+                 cancelledTctNo: explicitPrev?.tctNo || ''
+               };
+             });
            } else if (maxScore >= 0.88) {
-             return matches.map(match => ({
-               ...p,
-               id: `${p.id}-${match.arpNo}-${match.pin}`,
-               isJoined: true,
-               isPotentialMatch: true, 
-               isUnderReview,
-               rollArp: match.arpNo || '---',
-               rollAddress: match.address || '---',
-               rollArea: match.landArea || 0,
-               rollClass: (match.au || '').split('-').length > 1 ? match.au.split('-')[1] : match.au,
-               rollOwner: match.acctName || '---'
-             }));
+             return matches.map(match => {
+               const explicitPrev = match.previous ? cancelledArpLookup.get(match.previous.trim()) : null;
+               return {
+                 ...p,
+                 id: `${p.id}-${match.arpNo}-${match.pin}`,
+                 isJoined: true,
+                 isPotentialMatch: true, 
+                 isUnderReview,
+                 rollArp: match.arpNo || '---',
+                 rollAddress: match.address || '---',
+                 rollArea: match.landArea || 0,
+                 rollClass: (match.au || '').split('-').length > 1 ? match.au.split('-')[1] : match.au,
+                 rollOwner: match.acctName || '---',
+                 cancelledOwner: explicitPrev?.acctName || '',
+                 cancelledTctNo: explicitPrev?.tctNo || ''
+               };
+             });
            }
         }
       }
@@ -615,19 +658,21 @@ export default function Home() {
         rollAddress: '---',
         rollArea: 0,
         rollClass: '---',
-        rollOwner: '---'
+        rollOwner: '---',
+        cancelledOwner: '',
+        cancelledTctNo: ''
       }];
     });
-  }, [workflowMode, permitData, rawData]);
+  }, [workflowMode, permitData, rawData, cancelledData]);
 
   const stats = useMemo(() => {
     const isAbstractLocal = workflowMode === 'abstract';
     const isBuildingPermitLocal = workflowMode === 'building-permit';
 
     if (isAbstractLocal) {
-      const joined = joinedAbstractData;
       const journals = journalData.length > 0 ? journalData : rawData.filter(r => r.sourceFile?.toLowerCase().includes('journal'));
       const rolls = rawData.filter(r => !r.sourceFile?.toLowerCase().includes('journal'));
+      const joined = joinedAbstractData;
       const linkedCount = joined.filter(r => r.isJoined).length;
       const unlinkedCount = joined.length - linkedCount;
       const exemptedCount = joined.filter(r => r.taxability === 'E').length;
@@ -1047,9 +1092,6 @@ export default function Home() {
   const handleUnarchiveRecord = useCallback((record: LandRecord) => { handleSaveRecord({ ...record, isManualArchive: false }, true); toast({ title: "Record Restored", description: "The record has been moved back to the Results tab." }); }, [handleSaveRecord]);
 
   const handleRowClick = useCallback((record: LandRecord) => { 
-    // Allow details in abstract mode as well
-    if (workflowMode === 'building-permit') return; 
-    
     setSelectedRecord(record); 
     if (record.statusLabel === 'DUPLICATE') { 
       const validPeer = previewData.find(p => p.pin === record.pin && !p.isDuplicate && !p.isCleanup && !p.isManualArchive); 
@@ -1058,7 +1100,7 @@ export default function Home() {
     } else { 
       setComparisonRecord(null); 
     } 
-  }, [previewData, workflowMode]);
+  }, [previewData]);
 
   const handleFinalExport = async (settings: ExportFinalSettings) => {
     setIsExporting(true); setIsExportSettingsOpen(false);
@@ -1244,6 +1286,8 @@ export default function Home() {
         "Expected Date of Completion": "",
         "Permit No.": p.buildingPermitNo || "",
         "Permittee Owner": p.barangayName || "",
+        "OWNERSHIP TRANSFER FROM": (p as any).cancelledOwner || "",
+        "TITLE NO. (PREV)": (p as any).cancelledTctNo || "",
         "ARP/TDN": (p as any).rollArp || "",
         "Address of Permittee": (p as any).rollAddress || "",
         "Location of Property": p.location || "",
@@ -1259,7 +1303,7 @@ export default function Home() {
       }));
 
       const wb = XLSX.utils.book_new();
-      const headers = ["Date Issued", "Proposed Date of Construction", "Expected Date of Completion", "Permit No.", "Permittee Owner", "ARP/TDN", "Address of Permittee", "Location of Property", "Scope of Work", "Kind of Building", "Structural Type", "No. of Story", "Total Floor Area", "Estimated Building Cost", "Class", "Potential Match", "Review Status"];
+      const headers = ["Date Issued", "Proposed Date of Construction", "Expected Date of Completion", "Permit No.", "Permittee Owner", "OWNERSHIP TRANSFER FROM", "TITLE NO. (PREV)", "ARP/TDN", "Address of Permittee", "Location of Property", "Scope of Work", "Kind of Building", "Structural Type", "No. of Story", "Total Floor Area", "Estimated Building Cost", "Class", "Potential Match", "Review Status"];
       const ws = XLSX.utils.aoa_to_sheet([
         ["ABSTRACT OF BUILDING PERMITS"],
         ["PARAÑAQUE CITY - REAL PROPERTY DATA DIVISION"],
