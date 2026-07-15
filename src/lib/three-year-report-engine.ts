@@ -96,7 +96,9 @@ export const buildThreeYearReportData = (
         expandedSales.push({
           ...sale,
           arpNo: expandedArp,
-          id: `${sale.id}-exp-${index}` // Prevent duplicate React keys
+          id: `${sale.id}-exp-${index}`, // Prevent duplicate React keys
+          sellingPrice: index === 0 ? sale.sellingPrice : 0,
+          sellingPriceRef: index === 0 ? sale.sellingPriceRef : (sale.sellingPriceRef || arps[0])
         });
       });
     }
@@ -280,7 +282,7 @@ export const exportThreeYearReport = (rows: ThreeYearReportRow[], filenameSuffix
     c(5, currentRow, '');                                         // Sub-class — blank
     c(6, currentRow, dataRow.landArea !== undefined && dataRow.landArea !== 0
       ? dataRow.landArea : ((dataRow as any).rollArea || ''));    // Area
-    c(7, currentRow, dataRow.sellingPrice || '');                 // Selling Price
+    c(7, currentRow, dataRow.sellingPriceRef ? `Ref: ${dataRow.sellingPriceRef}` : (dataRow.sellingPrice || ''));                 // Selling Price
     c(8, currentRow, dataRow.salesValue || '');                   // Sales Value (Peso/Per Sqm)
     c(9, currentRow, '');                                         // Lowest  — blank
     c(10, currentRow, '');                                        // Median  — blank

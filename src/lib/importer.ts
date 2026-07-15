@@ -223,7 +223,7 @@ export const mapRawToRecords = (raw: any[], fileName: string, mode: 'raw' | 'exe
         id: uniqueId,
         arpNo: arp,
         newArpNo: index === 0 ? getValue('newArpNo') : "",
-        sellingPrice: baseRecord.sellingPrice,
+        sellingPrice: index === 0 ? baseRecord.sellingPrice : 0,
         sellingPriceRef: index === 0 ? "" : expandedArps[0]
       };
     });

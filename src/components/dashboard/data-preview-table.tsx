@@ -277,7 +277,11 @@ const RecordRow = memo(({
         </TableCell>
         
         <TableCell className={cn("text-right font-mono p-3 font-black border-l", !reportRow.isJoined ? "text-red-600" : "text-emerald-600")}>
-          {reportRow.sellingPrice ? `₱${reportRow.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '---'}
+          {reportRow.sellingPriceRef ? (
+            <span className="text-xs text-muted-foreground italic">Ref: {reportRow.sellingPriceRef}</span>
+          ) : (
+            reportRow.sellingPrice ? `₱${reportRow.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '---'
+          )}
         </TableCell>
 
         <TableCell className={cn("text-right font-mono p-3 font-black border-l", !reportRow.isJoined ? "text-red-600" : "text-emerald-600")}>
