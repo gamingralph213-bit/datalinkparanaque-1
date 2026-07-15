@@ -43,7 +43,8 @@ import {
   Construction,
   HardHat,
   AlertCircle,
-  Building2
+  Building2,
+  Network
 } from 'lucide-react';
 import {
   BarChart,
@@ -128,6 +129,7 @@ import { startOfDay, endOfDay, parse, isValid } from 'date-fns';
 // Sub-components
 import { MetricOverview } from '@/components/dashboard/metric-overview';
 import { AnalyticsView } from '@/components/dashboard/analytics-view';
+import { DataFlowTab } from '@/components/dashboard/data-flow-tab';
 
 const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#f97316'];
 
@@ -589,6 +591,7 @@ export default function Home() {
           const explicitPrev = match.previous ? cancelledArpLookup.get(match.previous.trim()) : null;
           return {
             ...p,
+            _sourceId: p.id,
             id: `${p.id}-${match.arpNo}-${match.pin}`,
             isJoined: true,
             isPotentialMatch: false,
@@ -646,6 +649,7 @@ export default function Home() {
               const explicitPrev = match.previous ? cancelledArpLookup.get(match.previous.trim()) : null;
               return {
                 ...p,
+                _sourceId: p.id,
                 id: `${p.id}-${match.arpNo}-${match.pin}`,
                 isJoined: true,
                 isPotentialMatch: false,
@@ -664,6 +668,7 @@ export default function Home() {
               const explicitPrev = match.previous ? cancelledArpLookup.get(match.previous.trim()) : null;
               return {
                 ...p,
+                _sourceId: p.id,
                 id: `${p.id}-${match.arpNo}-${match.pin}`,
                 isJoined: true,
                 isPotentialMatch: true,
@@ -683,6 +688,7 @@ export default function Home() {
 
       return [{
         ...p,
+        _sourceId: p.id,
         isJoined: false,
         isUnderReview,
         rollArp: '---',
@@ -1179,12 +1185,16 @@ export default function Home() {
 
   const handleSaveRecord = useCallback((updatedRecord: LandRecord, silent = false) => {
     setSelectedRecord(null); setComparisonRecord(null); if (!silent) setIsProcessing(true);
+    // Joined rows (permit / 3yr) have a composite id but store the original in _sourceId
+    const sourceId = (updatedRecord as any)._sourceId ?? updatedRecord.id;
+    const matchFn = (r: LandRecord) => r.id === updatedRecord.id || r.id === sourceId;
     startTransition(() => {
-      setRawData(prev => prev.map(r => r.id === updatedRecord.id ? updatedRecord : r));
-      setJournalData(prev => prev.map(r => r.id === updatedRecord.id ? updatedRecord : r));
-      setSalesData(prev => prev.map(r => r.id === updatedRecord.id ? updatedRecord : r));
-      setCancelledData(prev => prev.map(r => r.id === updatedRecord.id ? updatedRecord : r));
-      setPermitData(prev => prev.map(r => r.id === updatedRecord.id ? updatedRecord : r));
+      setRawData(prev => prev.map(r => matchFn(r) ? { ...updatedRecord, id: r.id } : r));
+      setJournalData(prev => prev.map(r => matchFn(r) ? { ...updatedRecord, id: r.id } : r));
+      setSalesData(prev => prev.map(r => matchFn(r) ? { ...updatedRecord, id: r.id } : r));
+      setCancelledData(prev => prev.map(r => matchFn(r) ? { ...updatedRecord, id: r.id } : r));
+      setPermitData(prev => prev.map(r => matchFn(r) ? { ...updatedRecord, id: r.id } : r));
+      setThreeYearSalesData(prev => prev.map(r => matchFn(r) ? { ...updatedRecord, id: r.id } : r));
       setTimeout(() => {
         const combined = [...rawData, ...journalData, ...salesData, ...cancelledData, ...permitData];
         if (processedData.length > 0) { runProcessWithData(combined, combined.length, importedFileName, silent); }
@@ -1197,7 +1207,6 @@ export default function Home() {
   const handleUnarchiveRecord = useCallback((record: LandRecord) => { handleSaveRecord({ ...record, isManualArchive: false }, true); toast({ title: "Record Restored", description: "The record has been moved back to the Results tab." }); }, [handleSaveRecord]);
 
   const handleRowClick = useCallback((record: LandRecord) => { 
-    if (workflowMode === 'abstract' || workflowMode === 'building-permit' || workflowMode === 'three-year-report') return;
 
     setSelectedRecord(record); 
     if (record.statusLabel === 'DUPLICATE') { 
@@ -1569,7 +1578,7 @@ export default function Home() {
                 ) : (
                   <Card className="flex-1 overflow-hidden flex flex-col min-h-0 shadow-xl border-white/5 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="p-3 bg-muted/30 border-b flex flex-col xl:flex-row items-center justify-between gap-4 shrink-0">
-                      <TabsList className="bg-background border"><TabsTrigger value="results" className={cn("data-[state=active]:text-white h-9 text-xs font-bold px-4", workflowMode === 'three-year-report' ? "data-[state=active]:bg-violet-600" : "data-[state=active]:bg-primary")}><TableIcon className="w-3.5 h-3.5 mr-2" /> {workflowMode === 'abstract' ? 'Joined Preview' : workflowMode === 'building-permit' ? 'Permit Join Preview' : workflowMode === 'three-year-report' ? '3YR Join Preview' : 'Results'}</TabsTrigger>{workflowMode !== 'abstract' && workflowMode !== 'building-permit' && workflowMode !== 'three-year-report' ? (<><TabsTrigger value="archive" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white h-9 text-xs font-bold px-4"><Archive className="w-3.5 h-3.5 mr-2" /> Archive</TabsTrigger><TabsTrigger value="analytics" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white h-9 text-xs font-bold px-4"><BarChart3 className="w-3.5 h-3.5 mr-2" /> Analytics</TabsTrigger><TabsTrigger value="audit" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white h-9 text-xs font-bold px-4"><ShieldCheck className="w-3.5 h-3.5 mr-2" /> Audit Log</TabsTrigger></>) : (<TabsTrigger value="analytics" className={cn("data-[state=active]:text-white h-9 text-xs font-bold px-4", workflowMode === 'three-year-report' ? "data-[state=active]:bg-violet-600" : "data-[state=active]:bg-blue-600")}><BarChart3 className="w-3.5 h-3.5 mr-2" /> Relational Analytics</TabsTrigger>)}</TabsList>
+                      <TabsList className="bg-background border"><TabsTrigger value="results" className={cn("data-[state=active]:text-white h-9 text-xs font-bold px-4", workflowMode === 'three-year-report' ? "data-[state=active]:bg-violet-600" : "data-[state=active]:bg-primary")}><TableIcon className="w-3.5 h-3.5 mr-2" /> {workflowMode === 'abstract' ? 'Joined Preview' : workflowMode === 'building-permit' ? 'Permit Join Preview' : workflowMode === 'three-year-report' ? '3YR Join Preview' : 'Results'}</TabsTrigger>{workflowMode !== 'abstract' && workflowMode !== 'building-permit' && workflowMode !== 'three-year-report' ? (<><TabsTrigger value="archive" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white h-9 text-xs font-bold px-4"><Archive className="w-3.5 h-3.5 mr-2" /> Archive</TabsTrigger><TabsTrigger value="analytics" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white h-9 text-xs font-bold px-4"><BarChart3 className="w-3.5 h-3.5 mr-2" /> Analytics</TabsTrigger><TabsTrigger value="audit" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white h-9 text-xs font-bold px-4"><ShieldCheck className="w-3.5 h-3.5 mr-2" /> Audit Log</TabsTrigger><TabsTrigger value="flow" className="data-[state=active]:bg-slate-700 data-[state=active]:text-white h-9 text-xs font-bold px-4"><Network className="w-3.5 h-3.5 mr-2" /> Data Flow</TabsTrigger></>) : (<><TabsTrigger value="analytics" className={cn("data-[state=active]:text-white h-9 text-xs font-bold px-4", workflowMode === 'three-year-report' ? "data-[state=active]:bg-violet-600" : "data-[state=active]:bg-blue-600")}><BarChart3 className="w-3.5 h-3.5 mr-2" /> Relational Analytics</TabsTrigger><TabsTrigger value="flow" className="data-[state=active]:bg-slate-700 data-[state=active]:text-white h-9 text-xs font-bold px-4"><Network className="w-3.5 h-3.5 mr-2" /> Data Flow</TabsTrigger></>)}</TabsList>
                       {viewMode !== 'analytics' && viewMode !== 'audit' && (
                         <div className="flex flex-1 items-center gap-2 w-full max-w-[1400px]">
                           <div className="flex items-center gap-2 flex-1 min-w-0"><Select value={searchField} onValueChange={setSearchField}><SelectTrigger className="w-[120px] h-9 text-xs font-bold uppercase shrink-0"><SelectValue placeholder="In" /></SelectTrigger><SelectContent>{workflowMode === 'abstract' ? (<><SelectItem value="all">All Fields</SelectItem><SelectItem value="arpNo">ARP No.</SelectItem><SelectItem value="date">Date</SelectItem><SelectItem value="acctName">Transfer (To)</SelectItem><SelectItem value="rollAddress">Reg. Address</SelectItem><SelectItem value="location">Location</SelectItem><SelectItem value="pin">PIN</SelectItem><SelectItem value="rollTctNo">TCT No.</SelectItem></>) : workflowMode === 'building-permit' ? (<><SelectItem value="all">All Fields</SelectItem><SelectItem value="buildingPermitNo">Permit No.</SelectItem><SelectItem value="acctName">Owner</SelectItem><SelectItem value="location">Property Location</SelectItem><SelectItem value="dateIssued">Date Issued</SelectItem></>) : workflowMode === 'three-year-report' ? (<><SelectItem value="all">All Fields</SelectItem><SelectItem value="kindGroup">Kind of Property</SelectItem><SelectItem value="acctName">Name of New Owner</SelectItem><SelectItem value="arpNo">ARPN/PIN</SelectItem><SelectItem value="location">Location</SelectItem><SelectItem value="salesClassification">Classification</SelectItem></>) : (<><SelectItem value="all">All Fields</SelectItem><SelectItem value="date">Date</SelectItem><SelectItem value="arpNo">ARP No#</SelectItem><SelectItem value="pin">PIN</SelectItem><SelectItem value="acctName">Account</SelectItem><SelectItem value="address">Address</SelectItem><SelectItem value="update">Update</SelectItem><SelectItem value="taxability">Taxability</SelectItem><SelectItem value="kind">Kind</SelectItem><SelectItem value="au">AU</SelectItem></>)}</SelectContent></Select><div className="relative flex-1 min-w-0"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input placeholder={`Search property records...`} className="pl-9 text-sm h-9 w-full" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /></div></div>
@@ -1594,6 +1603,7 @@ export default function Home() {
                       {workflowMode !== 'abstract' && workflowMode !== 'building-permit' && workflowMode !== 'three-year-report' && (<TabsContent value="archive" className="m-0 h-full data-[state=active]:flex data-[state=active]:flex-col"><DataPreviewTable data={filteredDisplayData} isProcessed={true} onRowClick={handleRowClick} showLabels /></TabsContent>)}
                       <TabsContent value="analytics" className="m-0 h-full p-6 overflow-y-auto scrollbar-vertical-custom bg-muted/5 data-[state=active]:flex data-[state=active]:flex-col"><AnalyticsView analyticsData={analyticsData} onExplain={setExplainType} onExpand={setExpandedChart} taxabilityFilter={taxabilityFilter} onTaxabilityFilterChange={setTaxabilityFilter} workflowMode={workflowMode === 'building-permit' || workflowMode === 'three-year-report' ? 'standard' : (workflowMode as any)} /></TabsContent>
                       <TabsContent value="audit" className="m-0 h-full data-[state=active]:flex data-[state=active]:flex-col"><AuditLogTab reports={processingReports} onClearHistory={() => { setProcessingReports([]); toast({ title: "History Purged", description: "Audit logs cleared permanently." }); }} onDeleteReport={(id) => { setProcessingReports(prev => prev.filter(r => r.id !== id)); toast({ title: "Log Deleted", description: "Audit entry has been removed." }); }} /></TabsContent>
+                      <TabsContent value="flow" className="m-0 h-full data-[state=active]:flex data-[state=active]:flex-col"><DataFlowTab workflowMode={workflowMode} /></TabsContent>
                     </div>
                   </Card>
                 )}

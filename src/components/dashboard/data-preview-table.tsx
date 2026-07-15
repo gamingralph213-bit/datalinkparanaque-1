@@ -167,8 +167,9 @@ const RecordRow = memo(({
     const permitRow = row as any;
     return (
       <TableRow 
+        onClick={() => onRowClick(row)}
         className={cn(
-          "border-b transition-all duration-200 hover:bg-muted/30",
+          "border-b transition-all duration-200 hover:bg-muted/30 cursor-pointer",
           !permitRow.isJoined && "bg-orange-50/30 dark:bg-red-950/20",
           (permitRow.isPotentialMatch || permitRow.isUnderReview) && "bg-amber-500/5"
         )}
@@ -244,8 +245,9 @@ const RecordRow = memo(({
     const reportRow = row as any;
     return (
       <TableRow 
+        onClick={() => onRowClick(row)}
         className={cn(
-          "border-b transition-all duration-200 hover:bg-muted/30",
+          "border-b transition-all duration-200 hover:bg-muted/30 cursor-pointer",
           !reportRow.isJoined && "bg-orange-50/30 dark:bg-red-950/20"
         )}
       >

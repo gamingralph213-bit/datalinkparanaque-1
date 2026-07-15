@@ -109,6 +109,7 @@ export const buildThreeYearReportData = (
     rows.push({
       // --- Base: spread the Sales record so all LandRecord fields are present ---
       ...sale,
+      _sourceId: sale.id,
       id: `3yr-${sale.id}-${rollMatch?.id ?? 'unlinked'}`,
 
       // --- Overrides sourced from the Roll ---
@@ -122,11 +123,6 @@ export const buildThreeYearReportData = (
       rollOwner: rollMatch?.acctName || '',
 
       // --- Status markers ---
-      // isJoined:        ARP was found in the Assessment Roll
-      // isOtherUnmapped: Matched but kind is not L or B (e.g. M-RESI, M-COMM, machinery)
-      // isUnderReview:   Matched L/B property but missing critical fields
-      // "Unlinked":      !isJoined  (no status flag needed — absence of isJoined is enough)
-      // "Linked":        isJoined && !isOtherUnmapped && !isUnderReview
       isJoined: !!rollMatch,
       isOtherUnmapped: !!rollMatch && kindGroup === 'Other',
       isUnderReview: !!rollMatch && kindGroup !== 'Other' && (
