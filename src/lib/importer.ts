@@ -61,7 +61,7 @@ export const HEADER_ALIASES = {
   rollType: ['rolltype', 'roll', 'status'],
   // Sales specific
   sellingPrice: ['sellingprice', 'consideration', 'amount', 'considerationamount'],
-  salesValue: ['salesvalue', 'salesvaluepsqm', 'valuepsqm'],
+  salesValue: ['salesvalue', 'salesvaluepsqm', 'valuepsqm', 'salesvaluepesopersqm'],
   docFileNo: ['documentfileno', 'docfileno', 'docno', 'fileno', 'documentfilenumber'],
   notary: [
     'notary', 'notarypublic', 'notaryname', 'atty', 'agent', 'notaryagent', 

@@ -13,6 +13,12 @@ export interface ThreeYearReportRow extends LandRecord {
   rollOwner: string;
   /** True when ARP matched the roll AND kind is not Land/Building (e.g. M-RESI, M-COMM) */
   isOtherUnmapped: boolean;
+  /** Selling Price from Sales file */
+  sellingPrice?: number;
+  /** Sales Value (Peso/Per Sqm) from Sales file */
+  salesValue?: number;
+  /** Internal tracking ID from the original source record */
+  _sourceId?: string;
 }
 
 /** Strips whitespace for reliable ARP/Tax Dec. No. matching. */
@@ -213,7 +219,9 @@ export const exportThreeYearReport = (rows: ThreeYearReportRow[], filenameSuffix
   c(4, R_HEADER, 'Classification');
   c(5, R_HEADER, 'Sub-class/Type of Bldg.');
   c(6, R_HEADER, 'Area');
-  c(7, R_HEADER, 'Sales Value'); // merged H5:J5 in the merges array
+  c(7, R_HEADER, 'Selling Price');
+  c(8, R_HEADER, 'Sales Value\n(Peso/Per Sqm)');
+  c(9, R_HEADER, 'Sales Value'); // merged J5:L5 in the merges array
 
   // ── Header Row 2 – numbered sub-headers (Row 6) ───────────────────────────
   c(0, R_SUBHEADER, '(1)');
@@ -223,20 +231,22 @@ export const exportThreeYearReport = (rows: ThreeYearReportRow[], filenameSuffix
   c(4, R_SUBHEADER, '(5)');
   c(5, R_SUBHEADER, '(6)');
   c(6, R_SUBHEADER, '(7)');
-  c(7, R_SUBHEADER, 'Lowest');
-  c(8, R_SUBHEADER, 'Median');
-  c(9, R_SUBHEADER, 'Highest');
+  c(7, R_SUBHEADER, '(8)');
+  c(8, R_SUBHEADER, '(9)');
+  c(9, R_SUBHEADER, 'Lowest');
+  c(10, R_SUBHEADER, 'Median');
+  c(11, R_SUBHEADER, 'Highest');
 
   // ── Merges list (populated below with data-group merges) ──────────────────
   const merges: XLSX.Range[] = [
-    // Title A1:J1
-    { s: { r: R_TITLE    - 1, c: 0 }, e: { r: R_TITLE    - 1, c: 9 } },
-    // Subtitle A2:J2
-    { s: { r: R_SUBTITLE - 1, c: 0 }, e: { r: R_SUBTITLE - 1, c: 9 } },
-    // Date A3:J3
-    { s: { r: R_DATE     - 1, c: 0 }, e: { r: R_DATE     - 1, c: 9 } },
-    // "Sales Value" merged header H5:J5
-    { s: { r: R_HEADER   - 1, c: 7 }, e: { r: R_HEADER   - 1, c: 9 } },
+    // Title A1:L1
+    { s: { r: R_TITLE    - 1, c: 0 }, e: { r: R_TITLE    - 1, c: 11 } },
+    // Subtitle A2:L2
+    { s: { r: R_SUBTITLE - 1, c: 0 }, e: { r: R_SUBTITLE - 1, c: 11 } },
+    // Date A3:L3
+    { s: { r: R_DATE     - 1, c: 0 }, e: { r: R_DATE     - 1, c: 11 } },
+    // "Sales Value" merged header J5:L5
+    { s: { r: R_HEADER   - 1, c: 9 }, e: { r: R_HEADER   - 1, c: 11 } },
   ];
 
   // ── Write data rows ────────────────────────────────────────────────────────
@@ -260,15 +270,17 @@ export const exportThreeYearReport = (rows: ThreeYearReportRow[], filenameSuffix
     c(5, currentRow, '');                                         // Sub-class — blank
     c(6, currentRow, dataRow.landArea !== undefined && dataRow.landArea !== 0
       ? dataRow.landArea : ((dataRow as any).rollArea || ''));    // Area
-    c(7, currentRow, '');                                         // Lowest  — blank
-    c(8, currentRow, '');                                         // Median  — blank
-    c(9, currentRow, '');                                         // Highest — blank
+    c(7, currentRow, dataRow.sellingPrice || '');                 // Selling Price
+    c(8, currentRow, dataRow.salesValue || '');                   // Sales Value (Peso/Per Sqm)
+    c(9, currentRow, '');                                         // Lowest  — blank
+    c(10, currentRow, '');                                        // Median  — blank
+    c(11, currentRow, '');                                        // Highest — blank
     currentRow++;
   }
 
   // ── Finalize sheet ─────────────────────────────────────────────────────────
   const lastRow = Math.max(currentRow - 1, R_DATA);
-  ws['!ref']    = `A1:J${lastRow}`;
+  ws['!ref']    = `A1:L${lastRow}`;
   ws['!merges'] = merges;
   ws['!cols']   = [
     { wch: 14 }, // A: Kind of Property
@@ -278,9 +290,11 @@ export const exportThreeYearReport = (rows: ThreeYearReportRow[], filenameSuffix
     { wch: 16 }, // E: Classification
     { wch: 22 }, // F: Sub-class/Type of Bldg.
     { wch: 10 }, // G: Area
-    { wch: 14 }, // H: Lowest
-    { wch: 14 }, // I: Median
-    { wch: 14 }, // J: Highest
+    { wch: 18 }, // H: Selling Price
+    { wch: 18 }, // I: Sales Value (Peso/Sqm)
+    { wch: 14 }, // J: Lowest
+    { wch: 14 }, // K: Median
+    { wch: 14 }, // L: Highest
   ];
 
   const suffixStr = filenameSuffix ? `-${filenameSuffix}` : '';

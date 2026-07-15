@@ -307,6 +307,14 @@ export function RecordDetailModal({ record, comparisonRecord, open, onOpenChange
                       <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Area (sqm)</label>
                       <Input type="number" value={editedRecord.landArea || ''} onChange={e => handleChange('landArea', e.target.value)} className="h-9 text-xs font-bold font-mono" />
                     </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1"><DollarSign className="w-2.5 h-2.5 text-emerald-600" /> Selling Price</label>
+                      <Input type="number" value={r.sellingPrice || ''} onChange={e => handleAnyChange('sellingPrice', e.target.value === '' ? 0 : Number(e.target.value))} className="h-9 text-xs font-bold font-mono text-emerald-600" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Sales Value (Peso/Sqm)</label>
+                      <Input type="number" value={r.salesValue || ''} onChange={e => handleAnyChange('salesValue', e.target.value === '' ? 0 : Number(e.target.value))} className="h-9 text-xs font-bold font-mono text-emerald-600" />
+                    </div>
                     <StaticItem label="Kind of Property (Roll)" value={
                       !r.isJoined ? '---' : r.kindGroup === 'Land' ? 'Land' : r.kindGroup === 'Building' ? 'Building' : r.kind || 'Other'
                     } accent="text-emerald-700 text-sm font-black" />
@@ -318,15 +326,15 @@ export function RecordDetailModal({ record, comparisonRecord, open, onOpenChange
                   <SectionTitle icon={BarChart3} label={r.isJoined ? "Sales Values" : "Sales Values — No roll match"} color={r.isJoined ? "text-emerald-700" : "text-muted-foreground"} />
                   <div className="grid grid-cols-3 gap-4">
                     <div className="p-3 rounded-xl bg-background/60 border border-white/10 space-y-2">
-                      <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest text-center">Lowest (8)</p>
+                      <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest text-center">Lowest (10)</p>
                       <Input type="number" value={r.saleLow || ''} onChange={e => handleAnyChange('saleLow', e.target.value === '' ? 0 : Number(e.target.value))} className="h-9 text-xs font-bold font-mono text-emerald-600 text-center" placeholder="0.00" />
                     </div>
                     <div className="p-3 rounded-xl bg-emerald-600/10 border border-emerald-500/20 space-y-2">
-                      <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest text-center">Median (9)</p>
+                      <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest text-center">Median (11)</p>
                       <Input type="number" value={r.saleMedian || ''} onChange={e => handleAnyChange('saleMedian', e.target.value === '' ? 0 : Number(e.target.value))} className="h-9 text-xs font-bold font-mono text-emerald-700 text-center border-emerald-300 focus-visible:ring-emerald-500" placeholder="0.00" />
                     </div>
                     <div className="p-3 rounded-xl bg-background/60 border border-white/10 space-y-2">
-                      <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest text-center">Highest (10)</p>
+                      <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest text-center">Highest (12)</p>
                       <Input type="number" value={r.saleHigh || ''} onChange={e => handleAnyChange('saleHigh', e.target.value === '' ? 0 : Number(e.target.value))} className="h-9 text-xs font-bold font-mono text-emerald-600 text-center" placeholder="0.00" />
                     </div>
                   </div>

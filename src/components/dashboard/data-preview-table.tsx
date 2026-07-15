@@ -276,6 +276,14 @@ const RecordRow = memo(({
           {reportRow.landArea ? reportRow.landArea.toLocaleString() : (reportRow.rollArea?.toLocaleString() || '0')}
         </TableCell>
         
+        <TableCell className="text-right font-mono p-3 font-black border-l text-emerald-600">
+          {reportRow.sellingPrice ? `₱${reportRow.sellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '---'}
+        </TableCell>
+
+        <TableCell className="text-right font-mono p-3 font-black border-l text-emerald-600">
+          {reportRow.salesValue ? `₱${reportRow.salesValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '---'}
+        </TableCell>
+
         {/* Sales Values */}
         <TableCell className="text-right font-mono p-3 font-black border-l bg-emerald-50/30 dark:bg-emerald-950/20 text-muted-foreground/30">
           ---
@@ -556,6 +564,12 @@ export function DataPreviewTable({ data, isProcessed = false, onRowClick, showLa
                   <TableHead rowSpan={2} className="min-w-[120px] font-black text-center uppercase bg-card border-l h-auto py-2">
                     Area<br/><span className="text-muted-foreground font-normal">(7)</span>
                   </TableHead>
+                  <TableHead rowSpan={2} className="min-w-[150px] font-black text-center uppercase bg-card border-l h-auto py-2 text-emerald-700">
+                    Selling Price<br/><span className="text-muted-foreground font-normal">(8)</span>
+                  </TableHead>
+                  <TableHead rowSpan={2} className="min-w-[150px] font-black text-center uppercase bg-card border-l h-auto py-2 text-emerald-700">
+                    Sales Value<br/><span className="text-muted-foreground font-normal text-[9px]">(Peso/Per Sqm)</span><br/><span className="text-muted-foreground font-normal">(9)</span>
+                  </TableHead>
                   <TableHead colSpan={3} className="text-center font-black uppercase bg-emerald-50 dark:bg-emerald-950 border-x border-b-0 border-emerald-100 dark:border-emerald-900 h-auto py-2">
                     Sales Value
                   </TableHead>
@@ -563,13 +577,13 @@ export function DataPreviewTable({ data, isProcessed = false, onRowClick, showLa
                 </TableRow>
                 <TableRow className="hover:bg-transparent border-b-2">
                   <TableHead className="min-w-[100px] text-center font-black uppercase bg-emerald-50 dark:bg-emerald-950 border-l border-emerald-100 dark:border-emerald-900 h-auto py-2">
-                    Lowest<br/><span className="text-muted-foreground font-normal">(8)</span>
+                    Lowest<br/><span className="text-muted-foreground font-normal">(10)</span>
                   </TableHead>
                   <TableHead className="min-w-[100px] text-center font-black uppercase bg-emerald-50 dark:bg-emerald-950 border-l border-emerald-100 dark:border-emerald-900 h-auto py-2">
-                    Median<br/><span className="text-muted-foreground font-normal">(9)</span>
+                    Median<br/><span className="text-muted-foreground font-normal">(11)</span>
                   </TableHead>
                   <TableHead className="min-w-[100px] text-center font-black uppercase bg-emerald-50 dark:bg-emerald-950 border-x border-emerald-100 dark:border-emerald-900 h-auto py-2">
-                    Highest<br/><span className="text-muted-foreground font-normal">(10)</span>
+                    Highest<br/><span className="text-muted-foreground font-normal">(12)</span>
                   </TableHead>
                 </TableRow>
               </>
