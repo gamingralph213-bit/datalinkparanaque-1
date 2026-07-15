@@ -199,7 +199,7 @@ export const exportThreeYearReport = (rows: ThreeYearReportRow[], filenameSuffix
   const R_SUBHEADER = 6;
   const R_DATA      = 7; // first data row
 
-  const COL_LETTERS = 'ABCDEFGHIJ'.split('');
+  const COL_LETTERS = 'ABCDEFGHIJKL'.split('');
 
   /** Write a cell value at (col 0-indexed, row 1-indexed). */
   const c = (col: number, row: number, v: any): void => {
@@ -208,7 +208,7 @@ export const exportThreeYearReport = (rows: ThreeYearReportRow[], filenameSuffix
     // Apply center alignment for all rows >= 5 (Header row and below)
     let style = {};
     if (row >= 5) {
-      style = { alignment: { horizontal: 'center', vertical: 'center' } };
+      style = { alignment: { horizontal: 'center', vertical: 'center', wrapText: true } };
     }
 
     ws[addr] = typeof v === 'number' 
@@ -243,9 +243,9 @@ export const exportThreeYearReport = (rows: ThreeYearReportRow[], filenameSuffix
   c(6, R_SUBHEADER, '(7)');
   c(7, R_SUBHEADER, '(8)');
   c(8, R_SUBHEADER, '(9)');
-  c(9, R_SUBHEADER, 'Lowest');
-  c(10, R_SUBHEADER, 'Median');
-  c(11, R_SUBHEADER, 'Highest');
+  c(9, R_SUBHEADER, 'Lowest\n(10)');
+  c(10, R_SUBHEADER, 'Median\n(11)');
+  c(11, R_SUBHEADER, 'Highest\n(12)');
 
   // ── Merges list (populated below with data-group merges) ──────────────────
   const merges: XLSX.Range[] = [
