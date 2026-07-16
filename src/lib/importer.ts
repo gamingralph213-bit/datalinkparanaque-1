@@ -8,7 +8,7 @@ import { LandRecord } from './processor';
 export const HEADER_ALIASES = {
   pin: [
     'pin', 'pinno', 'propertyindexno', 'propertyindexnumber', 'propertyidentificationnumber', 
-    'tdpin', 'propertyindex', 'idpin'
+    'tdpin', 'propertyindex', 'idpin', 'assessorslotno'
   ],
   arpNo: [
     'arpno', 'arp', 'arpnumber', 'currentarp', 'current', 'tdno', 'tdnumber', 'taxdeclaration', 
@@ -259,11 +259,12 @@ export const parseFile = async (
         const mappedData = mapRawToRecords(validJson, file.name, importMode);
         
         const finalRecords = mappedData.filter(r => 
-          (r.pin && r.pin.includes('-')) || 
+          (r.pin && r.pin.length > 5) || 
           (r.arpNo && r.arpNo.length > 5) ||
           ((importMode === 'sales' || importMode === 'three-year-sales') && r.arpNo) ||
           (importMode === 'cancelled' && r.pin) ||
-          (importMode === 'permits' && (r.buildingPermitNo || r.acctName))
+          (importMode === 'permits' && (r.buildingPermitNo || r.acctName)) ||
+          (importMode === 'raw' && (r.pin || r.arpNo))
         );
 
         resolve({ data: finalRecords, count: finalRecords.length });

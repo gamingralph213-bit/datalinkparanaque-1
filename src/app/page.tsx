@@ -323,7 +323,7 @@ export default function Home() {
   const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false);
   const [isDirectImporting, setIsDirectImporting] = useState(false);
   const [directImportProgress, setDirectImportProgress] = useState({ current: 0, total: 0, mode: 'raw' as any });
-  const [viewMode, setViewMode] = useState<'results' | 'archive' | 'analytics' | 'audit'>('results');
+  const [viewMode, setViewMode] = useState<'results' | 'archive' | 'analytics' | 'audit' | 'flow'>('results');
   const [showDetailedResults, setShowDetailedResults] = useState(false);
   const [showSummary, setShowSummary] = useState(true);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
@@ -417,11 +417,28 @@ export default function Home() {
     const journals = journalData.length > 0 ? journalData : rawData.filter(r => r.sourceFile?.toLowerCase().includes('journal'));
     const rolls = rawData.filter(r => !r.sourceFile?.toLowerCase().includes('journal'));
 
-    const rollByPinLookup = new Map<string, LandRecord>();
     const rollByArpLookup = new Map<string, LandRecord>();
+    const mergedRollMap = new Map<string, any>();
+    
     rolls.forEach(r => {
-      if (r.pin) rollByPinLookup.set(normalizePin(r.pin), r);
       if (r.arpNo) rollByArpLookup.set(r.arpNo.trim(), r);
+      const pinNorm = normalizePin(r.pin);
+      if (pinNorm) {
+        const existing = mergedRollMap.get(pinNorm) || {};
+        const updates = Object.fromEntries(Object.entries(r).filter(([_, v]) => v !== "" && v !== 0 && v !== null && v !== undefined));
+        mergedRollMap.set(pinNorm, { ...existing, ...updates });
+      }
+    });
+
+    const highestArpValPerPin = new Map<string, number>();
+    journals.forEach(j => {
+      const pinNorm = normalizePin(j.pin);
+      if (pinNorm) {
+        const val = extractArpNumeric(j.arpNo);
+        if (!highestArpValPerPin.has(pinNorm) || val > highestArpValPerPin.get(pinNorm)!) {
+          highestArpValPerPin.set(pinNorm, val);
+        }
+      }
     });
 
     const salesLookup = new Map<string, LandRecord>();
@@ -464,13 +481,8 @@ export default function Home() {
       const salesMatch = salesLookup.get(cleanKey(j.arpNo)) || null;
       const isExempt = normalizedExemptPins.has(pinNorm);
 
-      // New Sequential Logic:
-      // 1. Get Journal.ARP -> Match in Roll.
-      // 2. From Roll record, get 'Previous' ARP field.
-      // 3. Match 'Previous' against 'Current' in Cancelled file.
       const rollMatchByArp = rollByArpLookup.get(j.arpNo?.trim()) || null;
-      const rollMatchByPin = rollByPinLookup.get(pinNorm) || null;
-
+      const rollMatchByPin = mergedRollMap.get(pinNorm) || null;
       const rollMatch = rollMatchByArp || rollMatchByPin;
 
       let explicitPrevByRoll: LandRecord | null = null;
@@ -479,7 +491,6 @@ export default function Home() {
         explicitPrevByRoll = cancelledLookup.get(prevArp) || null;
       }
 
-      // Proximity Fallback
       const history = historyPoolByPin.get(pinNorm) || [];
       const prevRecord = explicitPrevByRoll || history.find(h => extractArpNumeric(h.arpNo) < currentArpVal) || null;
 
@@ -488,13 +499,16 @@ export default function Home() {
         considerationValue = salesMatch.sellingPriceRef ? `REF: ${salesMatch.sellingPriceRef}` : (salesMatch.sellingPrice || 0);
       }
 
+      const isLatest = pinNorm && currentArpVal === highestArpValPerPin.get(pinNorm);
+      const displayTitle = isLatest ? (rollMatch?.tctNo || '---') : '---';
+
       return {
         ...j,
         taxability: isExempt ? 'E' : 'T',
         rollOwner: rollMatch?.acctName || '---',
         rollAddress: rollMatch?.address || '---',
         rollLotNo: rollMatch?.lotNo || '---',
-        rollTctNo: rollMatch?.tctNo || '---',
+        rollTctNo: displayTitle,
         rollArea: rollMatch?.landArea || 0,
         isJoined: !!rollMatch,
         sellingPrice: considerationValue,
@@ -1207,7 +1221,6 @@ export default function Home() {
   const handleUnarchiveRecord = useCallback((record: LandRecord) => { handleSaveRecord({ ...record, isManualArchive: false }, true); toast({ title: "Record Restored", description: "The record has been moved back to the Results tab." }); }, [handleSaveRecord]);
 
   const handleRowClick = useCallback((record: LandRecord) => { 
-
     setSelectedRecord(record); 
     if (record.statusLabel === 'DUPLICATE') { 
       const validPeer = previewData.find(p => p.pin === record.pin && !p.isDuplicate && !p.isCleanup && !p.isManualArchive); 
@@ -1216,7 +1229,7 @@ export default function Home() {
     } else { 
       setComparisonRecord(null); 
     } 
-  }, [previewData, workflowMode]);
+  }, [previewData]);
 
   const handleFinalExport = async (settings: ExportFinalSettings) => {
     setIsExporting(true); setIsExportSettingsOpen(false);
