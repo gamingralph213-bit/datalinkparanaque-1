@@ -501,7 +501,16 @@ export default function Home() {
       }
 
       const isLatest = pinNorm && currentArpVal === highestArpValPerPin.get(pinNorm);
-      const displayTitle = isLatest ? (rollMatchMerged?.tctNo || rollMatchByArp?.tctNo || '---') : '---';
+      
+      // IMPROVED TITLE LOGIC:
+      // 1. If we have a direct ARP match with a title, always populate it (even if historical).
+      // 2. Otherwise, if it's the latest ARP, try using the title from the PIN-merged mapping (supplemental).
+      let displayTitle = '---';
+      if (rollMatchByArp?.tctNo && rollMatchByArp.tctNo.trim() !== "") {
+        displayTitle = rollMatchByArp.tctNo;
+      } else if (isLatest && rollMatchMerged?.tctNo) {
+        displayTitle = rollMatchMerged.tctNo;
+      }
 
       return {
         ...j,
@@ -1664,7 +1673,7 @@ export default function Home() {
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button variant="outline" onClick={() => setIsThreeYearExportModalOpen(true)} size="sm" className={cn("font-black uppercase tracking-widest transition-all", showDetailedResults ? "h-10 px-5 text-[10px]" : "h-14 px-8 text-[12px]", canThreeYearExport ? "border-violet-500/30 text-violet-600 hover:bg-violet-50" : "opacity-30 border-muted text-muted-foreground")} disabled={isExporting || !canThreeYearExport}>
+                            <Button variant="outline" onClick={() => setIsThreeYearExportModalOpen(true)} size="sm" className={cn("font-black uppercase tracking-widest transition-all", showDetailedResults ? "h-10 px-5 text-[10px]" : "h-14 px-8 text-[12px]", canThreeYearExport ? "border-violet-500/30 text-violet-600 hover:bg-violet-600" : "opacity-30 border-muted text-muted-foreground")} disabled={isExporting || !canThreeYearExport}>
                               <TrendingUp className={cn(showDetailedResults ? "w-3.5 h-3.5 mr-2" : "w-4 h-4 mr-2")} /> 3YR Export
                             </Button>
                           </TooltipTrigger>
