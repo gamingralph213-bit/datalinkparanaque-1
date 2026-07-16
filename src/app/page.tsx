@@ -482,8 +482,9 @@ export default function Home() {
       const isExempt = normalizedExemptPins.has(pinNorm);
 
       const rollMatchByArp = rollByArpLookup.get(j.arpNo?.trim()) || null;
-      const rollMatchByPin = mergedRollMap.get(pinNorm) || null;
-      const rollMatch = rollMatchByArp || rollMatchByPin;
+      const rollMatchMerged = pinNorm ? mergedRollMap.get(pinNorm) : null;
+      
+      const rollMatch = rollMatchByArp || rollMatchMerged;
 
       let explicitPrevByRoll: LandRecord | null = null;
       if (rollMatch?.previous) {
@@ -500,16 +501,16 @@ export default function Home() {
       }
 
       const isLatest = pinNorm && currentArpVal === highestArpValPerPin.get(pinNorm);
-      const displayTitle = isLatest ? (rollMatch?.tctNo || '---') : '---';
+      const displayTitle = isLatest ? (rollMatchMerged?.tctNo || rollMatchByArp?.tctNo || '---') : '---';
 
       return {
         ...j,
         taxability: isExempt ? 'E' : 'T',
-        rollOwner: rollMatch?.acctName || '---',
-        rollAddress: rollMatch?.address || '---',
-        rollLotNo: rollMatch?.lotNo || '---',
+        rollOwner: rollMatchMerged?.acctName || rollMatchByArp?.acctName || '---',
+        rollAddress: rollMatchMerged?.address || rollMatchByArp?.address || '---',
+        rollLotNo: rollMatchMerged?.lotNo || rollMatchByArp?.lotNo || '---',
         rollTctNo: displayTitle,
-        rollArea: rollMatch?.landArea || 0,
+        rollArea: rollMatchMerged?.landArea || rollMatchByArp?.landArea || 0,
         isJoined: !!rollMatch,
         sellingPrice: considerationValue,
         dateOfTransfer: salesMatch?.dateOfTransfer || '',
