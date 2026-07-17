@@ -289,7 +289,7 @@ export default function Home() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowSplash(false);
-    }, 1300);
+    }, 1500);
     return () => clearTimeout(timer);
   }, []);
 
@@ -1550,9 +1550,10 @@ export default function Home() {
             muted
             playsInline
             controls={false}
+            ref={(el) => { if (el) el.playbackRate = 1.5; }}
             className="w-[200px] h-[200px] md:w-[280px] md:h-[280px] object-contain mix-blend-multiply"
             style={{
-              animation: 'floatLogo 6s ease-in-out infinite'
+              animation: 'floatLogo 4s ease-in-out infinite'
             }}
           />
           <h1 className="text-5xl md:text-6xl font-black tracking-tighter leading-none mt-4 animate-in slide-in-from-bottom-8 fade-in duration-1000">
