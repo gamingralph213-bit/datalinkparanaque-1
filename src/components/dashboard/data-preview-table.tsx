@@ -301,7 +301,11 @@ const RecordRow = memo(({
 
         <TableCell className="text-center p-3 border-l">
           <div className="flex flex-col items-center gap-1">
-            {reportRow.isUnderReview ? (
+            {reportRow.isSdReview ? (
+              <Badge variant="outline" className="bg-amber-500 text-white font-black text-[9px] tracking-widest gap-1 uppercase border-none shadow-md">
+                <AlertCircle className="w-3" /> SD Review
+              </Badge>
+            ) : reportRow.isUnderReview ? (
               <Badge variant="outline" className="bg-orange-500 text-white font-black text-[9px] tracking-widest gap-1 uppercase border-none shadow-md">
                 <AlertCircle className="w-3" /> Under Review
               </Badge>

@@ -6,7 +6,7 @@ import { LandRecord } from './processor';
  * Extends LandRecord so it is fully compatible with DataPreviewTable.
  */
 export interface ThreeYearReportRow extends LandRecord {
-  kindGroup: 'Land' | 'Building' | 'Other';
+  kindGroup: 'Land' | 'Building' | 'Machinery' | 'Other';
   /** Original CLASS value from the Sales Data file */
   salesClassification: string;
   /** Owner name sourced from the Assessment Roll */
@@ -19,6 +19,8 @@ export interface ThreeYearReportRow extends LandRecord {
   salesValue?: number;
   /** Internal tracking ID from the original source record */
   _sourceId?: string;
+  /** True if there are multiple sales records for the same ARP with different values */
+  isSdReview?: boolean;
 }
 
 /** Strips whitespace for reliable ARP/Tax Dec. No. matching. */
@@ -104,15 +106,41 @@ export const buildThreeYearReportData = (
     }
   });
 
+  const arpSalesGroups = new Map<string, LandRecord[]>();
+  expandedSales.forEach(sale => {
+    const key = normalizeArp(sale.arpNo);
+    if (key) {
+      if (!arpSalesGroups.has(key)) arpSalesGroups.set(key, []);
+      arpSalesGroups.get(key)!.push(sale);
+    }
+  });
+
+  const arpsWithMismatch = new Set<string>();
+  arpSalesGroups.forEach((sales, key) => {
+    if (sales.length > 1) {
+      const firstPrice = sales[0].sellingPrice;
+      const firstValue = sales[0].salesValue;
+      for (let i = 1; i < sales.length; i++) {
+        if (sales[i].sellingPrice !== firstPrice || sales[i].salesValue !== firstValue) {
+          arpsWithMismatch.add(key);
+          break;
+        }
+      }
+    }
+  });
+
   expandedSales.forEach(sale => {
     const key = normalizeArp(sale.arpNo);
     const rollMatch = key ? rollLookup.get(key) : undefined;
+    const isSdReview = key ? arpsWithMismatch.has(key) : false;
 
     // Determine the Kind group. For unlinked, we fallback to sale.kind
-    const rawKind = (rollMatch?.kind || sale.kind || '').trim().toUpperCase();
-    let kindGroup: 'Land' | 'Building' | 'Other' = 'Other';
-    if (rawKind === 'L') kindGroup = 'Land';
-    else if (rawKind === 'B') kindGroup = 'Building';
+    const rawKindString = (rollMatch?.kind || sale.kind || '').trim().toUpperCase();
+    const rawKind = rawKindString.split('-')[0].trim();
+    let kindGroup: 'Land' | 'Building' | 'Machinery' | 'Other' = 'Other';
+    if (rawKind === 'L' || rawKind === 'LAND') kindGroup = 'Land';
+    else if (rawKind === 'B' || rawKind === 'BUILDING' || rawKind === 'BLDG') kindGroup = 'Building';
+    else if (rawKind === 'M' || rawKind === 'MACHINERY' || rawKind === 'MACH') kindGroup = 'Machinery';
 
     rows.push({
       // --- Base: spread the Sales record so all LandRecord fields are present ---
@@ -133,6 +161,7 @@ export const buildThreeYearReportData = (
       // --- Status markers ---
       isJoined: !!rollMatch,
       isOtherUnmapped: !!rollMatch && kindGroup === 'Other',
+      isSdReview,
       isUnderReview: !!rollMatch && kindGroup !== 'Other' && (
                      !(sale.acctName?.trim() || rollMatch?.acctName?.trim()) ||
                      !(sale.arpNo?.trim()   || rollMatch?.arpNo?.trim())    ||
@@ -140,7 +169,7 @@ export const buildThreeYearReportData = (
                      !(rollMatch?.kind?.trim() || sale.kind?.trim())        ||
                      (kindGroup === 'Land' && (!sale.landArea && !rollMatch?.landArea))
       ),
-      statusLabel: (rollMatch ? 'VALID' : 'NO MATCH') as any,
+      statusLabel: isSdReview ? 'SD REVIEW' : (rollMatch ? 'VALID' : 'NO MATCH') as any,
     });
   });
 
@@ -149,21 +178,30 @@ export const buildThreeYearReportData = (
   const seen = new Set<string>();
 
   for (const row of rows) {
-    const fingerprint = [
+    let fingerprint = [
       normalizeArp(row.arpNo),
       (row.acctName || '').trim().toLowerCase(),
       (row.salesClassification || '').trim().toLowerCase(),
       (row.location || '').trim().toLowerCase()
     ].join('||');
 
+    if (row.isSdReview) {
+      fingerprint += `||${row.sellingPrice}||${row.salesValue}`;
+    }
+
     if (!seen.has(fingerprint)) {
       seen.add(fingerprint);
       uniqueRows.push(row);
     } else {
       // If we see a duplicate but it has a selling price and the stored one doesn't, upgrade it
-      if (row.sellingPrice && row.sellingPrice > 0) {
+      if (row.sellingPrice && row.sellingPrice > 0 && !row.isSdReview) {
         const existingIndex = uniqueRows.findIndex(r => 
-          [normalizeArp(r.arpNo), (r.acctName || '').trim().toLowerCase(), (r.salesClassification || '').trim().toLowerCase(), (r.location || '').trim().toLowerCase()].join('||') === fingerprint
+          [normalizeArp(r.arpNo), (r.acctName || '').trim().toLowerCase(), (r.salesClassification || '').trim().toLowerCase(), (r.location || '').trim().toLowerCase()].join('||') === [
+            normalizeArp(row.arpNo),
+            (row.acctName || '').trim().toLowerCase(),
+            (row.salesClassification || '').trim().toLowerCase(),
+            (row.location || '').trim().toLowerCase()
+          ].join('||')
         );
         if (existingIndex >= 0 && (!uniqueRows[existingIndex].sellingPrice || uniqueRows[existingIndex].sellingPrice === 0)) {
           uniqueRows[existingIndex] = { ...uniqueRows[existingIndex], sellingPrice: row.sellingPrice, salesValue: row.salesValue || uniqueRows[existingIndex].salesValue };
@@ -174,7 +212,7 @@ export const buildThreeYearReportData = (
 
   // Sort: Land (0) → Building (1) → Other (2)
   const ORDER: Record<ThreeYearReportRow['kindGroup'], number> = {
-    Land: 0, Building: 1, Other: 2,
+    Land: 0, Building: 1, Machinery: 2, Other: 3,
   };
   uniqueRows.sort((a, b) => ORDER[a.kindGroup] - ORDER[b.kindGroup]);
 
@@ -201,7 +239,7 @@ export const exportThreeYearReport = (rows: ThreeYearReportRow[], filenameSuffix
   const R_SUBHEADER = 6;
   const R_DATA      = 7; // first data row
 
-  const COL_LETTERS = 'ABCDEFGHIJKL'.split('');
+  const COL_LETTERS = 'ABCDEFGHIJKLM'.split('');
 
   /** Write a cell value at (col 0-indexed, row 1-indexed). */
   const c = (col: number, row: number, v: any): void => {
@@ -234,6 +272,7 @@ export const exportThreeYearReport = (rows: ThreeYearReportRow[], filenameSuffix
   c(7, R_HEADER, 'Selling Price');
   c(8, R_HEADER, 'Sales Value\n(Peso/Per Sqm)');
   c(9, R_HEADER, 'Sales Value'); // merged J5:L5 in the merges array
+  c(12, R_HEADER, 'Record Status');
 
   // ── Header Row 2 – numbered sub-headers (Row 6) ───────────────────────────
   c(0, R_SUBHEADER, '(1)');
@@ -248,15 +287,16 @@ export const exportThreeYearReport = (rows: ThreeYearReportRow[], filenameSuffix
   c(9, R_SUBHEADER, 'Lowest\n(10)');
   c(10, R_SUBHEADER, 'Median\n(11)');
   c(11, R_SUBHEADER, 'Highest\n(12)');
+  c(12, R_SUBHEADER, '(13)');
 
   // ── Merges list (populated below with data-group merges) ──────────────────
   const merges: XLSX.Range[] = [
-    // Title A1:L1
-    { s: { r: R_TITLE    - 1, c: 0 }, e: { r: R_TITLE    - 1, c: 11 } },
-    // Subtitle A2:L2
-    { s: { r: R_SUBTITLE - 1, c: 0 }, e: { r: R_SUBTITLE - 1, c: 11 } },
-    // Date A3:L3
-    { s: { r: R_DATE     - 1, c: 0 }, e: { r: R_DATE     - 1, c: 11 } },
+    // Title A1:M1
+    { s: { r: R_TITLE    - 1, c: 0 }, e: { r: R_TITLE    - 1, c: 12 } },
+    // Subtitle A2:M2
+    { s: { r: R_SUBTITLE - 1, c: 0 }, e: { r: R_SUBTITLE - 1, c: 12 } },
+    // Date A3:M3
+    { s: { r: R_DATE     - 1, c: 0 }, e: { r: R_DATE     - 1, c: 12 } },
     // "Sales Value" merged header J5:L5
     { s: { r: R_HEADER   - 1, c: 9 }, e: { r: R_HEADER   - 1, c: 11 } },
   ];
@@ -265,14 +305,20 @@ export const exportThreeYearReport = (rows: ThreeYearReportRow[], filenameSuffix
   let currentRow = R_DATA;
 
   for (const dataRow of rows) {
-    let kindLabel = '';
-    if (!dataRow.isJoined) {
-      kindLabel = 'UNLINKED';
+    let statusLabel = '';
+    if (dataRow.isSdReview) {
+      statusLabel = 'SD REVIEW';
+    } else if (dataRow.isUnderReview) {
+      statusLabel = 'UNDER REVIEW';
+    } else if (!dataRow.isJoined) {
+      statusLabel = 'UNLINKED';
     } else if ((dataRow as any).isOtherUnmapped) {
-      kindLabel = 'OTHER/UNMAPPED';
+      statusLabel = 'OTHER/UNMAPPED';
     } else {
-      kindLabel = dataRow.kindGroup === 'Land' ? 'LAND' : 'BUILDING';
+      statusLabel = ''; // Leave blank if valid/no error
     }
+
+    const kindLabel = dataRow.kindGroup === 'Land' ? 'LAND' : dataRow.kindGroup === 'Building' ? 'BUILDING' : dataRow.kindGroup === 'Machinery' ? 'MACHINERY' : 'OTHER';
 
     c(0, currentRow, kindLabel);                                  // Kind of Property
     c(1, currentRow, dataRow.acctName || '');                     // Name of New Owner
@@ -287,12 +333,13 @@ export const exportThreeYearReport = (rows: ThreeYearReportRow[], filenameSuffix
     c(9, currentRow, '');                                         // Lowest  — blank
     c(10, currentRow, '');                                        // Median  — blank
     c(11, currentRow, '');                                        // Highest — blank
+    c(12, currentRow, statusLabel);                               // Record Status
     currentRow++;
   }
 
   // ── Finalize sheet ─────────────────────────────────────────────────────────
   const lastRow = Math.max(currentRow - 1, R_DATA);
-  ws['!ref']    = `A1:L${lastRow}`;
+  ws['!ref']    = `A1:M${lastRow}`;
   ws['!merges'] = merges;
   ws['!cols']   = [
     { wch: 14 }, // A: Kind of Property
@@ -307,6 +354,7 @@ export const exportThreeYearReport = (rows: ThreeYearReportRow[], filenameSuffix
     { wch: 14 }, // J: Lowest
     { wch: 14 }, // K: Median
     { wch: 14 }, // L: Highest
+    { wch: 16 }, // M: Record Status
   ];
 
   const suffixStr = filenameSuffix ? `-${filenameSuffix}` : '';

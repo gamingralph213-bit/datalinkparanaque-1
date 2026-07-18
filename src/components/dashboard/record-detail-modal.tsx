@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import {
   AlertTriangle, Save, Edit3, Archive, RotateCcw, ArrowRightLeft,
   CheckCircle2, Link2, Database, Tag, HardHat, TrendingUp,
-  MapPin, Unlink2, AlertCircle, DollarSign, Building2, BarChart3
+  MapPin, Unlink2, AlertCircle, DollarSign, Building2, BarChart3, Trash2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -77,10 +77,11 @@ interface RecordDetailModalProps {
   onSave?: (updatedRecord: LandRecord) => void;
   onArchive?: (record: LandRecord) => void;
   onUnarchive?: (record: LandRecord) => void;
+  onDelete?: (record: LandRecord) => void;
   workflowMode?: string;
 }
 
-export function RecordDetailModal({ record, comparisonRecord, open, onOpenChange, onSave, onArchive, onUnarchive, workflowMode }: RecordDetailModalProps) {
+export function RecordDetailModal({ record, comparisonRecord, open, onOpenChange, onSave, onArchive, onUnarchive, onDelete, workflowMode }: RecordDetailModalProps) {
   const [editedRecord, setEditedRecord] = useState<LandRecord | null>(null);
 
   useEffect(() => {
@@ -425,6 +426,9 @@ export function RecordDetailModal({ record, comparisonRecord, open, onOpenChange
               isInArchive
                 ? <Button variant="outline" onClick={() => onUnarchive?.(editedRecord)} className="font-black uppercase text-[9px] h-9 px-3 text-emerald-600 border-emerald-200 hover:bg-emerald-50"><RotateCcw className="w-3 h-3 mr-1.5" /> Restore Record</Button>
                 : <Button variant="outline" onClick={() => onArchive?.(editedRecord)} className="font-black uppercase text-[9px] h-9 px-3 text-orange-600 border-orange-200 hover:bg-orange-50"><Archive className="w-3 h-3 mr-1.5" /> Archive Record</Button>
+            )}
+            {onDelete && (
+              <Button variant="outline" onClick={() => onDelete(editedRecord)} className="font-black uppercase text-[9px] h-9 px-3 text-red-600 border-red-200 hover:bg-red-50"><Trash2 className="w-3 h-3 mr-1.5" /> Delete Record</Button>
             )}
           </div>
           <div className="flex gap-3 w-full sm:w-auto">

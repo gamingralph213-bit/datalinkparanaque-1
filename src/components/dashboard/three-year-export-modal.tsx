@@ -20,7 +20,7 @@ import { ThreeYearReportRow } from '@/lib/three-year-report-engine';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 export interface ThreeYearExportSettings {
-  kinds: ('Land' | 'Building')[];
+  kinds: ('Land' | 'Building' | 'Machinery' | 'Other')[];
   statuses: ('Linked' | 'Unlinked' | 'Under Review' | 'Other/Unmapped')[];
 }
 
@@ -44,12 +44,12 @@ export function ThreeYearExportModal({
   onExport,
   isExporting = false,
 }: ThreeYearExportModalProps) {
-  const [selectedKinds, setSelectedKinds] = useState<('Land' | 'Building')[]>(['Land', 'Building']);
+  const [selectedKinds, setSelectedKinds] = useState<('Land' | 'Building' | 'Machinery' | 'Other')[]>(['Land', 'Building', 'Machinery', 'Other']);
   const [selectedStatuses, setSelectedStatuses] = useState<('Linked' | 'Unlinked' | 'Under Review' | 'Other/Unmapped')[]>(['Linked', 'Unlinked', 'Under Review', 'Other/Unmapped']);
 
   useEffect(() => {
     if (open) {
-      setSelectedKinds(['Land', 'Building']);
+      setSelectedKinds(['Land', 'Building', 'Machinery', 'Other']);
       setSelectedStatuses(['Linked', 'Unlinked', 'Under Review', 'Other/Unmapped']);
     }
   }, [open]);
@@ -76,6 +76,8 @@ export function ThreeYearExportModal({
 
   const landCount         = filteredData.filter(r => r.kindGroup === 'Land' && r.isJoined && !(r as any).isOtherUnmapped && !r.isUnderReview).length;
   const buildingCount     = filteredData.filter(r => r.kindGroup === 'Building' && r.isJoined && !(r as any).isOtherUnmapped && !r.isUnderReview).length;
+  const machineryCount    = filteredData.filter(r => r.kindGroup === 'Machinery' && r.isJoined && !(r as any).isOtherUnmapped && !r.isUnderReview).length;
+  const otherKindCount    = filteredData.filter(r => r.kindGroup === 'Other' && r.isJoined && !(r as any).isOtherUnmapped && !r.isUnderReview).length;
 
   const linkedCount       = filteredData.filter(r => r.isJoined && !(r as any).isOtherUnmapped && !r.isUnderReview).length;
   const unlinkedCount     = filteredData.filter(r => !r.isJoined).length;
@@ -89,7 +91,7 @@ export function ThreeYearExportModal({
     onOpenChange(false);
   };
 
-  const toggleKind = (k: 'Land' | 'Building') => {
+  const toggleKind = (k: 'Land' | 'Building' | 'Machinery' | 'Other') => {
     setSelectedKinds(prev => prev.includes(k) ? prev.filter(item => item !== k) : [...prev, k]);
   };
 
@@ -145,7 +147,7 @@ export function ThreeYearExportModal({
                 <Layers className="w-4 h-4" /> Data Filters
               </h3>
               <div className="flex gap-4">
-                <Button variant="link" size="sm" onClick={() => { setSelectedKinds(['Land', 'Building']); setSelectedStatuses(['Linked', 'Unlinked', 'Under Review', 'Other/Unmapped']); }} className="text-[10px] font-black uppercase text-muted-foreground h-auto p-0 hover:text-violet-600">Select All</Button>
+                <Button variant="link" size="sm" onClick={() => { setSelectedKinds(['Land', 'Building', 'Machinery', 'Other']); setSelectedStatuses(['Linked', 'Unlinked', 'Under Review', 'Other/Unmapped']); }} className="text-[10px] font-black uppercase text-muted-foreground h-auto p-0 hover:text-violet-600">Select All</Button>
                 <Button variant="link" size="sm" onClick={() => { setSelectedKinds([]); setSelectedStatuses([]); }} className="text-[10px] font-black uppercase text-muted-foreground h-auto p-0 hover:text-violet-600">Clear All</Button>
               </div>
             </div>
@@ -163,6 +165,20 @@ export function ThreeYearExportModal({
                 <Label htmlFor="k-bldg" className="text-xs font-bold uppercase cursor-pointer flex items-center justify-between w-full">
                   <span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500 shadow-sm" /> Building (Bldg.)</span>
                   <Badge className="bg-blue-500/10 text-blue-600 border-none font-black text-[10px] px-2">{buildingCount}</Badge>
+                </Label>
+              </div>
+              <div className="flex items-center gap-3">
+                <Checkbox id="k-mach" checked={selectedKinds.includes('Machinery')} onCheckedChange={() => toggleKind('Machinery')} />
+                <Label htmlFor="k-mach" className="text-xs font-bold uppercase cursor-pointer flex items-center justify-between w-full">
+                  <span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-orange-500 shadow-sm" /> Machinery</span>
+                  <Badge className="bg-orange-500/10 text-orange-600 border-none font-black text-[10px] px-2">{machineryCount}</Badge>
+                </Label>
+              </div>
+              <div className="flex items-center gap-3">
+                <Checkbox id="k-otherkind" checked={selectedKinds.includes('Other')} onCheckedChange={() => toggleKind('Other')} />
+                <Label htmlFor="k-otherkind" className="text-xs font-bold uppercase cursor-pointer flex items-center justify-between w-full">
+                  <span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-zinc-500 shadow-sm" /> Other</span>
+                  <Badge className="bg-zinc-500/10 text-zinc-600 border-none font-black text-[10px] px-2">{otherKindCount}</Badge>
                 </Label>
               </div>
 
