@@ -214,9 +214,87 @@ export const buildThreeYearReportData = (
   const ORDER: Record<ThreeYearReportRow['kindGroup'], number> = {
     Land: 0, Building: 1, Machinery: 2, Other: 3,
   };
-  uniqueRows.sort((a, b) => ORDER[a.kindGroup] - ORDER[b.kindGroup]);
+  uniqueRows.sort((a, b) => {
+    const kindDiff = ORDER[a.kindGroup] - ORDER[b.kindGroup];
+    if (kindDiff !== 0) return kindDiff;
+    
+    // Sort by ARP No. to group multiple sales (SD Review) together
+    return (a.arpNo || '').localeCompare(b.arpNo || '');
+  });
 
   return uniqueRows;
+};
+
+/**
+ * Calculates global stats (min, max, thresholds) for 3 equal ranges based on valid Sales Values.
+ */
+export const calculateThreeYearStats = (rows: ThreeYearReportRow[]) => {
+  // 1. Mutate valid rows with invalid sales values to "Under Review"
+  rows.forEach(r => {
+    if (!r.isSdReview && !r.sellingPriceRef) {
+      if (r.salesValue == null || isNaN(r.salesValue) || r.salesValue <= 0) {
+        r.isUnderReview = true;
+      }
+    }
+  });
+
+  // 2. Extract valid sales values and sort ascending
+  const validValues = rows
+    .filter(r => !r.isSdReview && !r.sellingPriceRef && !r.isUnderReview && typeof r.salesValue === 'number' && r.salesValue > 0)
+    .map(r => r.salesValue!)
+    .sort((a, b) => a - b);
+
+  if (validValues.length === 0) return null;
+
+  if (validValues.length < 3) {
+    return {
+      t1: validValues[validValues.length - 1],
+      t2: validValues[validValues.length - 1],
+      lowestMin: validValues[0],
+      lowestMax: validValues[validValues.length - 1],
+      medianMin: 0,
+      medianMax: 0,
+      highestMin: 0,
+      highestMax: 0,
+      max: validValues[validValues.length - 1]
+    };
+  }
+
+  const count = validValues.length;
+  const third = Math.floor(count / 3);
+  const remainder = count % 3;
+
+  let idx1 = third + (remainder > 0 ? 1 : 0);
+  let idx2 = idx1 + third + (remainder > 1 ? 1 : 0);
+
+  // Avoid splitting identical values: push boundary forward
+  while (idx1 > 0 && idx1 < count && validValues[idx1] === validValues[idx1 - 1]) {
+    idx1++;
+  }
+  if (idx2 < idx1) idx2 = idx1;
+  while (idx2 > idx1 && idx2 < count && validValues[idx2] === validValues[idx2 - 1]) {
+    idx2++;
+  }
+
+  // Handle edge cases where all items get pushed to one bucket
+  const t1 = idx1 < count ? validValues[idx1 - 1] : validValues[count - 1];
+  const t2 = idx2 < count ? validValues[idx2 - 1] : validValues[count - 1];
+
+  const lowestBucket = validValues.filter(v => v <= t1);
+  const medianBucket = validValues.filter(v => v > t1 && v <= t2);
+  const highestBucket = validValues.filter(v => v > t2);
+
+  return {
+    t1,
+    t2,
+    max: validValues[count - 1],
+    lowestMin: lowestBucket.length > 0 ? lowestBucket[0] : 0,
+    lowestMax: lowestBucket.length > 0 ? lowestBucket[lowestBucket.length - 1] : 0,
+    medianMin: medianBucket.length > 0 ? medianBucket[0] : 0,
+    medianMax: medianBucket.length > 0 ? medianBucket[medianBucket.length - 1] : 0,
+    highestMin: highestBucket.length > 0 ? highestBucket[0] : 0,
+    highestMax: highestBucket.length > 0 ? highestBucket[highestBucket.length - 1] : 0,
+  };
 };
 
 /**
@@ -273,6 +351,18 @@ export const exportThreeYearReport = (rows: ThreeYearReportRow[], filenameSuffix
   c(8, R_HEADER, 'Sales Value\n(Peso/Per Sqm)');
   c(9, R_HEADER, 'Sales Value'); // merged J5:L5 in the merges array
   c(12, R_HEADER, 'Record Status');
+  const stats = calculateThreeYearStats(rows);
+  const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  let lowestHeader = 'Lowest\n(10)';
+  let medianHeader = 'Median\n(11)';
+  let highestHeader = 'Highest\n(12)';
+
+  if (stats) {
+    lowestHeader = `Lowest\n(${fmt(stats.lowestMin)} - ${fmt(stats.lowestMax)})\n(10)`;
+    medianHeader = `Median\n(${fmt(stats.medianMin)} - ${fmt(stats.medianMax)})\n(11)`;
+    highestHeader = `Highest\n(${fmt(stats.highestMin)} - ${fmt(stats.highestMax)})\n(12)`;
+  }
 
   // ── Header Row 2 – numbered sub-headers (Row 6) ───────────────────────────
   c(0, R_SUBHEADER, '(1)');
@@ -284,9 +374,9 @@ export const exportThreeYearReport = (rows: ThreeYearReportRow[], filenameSuffix
   c(6, R_SUBHEADER, '(7)');
   c(7, R_SUBHEADER, '(8)');
   c(8, R_SUBHEADER, '(9)');
-  c(9, R_SUBHEADER, 'Lowest\n(10)');
-  c(10, R_SUBHEADER, 'Median\n(11)');
-  c(11, R_SUBHEADER, 'Highest\n(12)');
+  c(9, R_SUBHEADER, lowestHeader);
+  c(10, R_SUBHEADER, medianHeader);
+  c(11, R_SUBHEADER, highestHeader);
   c(12, R_SUBHEADER, '(13)');
 
   // ── Merges list (populated below with data-group merges) ──────────────────
@@ -329,10 +419,25 @@ export const exportThreeYearReport = (rows: ThreeYearReportRow[], filenameSuffix
     c(6, currentRow, dataRow.landArea !== undefined && dataRow.landArea !== 0
       ? dataRow.landArea : ((dataRow as any).rollArea || ''));    // Area
     c(7, currentRow, dataRow.sellingPriceRef ? `Ref: ${dataRow.sellingPriceRef}` : (dataRow.sellingPrice || ''));                 // Selling Price
-    c(8, currentRow, dataRow.salesValue || '');                   // Sales Value (Peso/Per Sqm)
-    c(9, currentRow, '');                                         // Lowest  — blank
-    c(10, currentRow, '');                                        // Median  — blank
-    c(11, currentRow, '');                                        // Highest — blank
+    c(8, currentRow, dataRow.sellingPriceRef ? `Ref: ${dataRow.sellingPriceRef}` : (dataRow.salesValue || ''));                   // Sales Value (Peso/Per Sqm)
+    
+    let lowestVal: any = '';
+    let medianVal: any = '';
+    let highestVal: any = '';
+
+    if (stats && !dataRow.isSdReview && !dataRow.sellingPriceRef && !dataRow.isUnderReview && typeof dataRow.salesValue === 'number' && dataRow.salesValue > 0) {
+      if (dataRow.salesValue <= stats.t1) {
+        lowestVal = dataRow.salesValue;
+      } else if (dataRow.salesValue <= stats.t2) {
+        medianVal = dataRow.salesValue;
+      } else {
+        highestVal = dataRow.salesValue;
+      }
+    }
+
+    c(9, currentRow, lowestVal);                                  // Lowest
+    c(10, currentRow, medianVal);                                 // Median
+    c(11, currentRow, highestVal);                                // Highest
     c(12, currentRow, statusLabel);                               // Record Status
     currentRow++;
   }

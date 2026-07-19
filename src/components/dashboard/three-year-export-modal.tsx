@@ -21,7 +21,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 
 export interface ThreeYearExportSettings {
   kinds: ('Land' | 'Building' | 'Machinery' | 'Other')[];
-  statuses: ('Linked' | 'Unlinked' | 'Under Review' | 'Other/Unmapped')[];
+  statuses: ('Linked' | 'Unlinked' | 'Under Review' | 'SD Review' | 'Other/Unmapped')[];
 }
 
 interface ThreeYearExportModalProps {
@@ -45,28 +45,29 @@ export function ThreeYearExportModal({
   isExporting = false,
 }: ThreeYearExportModalProps) {
   const [selectedKinds, setSelectedKinds] = useState<('Land' | 'Building' | 'Machinery' | 'Other')[]>(['Land', 'Building', 'Machinery', 'Other']);
-  const [selectedStatuses, setSelectedStatuses] = useState<('Linked' | 'Unlinked' | 'Under Review' | 'Other/Unmapped')[]>(['Linked', 'Unlinked', 'Under Review', 'Other/Unmapped']);
+  const [selectedStatuses, setSelectedStatuses] = useState<('Linked' | 'Unlinked' | 'Under Review' | 'SD Review' | 'Other/Unmapped')[]>(['Linked', 'Unlinked', 'Under Review', 'SD Review', 'Other/Unmapped']);
 
   useEffect(() => {
     if (open) {
       setSelectedKinds(['Land', 'Building', 'Machinery', 'Other']);
-      setSelectedStatuses(['Linked', 'Unlinked', 'Under Review', 'Other/Unmapped']);
+      setSelectedStatuses(['Linked', 'Unlinked', 'Under Review', 'SD Review', 'Other/Unmapped']);
     }
   }, [open]);
 
   const filteredData = useMemo(() => {
     return data.filter(record => {
       // Determine the canonical status of this record
-      let status: 'Linked' | 'Unlinked' | 'Under Review' | 'Other/Unmapped';
+      let status: 'Linked' | 'Unlinked' | 'Under Review' | 'SD Review' | 'Other/Unmapped';
       if (!record.isJoined)                     status = 'Unlinked';
       else if ((record as any).isOtherUnmapped) status = 'Other/Unmapped';
+      else if ((record as any).isSdReview)      status = 'SD Review';
       else if (record.isUnderReview)            status = 'Under Review';
       else                                      status = 'Linked';
 
       if (!selectedStatuses.includes(status)) return false;
 
       // For Land/Building records, also check the kind filter
-      if (status === 'Linked' || status === 'Under Review') {
+      if (status === 'Linked' || status === 'Under Review' || status === 'SD Review') {
         if (!selectedKinds.includes(record.kindGroup as any)) return false;
       }
 
@@ -74,14 +75,15 @@ export function ThreeYearExportModal({
     });
   }, [data, selectedKinds, selectedStatuses]);
 
-  const landCount         = filteredData.filter(r => r.kindGroup === 'Land' && r.isJoined && !(r as any).isOtherUnmapped && !r.isUnderReview).length;
-  const buildingCount     = filteredData.filter(r => r.kindGroup === 'Building' && r.isJoined && !(r as any).isOtherUnmapped && !r.isUnderReview).length;
-  const machineryCount    = filteredData.filter(r => r.kindGroup === 'Machinery' && r.isJoined && !(r as any).isOtherUnmapped && !r.isUnderReview).length;
-  const otherKindCount    = filteredData.filter(r => r.kindGroup === 'Other' && r.isJoined && !(r as any).isOtherUnmapped && !r.isUnderReview).length;
+  const landCount         = filteredData.filter(r => r.kindGroup === 'Land' && r.isJoined && !(r as any).isOtherUnmapped && !r.isUnderReview && !(r as any).isSdReview).length;
+  const buildingCount     = filteredData.filter(r => r.kindGroup === 'Building' && r.isJoined && !(r as any).isOtherUnmapped && !r.isUnderReview && !(r as any).isSdReview).length;
+  const machineryCount    = filteredData.filter(r => r.kindGroup === 'Machinery' && r.isJoined && !(r as any).isOtherUnmapped && !r.isUnderReview && !(r as any).isSdReview).length;
+  const otherKindCount    = filteredData.filter(r => r.kindGroup === 'Other' && r.isJoined && !(r as any).isOtherUnmapped && !r.isUnderReview && !(r as any).isSdReview).length;
 
-  const linkedCount       = filteredData.filter(r => r.isJoined && !(r as any).isOtherUnmapped && !r.isUnderReview).length;
+  const linkedCount       = filteredData.filter(r => r.isJoined && !(r as any).isOtherUnmapped && !r.isUnderReview && !(r as any).isSdReview).length;
   const unlinkedCount     = filteredData.filter(r => !r.isJoined).length;
-  const reviewCount       = filteredData.filter(r => r.isJoined && !( r as any).isOtherUnmapped && r.isUnderReview).length;
+  const reviewCount       = filteredData.filter(r => r.isJoined && !( r as any).isOtherUnmapped && r.isUnderReview && !(r as any).isSdReview).length;
+  const sdReviewCount     = filteredData.filter(r => (r as any).isSdReview).length;
   const otherUnmappedCount = filteredData.filter(r => (r as any).isOtherUnmapped).length;
   
   const unmatchedCount = Math.max(0, totalSalesRows - data.length);
@@ -95,7 +97,7 @@ export function ThreeYearExportModal({
     setSelectedKinds(prev => prev.includes(k) ? prev.filter(item => item !== k) : [...prev, k]);
   };
 
-  const toggleStatus = (s: 'Linked' | 'Unlinked' | 'Under Review' | 'Other/Unmapped') => {
+  const toggleStatus = (s: 'Linked' | 'Unlinked' | 'Under Review' | 'SD Review' | 'Other/Unmapped') => {
     setSelectedStatuses(prev => prev.includes(s) ? prev.filter(item => item !== s) : [...prev, s]);
   };
 
@@ -147,7 +149,7 @@ export function ThreeYearExportModal({
                 <Layers className="w-4 h-4" /> Data Filters
               </h3>
               <div className="flex gap-4">
-                <Button variant="link" size="sm" onClick={() => { setSelectedKinds(['Land', 'Building', 'Machinery', 'Other']); setSelectedStatuses(['Linked', 'Unlinked', 'Under Review', 'Other/Unmapped']); }} className="text-[10px] font-black uppercase text-muted-foreground h-auto p-0 hover:text-violet-600">Select All</Button>
+                <Button variant="link" size="sm" onClick={() => { setSelectedKinds(['Land', 'Building', 'Machinery', 'Other']); setSelectedStatuses(['Linked', 'Unlinked', 'Under Review', 'SD Review', 'Other/Unmapped']); }} className="text-[10px] font-black uppercase text-muted-foreground h-auto p-0 hover:text-violet-600">Select All</Button>
                 <Button variant="link" size="sm" onClick={() => { setSelectedKinds([]); setSelectedStatuses([]); }} className="text-[10px] font-black uppercase text-muted-foreground h-auto p-0 hover:text-violet-600">Clear All</Button>
               </div>
             </div>
@@ -204,6 +206,13 @@ export function ThreeYearExportModal({
                 <Label htmlFor="s-review" className="text-xs font-bold uppercase cursor-pointer flex items-center justify-between w-full">
                   <span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-orange-500 shadow-sm" /> Under Review</span>
                   <Badge className="bg-orange-500/10 text-orange-600 border-none font-black text-[10px] px-2">{reviewCount}</Badge>
+                </Label>
+              </div>
+              <div className="flex items-center gap-3">
+                <Checkbox id="s-sdreview" checked={selectedStatuses.includes('SD Review')} onCheckedChange={() => toggleStatus('SD Review')} />
+                <Label htmlFor="s-sdreview" className="text-xs font-bold uppercase cursor-pointer flex items-center justify-between w-full">
+                  <span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500 shadow-sm" /> SD Review</span>
+                  <Badge className="bg-amber-500/10 text-amber-600 border-none font-black text-[10px] px-2">{sdReviewCount}</Badge>
                 </Label>
               </div>
               <div className="flex items-center gap-3">

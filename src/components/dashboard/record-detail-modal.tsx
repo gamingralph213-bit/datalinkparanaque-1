@@ -9,6 +9,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { LandRecord, validateRecord, ValidationError, getModeOfConveyance } from '@/lib/processor';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -83,6 +93,7 @@ interface RecordDetailModalProps {
 
 export function RecordDetailModal({ record, comparisonRecord, open, onOpenChange, onSave, onArchive, onUnarchive, onDelete, workflowMode }: RecordDetailModalProps) {
   const [editedRecord, setEditedRecord] = useState<LandRecord | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     if (record) setEditedRecord({ ...record });
@@ -428,7 +439,27 @@ export function RecordDetailModal({ record, comparisonRecord, open, onOpenChange
                 : <Button variant="outline" onClick={() => onArchive?.(editedRecord)} className="font-black uppercase text-[9px] h-9 px-3 text-orange-600 border-orange-200 hover:bg-orange-50"><Archive className="w-3 h-3 mr-1.5" /> Archive Record</Button>
             )}
             {onDelete && (
-              <Button variant="outline" onClick={() => onDelete(editedRecord)} className="font-black uppercase text-[9px] h-9 px-3 text-red-600 border-red-200 hover:bg-red-50"><Trash2 className="w-3 h-3 mr-1.5" /> Delete Record</Button>
+              <>
+                <Button variant="outline" onClick={() => setIsDeleteDialogOpen(true)} className="font-black uppercase text-[9px] h-9 px-3 text-red-600 border-red-200 hover:bg-red-50"><Trash2 className="w-3 h-3 mr-1.5" /> Delete Record</Button>
+                <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete the record and remove it from the active datasets.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={(e) => {
+                        e.preventDefault();
+                        setIsDeleteDialogOpen(false);
+                        setTimeout(() => onDelete(editedRecord), 200);
+                      }} className="bg-red-600 text-white hover:bg-red-700">Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
             )}
           </div>
           <div className="flex gap-3 w-full sm:w-auto">

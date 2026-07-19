@@ -938,10 +938,12 @@ export default function Home() {
           // Derive the canonical status of the record
           const recJoined  = record.isJoined;
           const recOther   = (record as any).isOtherUnmapped;
-          const recReview  = record.isUnderReview;
-          if (statusFilter === 'Linked'         && !(recJoined && !recOther && !recReview)) return false;
+          const recSdReview = (record as any).isSdReview;
+          const recReview  = record.isUnderReview && !recSdReview;
+          if (statusFilter === 'Linked'         && !(recJoined && !recOther && !recReview && !recSdReview)) return false;
           if (statusFilter === 'No Match'        && recJoined) return false;
           if (statusFilter === 'Under Review'   && !(recJoined && !recOther && recReview)) return false;
+          if (statusFilter === 'SD Review'      && !recSdReview) return false;
           if (statusFilter === 'Other/Unmapped' && !recOther) return false;
         }
         if (query) {
@@ -1242,6 +1244,27 @@ export default function Home() {
 
   const handleArchiveRecord = useCallback((record: LandRecord) => { handleSaveRecord({ ...record, isManualArchive: true }, true); toast({ title: "Record Archived", description: "The record has been moved to the Archive tab." }); }, [handleSaveRecord]);
   const handleUnarchiveRecord = useCallback((record: LandRecord) => { handleSaveRecord({ ...record, isManualArchive: false }, true); toast({ title: "Record Restored", description: "The record has been moved back to the Results tab." }); }, [handleSaveRecord]);
+
+  const handleDeleteRecord = useCallback((recordToDelete: LandRecord, silent = false) => {
+    setSelectedRecord(null); setComparisonRecord(null); if (!silent) setIsProcessing(true);
+    const sourceId = (recordToDelete as any)._sourceId ?? recordToDelete.id;
+    const baseSourceId = typeof sourceId === 'string' ? sourceId.split('-exp-')[0] : sourceId;
+    const matchFn = (r: LandRecord) => r.id === recordToDelete.id || r.id === sourceId || r.id === baseSourceId;
+    startTransition(() => {
+      setRawData(prev => prev.filter(r => !matchFn(r)));
+      setJournalData(prev => prev.filter(r => !matchFn(r)));
+      setSalesData(prev => prev.filter(r => !matchFn(r)));
+      setCancelledData(prev => prev.filter(r => !matchFn(r)));
+      setPermitData(prev => prev.filter(r => !matchFn(r)));
+      setThreeYearSalesData(prev => prev.filter(r => !matchFn(r)));
+      setTimeout(() => {
+        const combined = [...rawData, ...journalData, ...salesData, ...cancelledData, ...permitData].filter(r => !matchFn(r));
+        if (processedData.length > 0) { runProcessWithData(combined, combined.length, importedFileName, silent); }
+        else { const { allWithDuplicateMarkers } = processRecords(combined, [], locationSettings, taxRates, { removeDuplicates: false, applyCalibration: false, systemCleanup: false }, importedFileName, exemptPins); setPreviewData(allWithDuplicateMarkers); if (!silent) setIsProcessing(false); }
+      }, silent ? 0 : 10);
+    });
+    toast({ title: "Record Deleted", description: "The record has been permanently deleted." });
+  }, [rawData, journalData, salesData, cancelledData, permitData, processedData.length, importedFileName, locationSettings, taxRates, exemptPins]);
 
   const handleRowClick = useCallback((record: LandRecord) => { 
     setSelectedRecord(record); 
@@ -1694,7 +1717,7 @@ export default function Home() {
                           {uniqueBarangays.length > 1 && (<Select value={barangayFilter} onValueChange={setBarangayFilter}><SelectTrigger className="w-[180px] h-9 text-xs font-bold uppercase shrink-0"><MapPin className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="Barangay" /></SelectTrigger><SelectContent><SelectItem value="all">All Barangays</SelectItem>{uniqueBarangays.map(brgy => (<SelectItem key={brgy} value={brgy}>{brgy}</SelectItem>))}</SelectContent></Select>)}
                           {uniqueSourceFiles.length > 1 && (<Select value={sourceFileFilter} onValueChange={setSourceFileFilter}><SelectTrigger className="w-[150px] h-9 text-xs font-bold uppercase shrink-0"><Files className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="File Source" /></SelectTrigger><SelectContent><SelectItem value="all">All Files</SelectItem>{uniqueSourceFiles.map(file => (<SelectItem key={file} value={file}>{file}</SelectItem>))}</SelectContent></Select>)}
                           {workflowMode !== 'abstract' && workflowMode !== 'building-permit' && workflowMode !== 'three-year-report' && (<Select value={sortBy} onValueChange={(val: any) => { setSortBy(val); setStatusFilter('all'); }}><SelectTrigger className="w-[160px] h-9 text-xs font-bold uppercase shrink-0"><ArrowUpDown className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="Sort By" /></SelectTrigger><SelectContent><SelectItem value="pin">Sort by PIN</SelectItem><SelectItem value="arpNo">Sort by ARP No#</SelectItem></SelectContent></Select>)}
-                          <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-[160px] h-9 text-xs font-bold uppercase shrink-0"><Filter className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="all">All</SelectItem>{(workflowMode === 'abstract' || workflowMode === 'building-permit' || workflowMode === 'three-year-report') ? (<><SelectItem value="Linked">Linked Records</SelectItem><SelectItem value="No Match">Unlinked Records</SelectItem><SelectItem value="Under Review">Under Review</SelectItem>{workflowMode === 'three-year-report' && <SelectItem value="Other/Unmapped">Other / Unmapped</SelectItem>}</>) : (dynamicStatusOptions.sort().map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>)))}</SelectContent></Select>
+                          <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-[160px] h-9 text-xs font-bold uppercase shrink-0"><Filter className="w-3.5 h-3.5 mr-1" /><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="all">All</SelectItem>{(workflowMode === 'abstract' || workflowMode === 'building-permit' || workflowMode === 'three-year-report') ? (<><SelectItem value="Linked">Linked Records</SelectItem><SelectItem value="No Match">Unlinked Records</SelectItem><SelectItem value="Under Review">Under Review</SelectItem>{workflowMode === 'three-year-report' && <SelectItem value="SD Review">SD Review</SelectItem>}{workflowMode === 'three-year-report' && <SelectItem value="Other/Unmapped">Other / Unmapped</SelectItem>}</>) : (dynamicStatusOptions.sort().map(opt => (<SelectItem key={opt} value={opt}>{opt}</SelectItem>)))}</SelectContent></Select>
                           <div className="flex gap-2 items-center shrink-0">
                             <ImportManager mode="raw" manifest={rawFileManifest} onAdd={() => rawFileInputRef.current?.click()} onDelete={(name) => deleteFile(name, 'raw')} onClearAll={() => clearFiles('raw')} />
                             <ImportManager mode="exempt" manifest={exemptFileManifest} onAdd={() => exemptFileInputRef.current?.click()} onDelete={(name) => deleteFile(name, 'exempt')} onClearAll={() => clearFiles('exempt')} />
@@ -1837,7 +1860,7 @@ export default function Home() {
       <ThreeYearExportModal open={isThreeYearExportModalOpen} onOpenChange={setIsThreeYearExportModalOpen} data={joinedThreeYearData} onExport={handleThreeYearExport} isExporting={isExporting} />
       <AboutModal open={isAboutOpen} onOpenChange={setIsAboutOpen} />
       <ProcessingReportModal report={latestReport} open={isReportOpen} onOpenChange={setIsReportOpen} />
-      <RecordDetailModal record={selectedRecord} comparisonRecord={comparisonRecord} open={!!selectedRecord} onOpenChange={(isOpen) => { if (!isOpen) { setSelectedRecord(null); setComparisonRecord(null); } }} onSave={handleSaveRecord} onArchive={handleArchiveRecord} onUnarchive={handleUnarchiveRecord} workflowMode={workflowMode} />
+      <RecordDetailModal record={selectedRecord} comparisonRecord={comparisonRecord} open={!!selectedRecord} onOpenChange={(isOpen) => { if (!isOpen) { setSelectedRecord(null); setComparisonRecord(null); } }} onSave={handleSaveRecord} onArchive={handleArchiveRecord} onUnarchive={handleUnarchiveRecord} onDelete={handleDeleteRecord} workflowMode={workflowMode} />
     </div>
   );
 }

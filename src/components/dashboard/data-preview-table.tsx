@@ -11,6 +11,7 @@ import {
   TableRow 
 } from '@/components/ui/table';
 import { LandRecord, getModeOfConveyance } from '@/lib/processor';
+import { calculateThreeYearStats } from '@/lib/three-year-report-engine';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -41,7 +42,8 @@ const RecordRow = memo(({
   isProcessed,
   onRowClick,
   showLabels,
-  workflowMode
+  workflowMode,
+  threeYearStats
 }: { 
   row: LandRecord; 
   index: number; 
@@ -49,6 +51,7 @@ const RecordRow = memo(({
   onRowClick: (record: LandRecord) => void;
   showLabels?: boolean;
   workflowMode?: 'standard' | 'abstract' | 'building-permit' | 'three-year-report';
+  threeYearStats?: any;
 }) => {
   if (workflowMode === 'abstract') {
     const abstractRow = row as any;
@@ -285,19 +288,39 @@ const RecordRow = memo(({
         </TableCell>
 
         <TableCell className={cn("text-right font-mono p-3 font-black border-l", !reportRow.isJoined ? "text-red-600" : "text-emerald-600")}>
-          {reportRow.salesValue ? `₱${reportRow.salesValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '---'}
+          {reportRow.sellingPriceRef ? (
+            <span className="text-xs text-muted-foreground italic">Ref: {reportRow.sellingPriceRef}</span>
+          ) : (
+            reportRow.salesValue ? `₱${reportRow.salesValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '---'
+          )}
         </TableCell>
 
         {/* Sales Values */}
-        <TableCell className={cn("text-right font-mono p-3 font-black border-l", !reportRow.isJoined ? "bg-red-50/30 text-red-400" : "bg-emerald-50/30 dark:bg-emerald-950/20 text-muted-foreground/30")}>
-          ---
-        </TableCell>
-        <TableCell className={cn("text-right font-mono p-3 font-black border-l", !reportRow.isJoined ? "bg-red-50/30 text-red-400" : "bg-emerald-50/30 dark:bg-emerald-950/20 text-muted-foreground/30")}>
-          ---
-        </TableCell>
-        <TableCell className={cn("text-right font-mono p-3 font-black border-l border-r", !reportRow.isJoined ? "bg-red-50/30 text-red-400" : "bg-emerald-50/30 dark:bg-emerald-950/20 text-muted-foreground/30")}>
-          ---
-        </TableCell>
+        {(() => {
+          let lowestVal: any = '---';
+          let medianVal: any = '---';
+          let highestVal: any = '---';
+
+          if (threeYearStats && !reportRow.isSdReview && !reportRow.sellingPriceRef && !reportRow.isUnderReview && typeof reportRow.salesValue === 'number' && reportRow.salesValue > 0) {
+            const formattedVal = <span className="text-emerald-600">{`₱${reportRow.salesValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}</span>;
+            if (reportRow.salesValue <= threeYearStats.t1) {
+              lowestVal = formattedVal;
+            } else if (reportRow.salesValue <= threeYearStats.t2) {
+              medianVal = formattedVal;
+            } else {
+              highestVal = formattedVal;
+            }
+          }
+
+          const cellClass = cn("text-right font-mono p-3 font-black border-l", !reportRow.isJoined ? "bg-red-50/30 text-red-400" : "bg-emerald-50/30 dark:bg-emerald-950/20 text-muted-foreground/30");
+          return (
+            <>
+              <TableCell className={cellClass}>{lowestVal}</TableCell>
+              <TableCell className={cellClass}>{medianVal}</TableCell>
+              <TableCell className={cn(cellClass, "border-r")}>{highestVal}</TableCell>
+            </>
+          );
+        })()}
 
         <TableCell className="text-center p-3 border-l">
           <div className="flex flex-col items-center gap-1">
@@ -461,6 +484,12 @@ export function DataPreviewTable({ data, isProcessed = false, onRowClick, showLa
   const [isBulkLoading, setIsBulkLoading] = useState(false);
   const { showSuccessToast } = useNotification();
 
+  const threeYearStats = useMemo(() => {
+    if (workflowMode !== 'three-year-report') return null;
+    return calculateThreeYearStats(data as any[]);
+  }, [data, workflowMode]);
+  const fmtStats = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   const BATCH_SIZE = 350;
 
   const handleLoadMore = () => {
@@ -585,13 +614,19 @@ export function DataPreviewTable({ data, isProcessed = false, onRowClick, showLa
                 </TableRow>
                 <TableRow className="hover:bg-transparent border-b-2">
                   <TableHead className="min-w-[100px] text-center font-black uppercase bg-emerald-50 dark:bg-emerald-950 border-l border-emerald-100 dark:border-emerald-900 h-auto py-2">
-                    Lowest<br/><span className="text-muted-foreground font-normal">(10)</span>
+                    Lowest
+                    {threeYearStats && <><br/><span className="text-emerald-700 dark:text-emerald-400 font-bold text-[9px]">({fmtStats(threeYearStats.lowestMin)} - {fmtStats(threeYearStats.lowestMax)})</span></>}
+                    <br/><span className="text-muted-foreground font-normal">(10)</span>
                   </TableHead>
                   <TableHead className="min-w-[100px] text-center font-black uppercase bg-emerald-50 dark:bg-emerald-950 border-l border-emerald-100 dark:border-emerald-900 h-auto py-2">
-                    Median<br/><span className="text-muted-foreground font-normal">(11)</span>
+                    Median
+                    {threeYearStats && <><br/><span className="text-emerald-700 dark:text-emerald-400 font-bold text-[9px]">({fmtStats(threeYearStats.medianMin)} - {fmtStats(threeYearStats.medianMax)})</span></>}
+                    <br/><span className="text-muted-foreground font-normal">(11)</span>
                   </TableHead>
                   <TableHead className="min-w-[100px] text-center font-black uppercase bg-emerald-50 dark:bg-emerald-950 border-x border-emerald-100 dark:border-emerald-900 h-auto py-2">
-                    Highest<br/><span className="text-muted-foreground font-normal">(12)</span>
+                    Highest
+                    {threeYearStats && <><br/><span className="text-emerald-700 dark:text-emerald-400 font-bold text-[9px]">({fmtStats(threeYearStats.highestMin)} - {fmtStats(threeYearStats.highestMax)})</span></>}
+                    <br/><span className="text-muted-foreground font-normal">(12)</span>
                   </TableHead>
                 </TableRow>
               </>
@@ -672,6 +707,7 @@ export function DataPreviewTable({ data, isProcessed = false, onRowClick, showLa
                 onRowClick={onRowClick} 
                 showLabels={showLabels}
                 workflowMode={workflowMode}
+                threeYearStats={threeYearStats}
               />
             ))}
           </TableBody>
